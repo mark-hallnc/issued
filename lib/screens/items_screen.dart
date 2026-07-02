@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/models/models.dart';
 import '../core/sample_data.dart';
+import 'item_detail_screen.dart';
 
 enum _ItemFilter { all, lowStock, consumable, returnable, asset }
 
@@ -136,40 +137,50 @@ class _ItemCard extends StatelessWidget {
     final location = _locationById(item.locationId);
 
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(
-                    item.name,
-                    style: textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF17212F),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (context) => ItemDetailScreen(item: item),
+            ),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      item.name,
+                      style: textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF17212F),
+                      ),
                     ),
                   ),
-                ),
-                if (isLowStock) const _LowStockBadge(),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _InfoPill(label: _itemTypeLabel(item.itemType)),
-                _InfoPill(
-                  label:
-                      '${_formatQuantity(item.quantityOnHand)} ${unit?.abbreviation ?? ''}',
-                ),
-                _InfoPill(label: location?.name ?? 'Unknown location'),
-              ],
-            ),
-          ],
+                  if (isLowStock) const _LowStockBadge(),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _InfoPill(label: _itemTypeLabel(item.itemType)),
+                  _InfoPill(
+                    label:
+                        '${_formatQuantity(item.quantityOnHand)} ${unit?.abbreviation ?? ''}',
+                  ),
+                  _InfoPill(label: location?.name ?? 'Unknown location'),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

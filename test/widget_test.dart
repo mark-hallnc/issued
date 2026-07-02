@@ -22,6 +22,16 @@ void main() {
     expect(find.text('Cutting Disc 4.5 in'), findsOneWidget);
     expect(find.text('Low'), findsOneWidget);
 
+    await tester.tap(find.text('Torque Wrench'));
+    await tester.pumpAndSettle();
+    expect(find.text('Item Detail'), findsOneWidget);
+    expect(find.text('Unit cost'), findsOneWidget);
+    expect(find.text('Check Out'), findsOneWidget);
+    expect(find.text('Mark Lost/Damaged'), findsOneWidget);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
     await tester.tap(find.byIcon(Icons.fact_check_outlined));
     await tester.pumpAndSettle();
     expect(find.text('July Tool Crib Count'), findsOneWidget);
