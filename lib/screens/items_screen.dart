@@ -6,8 +6,9 @@ import '../core/labels/label_service.dart';
 import '../core/models/models.dart';
 import 'add_item_screen.dart';
 import 'item_detail_screen.dart';
+import 'plan_screens.dart';
 
-enum _ItemFilter { all, lowStock, consumable, returnable, asset }
+enum _ItemFilter { all, lowStock, consumable, returnable, asset, archived }
 
 class ItemsScreen extends StatefulWidget {
   const ItemsScreen({super.key});
@@ -99,6 +100,11 @@ class _ItemsScreenState extends State<ItemsScreen> {
                 selected: _selectedFilter == _ItemFilter.asset,
                 onSelected: () => _setFilter(_ItemFilter.asset),
               ),
+              _FilterChip(
+                label: 'Archived',
+                selected: _selectedFilter == _ItemFilter.archived,
+                onSelected: () => _setFilter(_ItemFilter.archived),
+              ),
             ],
           ),
         ),
@@ -113,11 +119,15 @@ class _ItemsScreenState extends State<ItemsScreen> {
 
   bool _matchesSelectedFilter(Item item) {
     return switch (_selectedFilter) {
-      _ItemFilter.all => true,
-      _ItemFilter.lowStock => item.quantityOnHand <= item.minimumQuantity,
-      _ItemFilter.consumable => item.itemType == ItemType.consumable,
-      _ItemFilter.returnable => item.itemType == ItemType.returnable,
-      _ItemFilter.asset => item.itemType == ItemType.asset,
+      _ItemFilter.all => item.isActive,
+      _ItemFilter.lowStock =>
+        item.isActive && item.quantityOnHand <= item.minimumQuantity,
+      _ItemFilter.consumable =>
+        item.isActive && item.itemType == ItemType.consumable,
+      _ItemFilter.returnable =>
+        item.isActive && item.itemType == ItemType.returnable,
+      _ItemFilter.asset => item.isActive && item.itemType == ItemType.asset,
+      _ItemFilter.archived => !item.isActive,
     };
   }
 
@@ -128,6 +138,12 @@ class _ItemsScreenState extends State<ItemsScreen> {
   }
 
   Future<void> _openAddItem() async {
+    final store = AppStoreScope.of(context);
+    if (!store.canAddItem) {
+      await _showItemLimitReached(store);
+      return;
+    }
+
     final itemAdded = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(builder: (context) => const AddItemScreen()),
     );
@@ -144,6 +160,11 @@ class _ItemsScreenState extends State<ItemsScreen> {
   }
 
   Future<void> _exportLabels(AppStore store, List<Item> items) async {
+    if (!store.canExportLabel) {
+      await _showLabelLimitReached(store);
+      return;
+    }
+
     final labels = items.map((item) => _labelItem(store, item)).toList();
     final didExport = await Printing.layoutPdf(
       name: 'issued_labels.pdf',
@@ -153,6 +174,60 @@ class _ItemsScreenState extends State<ItemsScreen> {
     if (didExport && mounted) {
       store.recordLabelExport();
     }
+  }
+
+  Future<void> _showItemLimitReached(AppStore store) async {
+    final action = await showPlanLimitDialog(
+      context,
+      title: 'Item limit reached',
+      message:
+          'Your ${store.currentPlan.name} plan includes up to ${store.currentPlan.itemLimit} active items.',
+      recommendedPlanCode: store.getLimitWarningForItems()?.recommendedPlanCode,
+      showArchiveItems: true,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    switch (action) {
+      case PlanLimitDialogAction.archiveItems:
+        setState(() {
+          _selectedFilter = _ItemFilter.archived;
+        });
+      case PlanLimitDialogAction.upgrade:
+        await openComparePlans(
+          context,
+          recommendedPlanCode: store
+              .getLimitWarningForItems()
+              ?.recommendedPlanCode,
+        );
+      case PlanLimitDialogAction.cancel || null:
+        return;
+    }
+  }
+
+  Future<void> _showLabelLimitReached(AppStore store) async {
+    final action = await showPlanLimitDialog(
+      context,
+      title: 'Label export limit reached',
+      message:
+          'Your ${store.currentPlan.name} plan includes ${store.currentPlan.labelExportLimit} label exports per month.',
+      recommendedPlanCode: store
+          .getLimitWarningForLabels()
+          ?.recommendedPlanCode,
+    );
+
+    if (!mounted || action != PlanLimitDialogAction.upgrade) {
+      return;
+    }
+
+    await openComparePlans(
+      context,
+      recommendedPlanCode: store
+          .getLimitWarningForLabels()
+          ?.recommendedPlanCode,
+    );
   }
 
   LabelItem _labelItem(AppStore store, Item item) {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/app_store.dart';
 import '../core/models/models.dart';
+import 'plan_screens.dart';
 
 class CompanySettingsScreen extends StatelessWidget {
   const CompanySettingsScreen({super.key});
@@ -118,6 +119,31 @@ class _LocationsSettingsScreenState extends State<LocationsSettingsScreen> {
   }
 
   Future<void> _showAddLocationForm() async {
+    final store = AppStoreScope.of(context);
+    if (!store.canAddLocation) {
+      final action = await showPlanLimitDialog(
+        context,
+        title: 'Location limit reached',
+        message:
+            'Your ${store.currentPlan.name} plan includes up to ${store.currentPlan.locationLimit} active locations.',
+        recommendedPlanCode: store
+            .getLimitWarningForLocations()
+            ?.recommendedPlanCode,
+      );
+
+      if (!mounted || action != PlanLimitDialogAction.upgrade) {
+        return;
+      }
+
+      await openComparePlans(
+        context,
+        recommendedPlanCode: store
+            .getLimitWarningForLocations()
+            ?.recommendedPlanCode,
+      );
+      return;
+    }
+
     final location = await showDialog<Location>(
       context: context,
       builder: (context) => const _AddLocationDialog(),
@@ -278,11 +304,8 @@ class PlanUsageSettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final store = AppStoreScope.of(context);
-    const itemLimit = 25;
-    const userLimit = 3;
-    const locationLimit = 5;
-    const photoLimit = 25;
-    const labelExportLimit = 20;
+    final plan = store.currentPlan;
+    final usage = store.currentUsage;
 
     return _SettingsScaffold(
       title: 'Plan & Usage',
@@ -294,7 +317,7 @@ class PlanUsageSettingsScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Free plan',
+                  '${plan.name} plan',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     color: const Color(0xFF17212F),
                     fontWeight: FontWeight.w800,
@@ -302,7 +325,9 @@ class PlanUsageSettingsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Basic in-memory workspace limits for the mock app.',
+                  plan.code == 'free'
+                      ? 'Free forever for solo and small-shop use.'
+                      : 'Billing is not connected yet. This plan is selected locally for testing.',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: const Color(0xFF5C6672),
                   ),
@@ -313,30 +338,92 @@ class PlanUsageSettingsScreen extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         _UsageBar(
-          label: 'Items',
-          used: store.items.where((item) => item.isActive).length,
-          limit: itemLimit,
+          label: 'Active items',
+          used: usage.activeItemCount,
+          limit: plan.itemLimit,
         ),
-        _UsageBar(label: 'Users', used: store.users.length, limit: userLimit),
+        _UsageBar(label: 'Users', used: usage.userCount, limit: plan.userLimit),
         _UsageBar(
           label: 'Locations',
-          used: store.locations.length,
-          limit: locationLimit,
+          used: usage.locationCount,
+          limit: plan.locationLimit,
         ),
-        const _UsageBar(label: 'Photos', used: 0, limit: photoLimit),
         _UsageBar(
-          label: 'Label exports',
-          used: store.companyUsage.labelExportCount,
-          limit: labelExportLimit,
+          label: 'Photos',
+          used: usage.photoCount,
+          limit: plan.photoLimit,
         ),
-        const SizedBox(height: 8),
-        FilledButton.icon(
-          onPressed: null,
-          icon: const Icon(Icons.upgrade),
-          label: const Text('Upgrade'),
+        _UsageBar(
+          label: 'Label exports this month',
+          used: usage.labelExportCount,
+          limit: plan.labelExportLimit,
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Included Features',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 10),
+                _FeatureRow(
+                  label: 'CSV import',
+                  value: plan.csvImportEnabled ? 'Included' : 'Upgrade',
+                ),
+                _FeatureRow(
+                  label: 'Advanced reports',
+                  value: _advancedReportsLabel(plan),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            OutlinedButton.icon(
+              onPressed: () => openComparePlans(context),
+              icon: const Icon(Icons.compare_arrows),
+              label: const Text('Compare Plans'),
+            ),
+            FilledButton.icon(
+              onPressed: () => openComparePlans(
+                context,
+                recommendedPlanCode: _recommendedPlanCode(store),
+              ),
+              icon: const Icon(Icons.upgrade),
+              label: const Text('Upgrade Plan'),
+            ),
+            OutlinedButton.icon(
+              onPressed: null,
+              icon: const Icon(Icons.credit_card),
+              label: const Text('Manage Billing - Coming soon'),
+            ),
+          ],
         ),
       ],
     );
+  }
+
+  String _advancedReportsLabel(Plan plan) {
+    if (plan.code == 'starter') {
+      return 'Basic only';
+    }
+
+    return plan.advancedReportsEnabled ? 'Included' : 'Upgrade';
+  }
+
+  String? _recommendedPlanCode(AppStore store) {
+    final warnings = store.getLimitWarnings();
+    return warnings.isEmpty ? null : warnings.first.recommendedPlanCode;
   }
 }
 
@@ -682,6 +769,37 @@ class _UsageBar extends StatelessWidget {
             LinearProgressIndicator(value: progress),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _FeatureRow extends StatelessWidget {
+  const _FeatureRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(color: Color(0xFF5C6672)),
+            ),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Color(0xFF17212F),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }

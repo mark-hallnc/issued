@@ -5,6 +5,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../core/app_store.dart';
 import '../core/labels/label_service.dart';
 import '../core/models/models.dart';
+import 'plan_screens.dart';
 
 class ItemDetailScreen extends StatefulWidget {
   const ItemDetailScreen({super.key, required this.item});
@@ -222,6 +223,13 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                           onPressed: _markLostOrDamaged,
                         ),
                       ],
+                      _ActionButton(
+                        label: _item.isActive ? 'Archive' : 'Unarchive',
+                        icon: _item.isActive
+                            ? Icons.archive_outlined
+                            : Icons.unarchive_outlined,
+                        onPressed: _toggleArchive,
+                      ),
                     ],
                   ),
                 ],
@@ -264,6 +272,11 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
 
   Future<void> _shareLabel() async {
     final store = AppStoreScope.of(context);
+    if (!store.canExportLabel) {
+      await _showLabelLimitReached(store);
+      return;
+    }
+
     final bytes = await buildSingleItemLabelPdf(_labelItem(store));
     final didShare = await Printing.sharePdf(
       bytes: bytes,
@@ -277,6 +290,11 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
 
   Future<void> _printLabel() async {
     final store = AppStoreScope.of(context);
+    if (!store.canExportLabel) {
+      await _showLabelLimitReached(store);
+      return;
+    }
+
     final labelItem = _labelItem(store);
     final didPrint = await Printing.layoutPdf(
       name: safeLabelFileName(_item),
@@ -286,6 +304,29 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     if (didPrint && mounted) {
       store.recordLabelExport();
     }
+  }
+
+  Future<void> _showLabelLimitReached(AppStore store) async {
+    final action = await showPlanLimitDialog(
+      context,
+      title: 'Label export limit reached',
+      message:
+          'Your ${store.currentPlan.name} plan includes ${store.currentPlan.labelExportLimit} label exports per month.',
+      recommendedPlanCode: store
+          .getLimitWarningForLabels()
+          ?.recommendedPlanCode,
+    );
+
+    if (!mounted || action != PlanLimitDialogAction.upgrade) {
+      return;
+    }
+
+    await openComparePlans(
+      context,
+      recommendedPlanCode: store
+          .getLimitWarningForLabels()
+          ?.recommendedPlanCode,
+    );
   }
 
   Future<void> _receiveStock() async {
@@ -475,6 +516,43 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
       notes: result.notes,
       fromLocationId: _item.locationId,
     );
+  }
+
+  Future<void> _toggleArchive() async {
+    if (_item.isActive) {
+      _applyItemUpdate(
+        _item.copyWith(isActive: false, updatedAt: DateTime.now()),
+      );
+      return;
+    }
+
+    final store = AppStoreScope.of(context);
+    if (!store.canAddItem) {
+      final action = await showPlanLimitDialog(
+        context,
+        title: 'Item limit reached',
+        message:
+            'Your ${store.currentPlan.name} plan includes up to ${store.currentPlan.itemLimit} active items.',
+        recommendedPlanCode: store
+            .getLimitWarningForItems()
+            ?.recommendedPlanCode,
+        showArchiveItems: true,
+      );
+
+      if (!mounted || action != PlanLimitDialogAction.upgrade) {
+        return;
+      }
+
+      await openComparePlans(
+        context,
+        recommendedPlanCode: store
+            .getLimitWarningForItems()
+            ?.recommendedPlanCode,
+      );
+      return;
+    }
+
+    _applyItemUpdate(_item.copyWith(isActive: true, updatedAt: DateTime.now()));
   }
 
   Future<_QuantityNotesResult?> _showQuantityNotesDialog({

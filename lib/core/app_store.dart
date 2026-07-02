@@ -44,6 +44,20 @@ class AppStore extends ChangeNotifier {
       List.unmodifiable(_customFieldValues);
   Plan get plan => _plan;
   CompanyUsage get companyUsage => _companyUsage;
+  Plan get currentPlan => _plan;
+  List<Plan> get availablePlans => List.unmodifiable(samplePlans);
+  CompanyUsage get currentUsage {
+    return CompanyUsage(
+      activeItemCount: _items.where((item) => item.isActive).length,
+      userCount: _users.where((user) => user.isActive).length,
+      locationCount: _locations.where((location) => location.isActive).length,
+      photoCount: _items.where((item) {
+        final photoPath = item.photoPath?.trim();
+        return photoPath != null && photoPath.isNotEmpty;
+      }).length,
+      labelExportCount: _companyUsage.labelExportCount,
+    );
+  }
 
   Future<void> initialize() async {
     if (await _database.isEmpty) {
@@ -177,10 +191,151 @@ class AppStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  bool get canAddItem => currentUsage.activeItemCount < currentPlan.itemLimit;
+  bool get canAddLocation =>
+      currentUsage.locationCount < currentPlan.locationLimit;
+  bool get canAddUser => currentUsage.userCount < currentPlan.userLimit;
+  bool get canExportLabel =>
+      currentUsage.labelExportCount < currentPlan.labelExportLimit;
+
+  PlanLimitWarning? getLimitWarningForItems() {
+    return _limitWarning(
+      kind: PlanLimitKind.items,
+      used: currentUsage.activeItemCount,
+      limit: currentPlan.itemLimit,
+      unitLabel: 'item slots',
+    );
+  }
+
+  PlanLimitWarning? getLimitWarningForLocations() {
+    return _limitWarning(
+      kind: PlanLimitKind.locations,
+      used: currentUsage.locationCount,
+      limit: currentPlan.locationLimit,
+      unitLabel: 'location slots',
+    );
+  }
+
+  PlanLimitWarning? getLimitWarningForUsers() {
+    return _limitWarning(
+      kind: PlanLimitKind.users,
+      used: currentUsage.userCount,
+      limit: currentPlan.userLimit,
+      unitLabel: 'login user slots',
+    );
+  }
+
+  PlanLimitWarning? getLimitWarningForLabels() {
+    return _limitWarning(
+      kind: PlanLimitKind.labels,
+      used: currentUsage.labelExportCount,
+      limit: currentPlan.labelExportLimit,
+      unitLabel: 'monthly label exports',
+    );
+  }
+
+  List<PlanLimitWarning> getLimitWarnings() {
+    final warnings = [
+      getLimitWarningForItems(),
+      getLimitWarningForLocations(),
+      getLimitWarningForUsers(),
+      getLimitWarningForLabels(),
+      _limitWarning(
+        kind: PlanLimitKind.photos,
+        used: currentUsage.photoCount,
+        limit: currentPlan.photoLimit,
+        unitLabel: 'photo slots',
+      ),
+    ].whereType<PlanLimitWarning>().toList();
+
+    warnings.sort((left, right) {
+      return _severityRank(
+        right.severity,
+      ).compareTo(_severityRank(left.severity));
+    });
+
+    return warnings;
+  }
+
+  void setCurrentPlanForTesting(String planCode) {
+    final plan = samplePlans.firstWhere(
+      (plan) => plan.code == planCode,
+      orElse: () => samplePlan,
+    );
+    _plan = plan;
+    unawaited(_database.upsertPlan(plan.toCompanion()));
+    notifyListeners();
+  }
+
   void addTransaction(InventoryTransaction transaction) {
     _transactions.add(transaction);
     unawaited(_database.upsertTransaction(transaction.toCompanion()));
     notifyListeners();
+  }
+
+  PlanLimitWarning? _limitWarning({
+    required PlanLimitKind kind,
+    required int used,
+    required int limit,
+    required String unitLabel,
+  }) {
+    if (limit <= 0) {
+      return null;
+    }
+
+    final ratio = used / limit;
+    final severity = switch (ratio) {
+      >= 1 => PlanLimitSeverity.reached,
+      >= 0.95 => PlanLimitSeverity.nearlyFull,
+      >= 0.8 => PlanLimitSeverity.approaching,
+      _ => null,
+    };
+
+    if (severity == null) {
+      return null;
+    }
+
+    final message = switch (severity) {
+      PlanLimitSeverity.reached =>
+        'You are using $used of $limit ${currentPlan.name} plan $unitLabel.',
+      PlanLimitSeverity.nearlyFull =>
+        'You are using $used of $limit ${currentPlan.name} plan $unitLabel.',
+      PlanLimitSeverity.approaching =>
+        'You are using $used of $limit ${currentPlan.name} plan $unitLabel.',
+    };
+
+    return PlanLimitWarning(
+      kind: kind,
+      message: message,
+      severity: severity,
+      recommendedPlanCode: _recommendedPlanCode(kind, used),
+    );
+  }
+
+  String? _recommendedPlanCode(PlanLimitKind kind, int used) {
+    for (final plan in samplePlans) {
+      final limit = switch (kind) {
+        PlanLimitKind.items => plan.itemLimit,
+        PlanLimitKind.users => plan.userLimit,
+        PlanLimitKind.locations => plan.locationLimit,
+        PlanLimitKind.photos => plan.photoLimit,
+        PlanLimitKind.labels => plan.labelExportLimit,
+      };
+
+      if (limit > used && plan.code != currentPlan.code) {
+        return plan.code;
+      }
+    }
+
+    return null;
+  }
+
+  int _severityRank(PlanLimitSeverity severity) {
+    return switch (severity) {
+      PlanLimitSeverity.reached => 3,
+      PlanLimitSeverity.nearlyFull => 2,
+      PlanLimitSeverity.approaching => 1,
+    };
   }
 
   void addUnitOfMeasure(UnitOfMeasure unit) {

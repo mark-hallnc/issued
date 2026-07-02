@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../core/app_store.dart';
 import '../core/models/models.dart';
+import 'plan_screens.dart';
+import 'settings_detail_screens.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -27,6 +29,7 @@ class DashboardScreen extends StatelessWidget {
         .where((session) => session.status != CycleCountStatus.approved)
         .length;
     final recentTransactionCount = store.transactions.length;
+    final limitWarnings = store.getLimitWarnings().take(2).toList();
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -43,6 +46,13 @@ class DashboardScreen extends StatelessWidget {
           'Tool crib and shop inventory',
           style: textTheme.bodyLarge?.copyWith(color: const Color(0xFF5C6672)),
         ),
+        if (limitWarnings.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          for (final warning in limitWarnings) ...[
+            _LimitWarningCard(warning: warning),
+            const SizedBox(height: 10),
+          ],
+        ],
         const SizedBox(height: 24),
         GridView.count(
           crossAxisCount: 2,
@@ -86,6 +96,60 @@ class DashboardScreen extends StatelessWidget {
     }
 
     return null;
+  }
+}
+
+class _LimitWarningCard extends StatelessWidget {
+  const _LimitWarningCard({required this.warning});
+
+  final PlanLimitWarning warning;
+
+  @override
+  Widget build(BuildContext context) {
+    final isReached = warning.severity == PlanLimitSeverity.reached;
+
+    return Card(
+      color: isReached ? const Color(0xFFFFF3E0) : const Color(0xFFEAF2FF),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              warning.message,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: const Color(0xFF17212F),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 10,
+              runSpacing: 8,
+              children: [
+                OutlinedButton(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (context) => const PlanUsageSettingsScreen(),
+                      ),
+                    );
+                  },
+                  child: const Text('View Plan'),
+                ),
+                FilledButton(
+                  onPressed: () => openComparePlans(
+                    context,
+                    recommendedPlanCode: warning.recommendedPlanCode,
+                  ),
+                  child: const Text('Upgrade'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

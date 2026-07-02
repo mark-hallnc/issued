@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/app_store.dart';
 import '../core/models/models.dart';
+import 'plan_screens.dart';
 
 class AddItemScreen extends StatefulWidget {
   const AddItemScreen({super.key, this.initialBarcode});
@@ -290,11 +291,16 @@ class _AddItemScreenState extends State<AddItemScreen> {
   }
 
   void _saveItem() {
+    final store = AppStoreScope.of(context);
+    if (!store.canAddItem) {
+      _showItemLimitReached(store);
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
-    final store = AppStoreScope.of(context);
     final now = DateTime.now();
     final item = Item(
       id: 'item-${now.microsecondsSinceEpoch}',
@@ -321,6 +327,35 @@ class _AddItemScreenState extends State<AddItemScreen> {
 
     store.addItem(item);
     Navigator.of(context).pop(true);
+  }
+
+  Future<void> _showItemLimitReached(AppStore store) async {
+    final action = await showPlanLimitDialog(
+      context,
+      title: 'Item limit reached',
+      message:
+          'Your ${store.currentPlan.name} plan includes up to ${store.currentPlan.itemLimit} active items.',
+      recommendedPlanCode: store.getLimitWarningForItems()?.recommendedPlanCode,
+      showArchiveItems: true,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    switch (action) {
+      case PlanLimitDialogAction.archiveItems:
+        Navigator.of(context).pop(false);
+      case PlanLimitDialogAction.upgrade:
+        await openComparePlans(
+          context,
+          recommendedPlanCode: store
+              .getLimitWarningForItems()
+              ?.recommendedPlanCode,
+        );
+      case PlanLimitDialogAction.cancel || null:
+        return;
+    }
   }
 
   String? _emptyToNull(String value) {

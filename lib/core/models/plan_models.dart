@@ -7,6 +7,8 @@ class Plan {
     required this.locationLimit,
     required this.photoLimit,
     required this.labelExportLimit,
+    required this.csvImportEnabled,
+    required this.advancedReportsEnabled,
   });
 
   final String code;
@@ -16,6 +18,8 @@ class Plan {
   final int locationLimit;
   final int photoLimit;
   final int labelExportLimit;
+  final bool csvImportEnabled;
+  final bool advancedReportsEnabled;
 
   Plan copyWith({
     String? code,
@@ -25,6 +29,8 @@ class Plan {
     int? locationLimit,
     int? photoLimit,
     int? labelExportLimit,
+    bool? csvImportEnabled,
+    bool? advancedReportsEnabled,
   }) {
     return Plan(
       code: code ?? this.code,
@@ -34,9 +40,30 @@ class Plan {
       locationLimit: locationLimit ?? this.locationLimit,
       photoLimit: photoLimit ?? this.photoLimit,
       labelExportLimit: labelExportLimit ?? this.labelExportLimit,
+      csvImportEnabled: csvImportEnabled ?? this.csvImportEnabled,
+      advancedReportsEnabled:
+          advancedReportsEnabled ?? this.advancedReportsEnabled,
     );
   }
 }
+
+class PlanLimitWarning {
+  const PlanLimitWarning({
+    required this.kind,
+    required this.message,
+    required this.severity,
+    required this.recommendedPlanCode,
+  });
+
+  final PlanLimitKind kind;
+  final String message;
+  final PlanLimitSeverity severity;
+  final String? recommendedPlanCode;
+}
+
+enum PlanLimitKind { items, users, locations, photos, labels }
+
+enum PlanLimitSeverity { approaching, nearlyFull, reached }
 
 class CompanyUsage {
   const CompanyUsage({

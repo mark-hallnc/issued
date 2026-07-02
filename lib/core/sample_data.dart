@@ -242,19 +242,58 @@ final sampleCustomFieldValues = [
 ];
 
 const samplePlan = Plan(
-  code: 'starter',
-  name: 'Starter',
-  itemLimit: 250,
-  userLimit: 5,
-  locationLimit: 10,
-  photoLimit: 100,
-  labelExportLimit: 25,
+  code: 'free',
+  name: 'Free',
+  itemLimit: 100,
+  userLimit: 1,
+  locationLimit: 2,
+  photoLimit: 50,
+  labelExportLimit: 5,
+  csvImportEnabled: false,
+  advancedReportsEnabled: false,
 );
 
+const samplePlans = [
+  samplePlan,
+  Plan(
+    code: 'starter',
+    name: 'Starter',
+    itemLimit: 500,
+    userLimit: 3,
+    locationLimit: 5,
+    photoLimit: 250,
+    labelExportLimit: 25,
+    csvImportEnabled: true,
+    advancedReportsEnabled: false,
+  ),
+  Plan(
+    code: 'shop',
+    name: 'Shop',
+    itemLimit: 3000,
+    userLimit: 10,
+    locationLimit: 25,
+    photoLimit: 2000,
+    labelExportLimit: 250,
+    csvImportEnabled: true,
+    advancedReportsEnabled: true,
+  ),
+  Plan(
+    code: 'pro',
+    name: 'Pro',
+    itemLimit: 10000,
+    userLimit: 25,
+    locationLimit: 100,
+    photoLimit: 10000,
+    labelExportLimit: 1000,
+    csvImportEnabled: true,
+    advancedReportsEnabled: true,
+  ),
+];
+
 const sampleCompanyUsage = CompanyUsage(
-  activeItemCount: 3,
-  userCount: 1,
-  locationCount: 2,
+  activeItemCount: 0,
+  userCount: 0,
+  locationCount: 0,
   photoCount: 0,
   labelExportCount: 0,
 );

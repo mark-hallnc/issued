@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 
 import '../models/models.dart' as domain;
+import '../sample_data.dart';
 import 'app_database.dart';
 
 extension ItemRecordMapper on ItemRecord {
@@ -318,14 +319,27 @@ extension CustomFieldValueDomainMapper on domain.CustomFieldValue {
 
 extension PlanRecordMapper on PlanRecord {
   domain.Plan toDomain() {
+    final planDefaults = samplePlans.firstWhere(
+      (plan) => plan.code == code,
+      orElse: () => samplePlan,
+    );
+
     return domain.Plan(
       code: code,
-      name: name,
-      itemLimit: itemLimit,
-      userLimit: userLimit,
-      locationLimit: locationLimit,
-      photoLimit: photoLimit,
-      labelExportLimit: labelExportLimit,
+      name: planDefaults.code == code ? planDefaults.name : name,
+      itemLimit: planDefaults.code == code ? planDefaults.itemLimit : itemLimit,
+      userLimit: planDefaults.code == code ? planDefaults.userLimit : userLimit,
+      locationLimit: planDefaults.code == code
+          ? planDefaults.locationLimit
+          : locationLimit,
+      photoLimit: planDefaults.code == code
+          ? planDefaults.photoLimit
+          : photoLimit,
+      labelExportLimit: planDefaults.code == code
+          ? planDefaults.labelExportLimit
+          : labelExportLimit,
+      csvImportEnabled: planDefaults.csvImportEnabled,
+      advancedReportsEnabled: planDefaults.advancedReportsEnabled,
     );
   }
 }
