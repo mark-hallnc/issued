@@ -2,10 +2,17 @@ import 'package:flutter/material.dart';
 
 import '../core/models/models.dart';
 import '../core/sample_data.dart';
+import 'create_cycle_count_screen.dart';
+import 'cycle_count_detail_screen.dart';
 
-class CountsScreen extends StatelessWidget {
+class CountsScreen extends StatefulWidget {
   const CountsScreen({super.key});
 
+  @override
+  State<CountsScreen> createState() => _CountsScreenState();
+}
+
+class _CountsScreenState extends State<CountsScreen> {
   @override
   Widget build(BuildContext context) {
     return ListView(
@@ -19,19 +26,57 @@ class CountsScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton.icon(
+            onPressed: _openCreateCount,
+            icon: const Icon(Icons.add_task),
+            label: const Text('New Cycle Count'),
+          ),
+        ),
+        const SizedBox(height: 16),
         for (final session in sampleCycleCountSessions) ...[
-          _CycleCountCard(session: session),
+          _CycleCountCard(session: session, onTap: () => _openSession(session)),
           const SizedBox(height: 10),
         ],
       ],
     );
   }
+
+  Future<void> _openCreateCount() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => const CreateCycleCountScreen(),
+      ),
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {});
+  }
+
+  Future<void> _openSession(CycleCountSession session) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => CycleCountDetailScreen(session: session),
+      ),
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {});
+  }
 }
 
 class _CycleCountCard extends StatelessWidget {
-  const _CycleCountCard({required this.session});
+  const _CycleCountCard({required this.session, required this.onTap});
 
   final CycleCountSession session;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -41,41 +86,47 @@ class _CycleCountCard extends StatelessWidget {
         .length;
 
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(
-                    session.name,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF17212F),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      session.name,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF17212F),
+                      ),
                     ),
                   ),
-                ),
-                _StatusBadge(status: session.status),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _InfoPill(label: '$lineCount item${lineCount == 1 ? '' : 's'}'),
-                _InfoPill(
-                  label: session.blindCount ? 'Blind count' : 'Visible count',
-                ),
-                if (assignedUser != null) _InfoPill(label: assignedUser),
-                if (session.dueAt != null)
-                  _InfoPill(label: 'Due ${_formatDate(session.dueAt!)}'),
-              ],
-            ),
-          ],
+                  _StatusBadge(status: session.status),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _InfoPill(
+                    label: '$lineCount item${lineCount == 1 ? '' : 's'}',
+                  ),
+                  _InfoPill(
+                    label: session.blindCount ? 'Blind count' : 'Visible count',
+                  ),
+                  if (assignedUser != null) _InfoPill(label: assignedUser),
+                  if (session.dueAt != null)
+                    _InfoPill(label: 'Due ${_formatDate(session.dueAt!)}'),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
