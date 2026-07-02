@@ -1,15 +1,41 @@
 import 'package:flutter/material.dart';
 
+import 'settings_detail_screens.dart';
+
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
-  static const _settingsRows = [
-    ('Company', Icons.business_outlined),
-    ('Users & Roles', Icons.group_outlined),
-    ('Locations', Icons.location_on_outlined),
-    ('Units of Measure', Icons.straighten_outlined),
-    ('Custom Fields', Icons.tune_outlined),
-    ('Plan & Usage', Icons.query_stats_outlined),
+  static const _settingsRows = <_SettingsRow>[
+    _SettingsRow(
+      title: 'Company',
+      icon: Icons.business_outlined,
+      screen: CompanySettingsScreen(),
+    ),
+    _SettingsRow(
+      title: 'Users & Roles',
+      icon: Icons.group_outlined,
+      screen: UsersRolesSettingsScreen(),
+    ),
+    _SettingsRow(
+      title: 'Locations',
+      icon: Icons.location_on_outlined,
+      screen: LocationsSettingsScreen(),
+    ),
+    _SettingsRow(
+      title: 'Units of Measure',
+      icon: Icons.straighten_outlined,
+      screen: UnitsOfMeasureSettingsScreen(),
+    ),
+    _SettingsRow(
+      title: 'Custom Fields',
+      icon: Icons.tune_outlined,
+      screen: CustomFieldsSettingsScreen(),
+    ),
+    _SettingsRow(
+      title: 'Plan & Usage',
+      icon: Icons.query_stats_outlined,
+      screen: PlanUsageSettingsScreen(),
+    ),
   ];
 
   @override
@@ -19,17 +45,33 @@ class SettingsScreen extends StatelessWidget {
       itemCount: _settingsRows.length,
       separatorBuilder: (context, index) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
-        final (title, icon) = _settingsRows[index];
+        final row = _settingsRows[index];
 
         return Card(
           child: ListTile(
-            leading: Icon(icon, color: const Color(0xFF1E3A5F)),
-            title: Text(title),
+            leading: Icon(row.icon, color: const Color(0xFF1E3A5F)),
+            title: Text(row.title),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () {},
+            onTap: () {
+              Navigator.of(
+                context,
+              ).push(MaterialPageRoute<void>(builder: (context) => row.screen));
+            },
           ),
         );
       },
     );
   }
+}
+
+class _SettingsRow {
+  const _SettingsRow({
+    required this.title,
+    required this.icon,
+    required this.screen,
+  });
+
+  final String title;
+  final IconData icon;
+  final Widget screen;
 }
