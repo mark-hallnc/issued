@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'scanner_screen.dart';
+
 class ScanScreen extends StatelessWidget {
   const ScanScreen({super.key});
 
@@ -15,7 +17,13 @@ class ScanScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 FilledButton.icon(
-                  onPressed: () {},
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (context) => const ScannerScreen(),
+                      ),
+                    );
+                  },
                   icon: const Icon(Icons.qr_code_scanner),
                   label: const Padding(
                     padding: EdgeInsets.symmetric(vertical: 8),
@@ -24,7 +32,7 @@ class ScanScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Barcode and QR scanning will be added later. For now, use these actions as placeholders for item movement workflows.',
+                  'Use camera scanning or enter a code manually.',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: const Color(0xFF5C6672),
                   ),

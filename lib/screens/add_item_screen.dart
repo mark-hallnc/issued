@@ -4,7 +4,9 @@ import '../core/app_store.dart';
 import '../core/models/models.dart';
 
 class AddItemScreen extends StatefulWidget {
-  const AddItemScreen({super.key});
+  const AddItemScreen({super.key, this.initialBarcode});
+
+  final String? initialBarcode;
 
   @override
   State<AddItemScreen> createState() => _AddItemScreenState();
@@ -26,6 +28,12 @@ class _AddItemScreenState extends State<AddItemScreen> {
   UnitOfMeasure? _selectedUnit;
   Location? _selectedLocation;
   bool _allowFractionalQuantity = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _barcodeController.text = widget.initialBarcode ?? '';
+  }
 
   @override
   void dispose() {
