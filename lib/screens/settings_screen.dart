@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'import_export_screen.dart';
 import 'settings_detail_screens.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -35,6 +36,11 @@ class SettingsScreen extends StatelessWidget {
       title: 'Plan & Usage',
       icon: Icons.query_stats_outlined,
       screen: PlanUsageSettingsScreen(),
+    ),
+    _SettingsRow(
+      title: 'Import & Export',
+      icon: Icons.import_export,
+      screen: ImportExportScreen(),
     ),
   ];
 
