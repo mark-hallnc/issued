@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:printing/printing.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../core/app_store.dart';
+import '../core/labels/label_service.dart';
 import '../core/models/models.dart';
 
 class ItemDetailScreen extends StatefulWidget {
@@ -115,6 +118,62 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
+                    'QR Label',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF17212F),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      color: Colors.white,
+                      child: QrImageView(
+                        data: itemQrValue(_item),
+                        version: QrVersions.auto,
+                        size: 176,
+                        backgroundColor: Colors.white,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SelectableText(
+                    itemQrValue(_item),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: const Color(0xFF394554),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: _shareLabel,
+                        icon: const Icon(Icons.ios_share),
+                        label: const Text('Share Label'),
+                      ),
+                      FilledButton.icon(
+                        onPressed: _printLabel,
+                        icon: const Icon(Icons.print),
+                        label: const Text('Print/Export Label'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
                     'Actions',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w700,
@@ -201,6 +260,32 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _shareLabel() async {
+    final store = AppStoreScope.of(context);
+    final bytes = await buildSingleItemLabelPdf(_labelItem(store));
+    final didShare = await Printing.sharePdf(
+      bytes: bytes,
+      filename: safeLabelFileName(_item),
+    );
+
+    if (didShare && mounted) {
+      store.recordLabelExport();
+    }
+  }
+
+  Future<void> _printLabel() async {
+    final store = AppStoreScope.of(context);
+    final labelItem = _labelItem(store);
+    final didPrint = await Printing.layoutPdf(
+      name: safeLabelFileName(_item),
+      onLayout: (_) => buildSingleItemLabelPdf(labelItem),
+    );
+
+    if (didPrint && mounted) {
+      store.recordLabelExport();
+    }
   }
 
   Future<void> _receiveStock() async {
@@ -510,6 +595,21 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     }
 
     return null;
+  }
+
+  LabelItem _labelItem(AppStore store) {
+    final unit = _unitById(store, _item.unitOfMeasureId);
+    final location = _locationById(store, _item.locationId);
+
+    return LabelItem(
+      item: _item,
+      codeValue: itemQrValue(_item),
+      itemType: _itemTypeLabel(_item.itemType),
+      quantityText:
+          '${_formatQuantity(_item.quantityOnHand)} ${unit?.abbreviation ?? ''}'
+              .trim(),
+      locationName: location?.name,
+    );
   }
 
   String _itemTypeLabel(ItemType type) {

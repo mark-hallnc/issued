@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:printing/printing.dart';
 
 import '../core/app_store.dart';
+import '../core/labels/label_service.dart';
 import '../core/models/models.dart';
 import 'add_item_screen.dart';
 import 'item_detail_screen.dart';
@@ -21,6 +23,9 @@ class _ItemsScreenState extends State<ItemsScreen> {
   Widget build(BuildContext context) {
     final store = AppStoreScope.of(context);
     final visibleItems = store.items.where(_matchesSelectedFilter).toList();
+    final exportableItems = visibleItems
+        .where((item) => item.isActive)
+        .toList();
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -45,10 +50,23 @@ class _ItemsScreenState extends State<ItemsScreen> {
         const SizedBox(height: 12),
         Align(
           alignment: Alignment.centerLeft,
-          child: FilledButton.icon(
-            onPressed: _openAddItem,
-            icon: const Icon(Icons.add),
-            label: const Text('Add Item'),
+          child: Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              FilledButton.icon(
+                onPressed: _openAddItem,
+                icon: const Icon(Icons.add),
+                label: const Text('Add Item'),
+              ),
+              OutlinedButton.icon(
+                onPressed: exportableItems.isEmpty
+                    ? null
+                    : () => _exportLabels(store, exportableItems),
+                icon: const Icon(Icons.qr_code_2),
+                label: const Text('Export Labels'),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 14),
@@ -123,6 +141,69 @@ class _ItemsScreenState extends State<ItemsScreen> {
         _selectedFilter = _ItemFilter.all;
       });
     }
+  }
+
+  Future<void> _exportLabels(AppStore store, List<Item> items) async {
+    final labels = items.map((item) => _labelItem(store, item)).toList();
+    final didExport = await Printing.layoutPdf(
+      name: 'issued_labels.pdf',
+      onLayout: (_) => buildBatchLabelsPdf(labels),
+    );
+
+    if (didExport && mounted) {
+      store.recordLabelExport();
+    }
+  }
+
+  LabelItem _labelItem(AppStore store, Item item) {
+    final unit = _unitById(store, item.unitOfMeasureId);
+    final location = _locationById(store, item.locationId);
+
+    return LabelItem(
+      item: item,
+      codeValue: itemQrValue(item),
+      itemType: _itemTypeLabel(item.itemType),
+      quantityText:
+          '${_formatQuantity(item.quantityOnHand)} ${unit?.abbreviation ?? ''}'
+              .trim(),
+      locationName: location?.name,
+    );
+  }
+
+  UnitOfMeasure? _unitById(AppStore store, String unitId) {
+    for (final unit in store.unitsOfMeasure) {
+      if (unit.id == unitId) {
+        return unit;
+      }
+    }
+
+    return null;
+  }
+
+  Location? _locationById(AppStore store, String locationId) {
+    for (final location in store.locations) {
+      if (location.id == locationId) {
+        return location;
+      }
+    }
+
+    return null;
+  }
+
+  String _itemTypeLabel(ItemType type) {
+    return switch (type) {
+      ItemType.consumable => 'Consumable',
+      ItemType.returnable => 'Returnable',
+      ItemType.asset => 'Asset',
+    };
+  }
+
+  String _formatQuantity(double quantity) {
+    if (quantity == quantity.roundToDouble()) {
+      return quantity.toStringAsFixed(0);
+    }
+
+    return quantity.toStringAsFixed(2);
   }
 }
 

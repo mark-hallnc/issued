@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../core/app_store.dart';
+import '../core/labels/label_service.dart';
 import '../core/models/models.dart';
 import 'add_item_screen.dart';
 import 'item_detail_screen.dart';
@@ -195,7 +196,13 @@ class _ScannerScreenState extends State<ScannerScreen> {
     final normalizedCode = _normalize(scannedCode);
 
     for (final item in store.items) {
-      final values = [item.barcode, item.sku, item.id].whereType<String>();
+      final values = [
+        item.barcode,
+        item.sku,
+        item.id,
+        itemQrValue(item),
+        'issued:item:${item.id}',
+      ].whereType<String>();
 
       for (final value in values) {
         if (_normalize(value) == normalizedCode) {

@@ -169,6 +169,14 @@ class AppStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  void recordLabelExport() {
+    _companyUsage = _companyUsage.copyWith(
+      labelExportCount: _companyUsage.labelExportCount + 1,
+    );
+    unawaited(_database.upsertCompanyUsage(_companyUsage.toCompanion()));
+    notifyListeners();
+  }
+
   void addTransaction(InventoryTransaction transaction) {
     _transactions.add(transaction);
     unawaited(_database.upsertTransaction(transaction.toCompanion()));

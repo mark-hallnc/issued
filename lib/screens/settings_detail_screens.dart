@@ -324,9 +324,9 @@ class PlanUsageSettingsScreen extends StatelessWidget {
           limit: locationLimit,
         ),
         const _UsageBar(label: 'Photos', used: 0, limit: photoLimit),
-        const _UsageBar(
+        _UsageBar(
           label: 'Label exports',
-          used: 0,
+          used: store.companyUsage.labelExportCount,
           limit: labelExportLimit,
         ),
         const SizedBox(height: 8),
