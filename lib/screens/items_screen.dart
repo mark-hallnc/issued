@@ -1,10 +1,24 @@
 import 'package:flutter/material.dart';
 
-class ItemsScreen extends StatelessWidget {
+import '../core/models/models.dart';
+import '../core/sample_data.dart';
+
+enum _ItemFilter { all, lowStock, consumable, returnable, asset }
+
+class ItemsScreen extends StatefulWidget {
   const ItemsScreen({super.key});
 
   @override
+  State<ItemsScreen> createState() => _ItemsScreenState();
+}
+
+class _ItemsScreenState extends State<ItemsScreen> {
+  _ItemFilter _selectedFilter = _ItemFilter.all;
+
+  @override
   Widget build(BuildContext context) {
+    final visibleItems = sampleItems.where(_matchesSelectedFilter).toList();
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -25,35 +39,224 @@ class ItemsScreen extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 24),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              children: [
-                const Icon(
-                  Icons.inventory_2_outlined,
-                  size: 44,
-                  color: Color(0xFF1E3A5F),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'No items yet',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                FilledButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add Item'),
-                ),
-              ],
-            ),
+        const SizedBox(height: 14),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              _FilterChip(
+                label: 'All',
+                selected: _selectedFilter == _ItemFilter.all,
+                onSelected: () => _setFilter(_ItemFilter.all),
+              ),
+              _FilterChip(
+                label: 'Low Stock',
+                selected: _selectedFilter == _ItemFilter.lowStock,
+                onSelected: () => _setFilter(_ItemFilter.lowStock),
+              ),
+              _FilterChip(
+                label: 'Consumable',
+                selected: _selectedFilter == _ItemFilter.consumable,
+                onSelected: () => _setFilter(_ItemFilter.consumable),
+              ),
+              _FilterChip(
+                label: 'Returnable',
+                selected: _selectedFilter == _ItemFilter.returnable,
+                onSelected: () => _setFilter(_ItemFilter.returnable),
+              ),
+              _FilterChip(
+                label: 'Asset',
+                selected: _selectedFilter == _ItemFilter.asset,
+                onSelected: () => _setFilter(_ItemFilter.asset),
+              ),
+            ],
           ),
         ),
+        const SizedBox(height: 16),
+        for (final item in visibleItems) ...[
+          _ItemCard(item: item),
+          const SizedBox(height: 10),
+        ],
       ],
+    );
+  }
+
+  bool _matchesSelectedFilter(Item item) {
+    return switch (_selectedFilter) {
+      _ItemFilter.all => true,
+      _ItemFilter.lowStock => item.quantityOnHand <= item.minimumQuantity,
+      _ItemFilter.consumable => item.itemType == ItemType.consumable,
+      _ItemFilter.returnable => item.itemType == ItemType.returnable,
+      _ItemFilter.asset => item.itemType == ItemType.asset,
+    };
+  }
+
+  void _setFilter(_ItemFilter filter) {
+    setState(() {
+      _selectedFilter = filter;
+    });
+  }
+}
+
+class _FilterChip extends StatelessWidget {
+  const _FilterChip({
+    required this.label,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: FilterChip(
+        label: Text(label),
+        selected: selected,
+        onSelected: (_) => onSelected(),
+        showCheckmark: false,
+      ),
+    );
+  }
+}
+
+class _ItemCard extends StatelessWidget {
+  const _ItemCard({required this.item});
+
+  final Item item;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final isLowStock = item.quantityOnHand <= item.minimumQuantity;
+    final unit = _unitById(item.unitOfMeasureId);
+    final location = _locationById(item.locationId);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    item.name,
+                    style: textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF17212F),
+                    ),
+                  ),
+                ),
+                if (isLowStock) const _LowStockBadge(),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _InfoPill(label: _itemTypeLabel(item.itemType)),
+                _InfoPill(
+                  label:
+                      '${_formatQuantity(item.quantityOnHand)} ${unit?.abbreviation ?? ''}',
+                ),
+                _InfoPill(label: location?.name ?? 'Unknown location'),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  UnitOfMeasure? _unitById(String unitId) {
+    for (final unit in sampleUnitsOfMeasure) {
+      if (unit.id == unitId) {
+        return unit;
+      }
+    }
+
+    return null;
+  }
+
+  Location? _locationById(String locationId) {
+    for (final location in sampleLocations) {
+      if (location.id == locationId) {
+        return location;
+      }
+    }
+
+    return null;
+  }
+
+  String _itemTypeLabel(ItemType type) {
+    return switch (type) {
+      ItemType.consumable => 'Consumable',
+      ItemType.returnable => 'Returnable',
+      ItemType.asset => 'Asset',
+    };
+  }
+
+  String _formatQuantity(double quantity) {
+    if (quantity == quantity.roundToDouble()) {
+      return quantity.toStringAsFixed(0);
+    }
+
+    return quantity.toStringAsFixed(2);
+  }
+}
+
+class _LowStockBadge extends StatelessWidget {
+  const _LowStockBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF3E0),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: const Color(0xFFFFC46B)),
+      ),
+      child: Text(
+        'Low',
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: const Color(0xFF7A4B00),
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoPill extends StatelessWidget {
+  const _InfoPill({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF4F6F8),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: const Color(0xFFE1E6EC)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        child: Text(
+          label,
+          style: Theme.of(
+            context,
+          ).textTheme.labelMedium?.copyWith(color: const Color(0xFF394554)),
+        ),
+      ),
     );
   }
 }

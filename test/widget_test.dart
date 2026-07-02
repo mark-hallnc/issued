@@ -19,7 +19,12 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.inventory_2_outlined));
     await tester.pumpAndSettle();
-    expect(find.text('No items yet'), findsOneWidget);
-    expect(find.text('Add Item'), findsOneWidget);
+    expect(find.text('Cutting Disc 4.5 in'), findsOneWidget);
+    expect(find.text('Low'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.fact_check_outlined));
+    await tester.pumpAndSettle();
+    expect(find.text('July Tool Crib Count'), findsOneWidget);
+    expect(find.text('Assigned'), findsOneWidget);
   });
 }

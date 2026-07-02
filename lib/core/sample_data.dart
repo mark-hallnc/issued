@@ -105,6 +105,26 @@ final sampleItems = [
     createdAt: DateTime(2026, 7, 1),
     updatedAt: DateTime(2026, 7, 1),
   ),
+  Item(
+    id: 'item-magnetic-drill',
+    name: 'Magnetic Drill',
+    description: 'Portable magnetic base drill for structural steel work.',
+    itemType: ItemType.returnable,
+    category: 'Power Tools',
+    locationId: 'loc-main-crib',
+    quantityOnHand: 2,
+    minimumQuantity: 1,
+    unitOfMeasureId: 'uom-each',
+    barcode: 'ISS-000003',
+    sku: 'MAG-DRILL-01',
+    supplier: 'Tool House',
+    unitCost: 640.00,
+    photoPath: null,
+    isActive: true,
+    allowFractionalQuantity: false,
+    createdAt: DateTime(2026, 7, 1),
+    updatedAt: DateTime(2026, 7, 1),
+  ),
 ];
 
 final sampleTransactions = [
@@ -133,6 +153,19 @@ final sampleTransactions = [
     performedByUserId: 'user-alex',
     notes: null,
     createdAt: DateTime(2026, 7, 2, 10),
+  ),
+  InventoryTransaction(
+    id: 'txn-checkout-drill',
+    itemId: 'item-magnetic-drill',
+    transactionType: InventoryTransactionType.checkout,
+    quantityDelta: -1,
+    unitOfMeasureId: 'uom-each',
+    fromLocationId: 'loc-main-crib',
+    toLocationId: 'loc-shop-floor',
+    assignedToPersonId: 'person-jordan',
+    performedByUserId: 'user-alex',
+    notes: 'Checked out for frame repair.',
+    createdAt: DateTime(2026, 7, 2, 11, 30),
   ),
 ];
 
@@ -219,7 +252,7 @@ const samplePlan = Plan(
 );
 
 const sampleCompanyUsage = CompanyUsage(
-  activeItemCount: 2,
+  activeItemCount: 3,
   userCount: 1,
   locationCount: 2,
   photoCount: 0,
