@@ -1,13 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:drift/native.dart';
 import 'package:issued_app/app.dart';
 import 'package:issued_app/core/app_store.dart';
+import 'package:issued_app/core/database/app_database.dart';
 
 void main() {
   testWidgets('Issued shell shows dashboard and navigates tabs', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(const IssuedApp());
+    final store = AppStore(database: AppDatabase(NativeDatabase.memory()));
+    addTearDown(store.dispose);
+
+    await tester.pumpWidget(IssuedApp(store: store));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
 
     expect(find.text('Issued'), findsWidgets);
     expect(find.text('Tool crib and shop inventory'), findsOneWidget);
@@ -35,7 +42,6 @@ void main() {
     await tester.pump();
     await tester.tap(find.widgetWithText(FilledButton, 'Save Item'));
     await tester.pumpAndSettle();
-    final store = AppStoreScope.of(tester.element(find.byType(MaterialApp)));
     expect(store.items.any((item) => item.name == 'Safety Glasses'), isTrue);
 
     await tester.tap(find.text('Torque Wrench'));

@@ -1,36 +1,32 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import 'database/app_database.dart';
+import 'database/model_mappers.dart';
 import 'models/models.dart';
 import 'sample_data.dart';
 
 class AppStore extends ChangeNotifier {
-  AppStore()
-    : _items = List.of(sampleItems),
-      _unitsOfMeasure = List.of(sampleUnitsOfMeasure),
-      _locations = List.of(sampleLocations),
-      _people = List.of(samplePeople),
-      _users = List.of(sampleUsers),
-      _transactions = List.of(sampleTransactions),
-      _cycleCountSessions = List.of(sampleCycleCountSessions),
-      _cycleCountLines = List.of(sampleCycleCountLines),
-      _customFieldDefinitions = List.of(sampleCustomFieldDefinitions),
-      _customFieldValues = List.of(sampleCustomFieldValues),
-      _plan = samplePlan,
-      _companyUsage = sampleCompanyUsage;
+  AppStore({AppDatabase? database}) : _database = database ?? AppDatabase();
 
-  final List<Item> _items;
-  final List<UnitOfMeasure> _unitsOfMeasure;
-  final List<Location> _locations;
-  final List<Person> _people;
-  final List<AppUser> _users;
-  final List<InventoryTransaction> _transactions;
-  final List<CycleCountSession> _cycleCountSessions;
-  final List<CycleCountLine> _cycleCountLines;
-  final List<CustomFieldDefinition> _customFieldDefinitions;
-  final List<CustomFieldValue> _customFieldValues;
-  final Plan _plan;
-  final CompanyUsage _companyUsage;
+  final AppDatabase _database;
 
+  final List<Item> _items = [];
+  final List<UnitOfMeasure> _unitsOfMeasure = [];
+  final List<Location> _locations = [];
+  final List<Person> _people = [];
+  final List<AppUser> _users = [];
+  final List<InventoryTransaction> _transactions = [];
+  final List<CycleCountSession> _cycleCountSessions = [];
+  final List<CycleCountLine> _cycleCountLines = [];
+  final List<CustomFieldDefinition> _customFieldDefinitions = [];
+  final List<CustomFieldValue> _customFieldValues = [];
+  Plan _plan = samplePlan;
+  CompanyUsage _companyUsage = sampleCompanyUsage;
+  bool _isInitialized = false;
+
+  bool get isInitialized => _isInitialized;
   List<Item> get items => List.unmodifiable(_items);
   List<UnitOfMeasure> get unitsOfMeasure => List.unmodifiable(_unitsOfMeasure);
   List<Location> get locations => List.unmodifiable(_locations);
@@ -49,8 +45,114 @@ class AppStore extends ChangeNotifier {
   Plan get plan => _plan;
   CompanyUsage get companyUsage => _companyUsage;
 
+  Future<void> initialize() async {
+    if (await _database.isEmpty) {
+      await _seedDatabase();
+    }
+
+    await _loadFromDatabase();
+    _isInitialized = true;
+    notifyListeners();
+  }
+
+  Future<void> _seedDatabase() async {
+    for (final unit in sampleUnitsOfMeasure) {
+      await _database.upsertUnitOfMeasure(unit.toCompanion());
+    }
+    for (final location in sampleLocations) {
+      await _database.upsertLocation(location.toCompanion());
+    }
+    for (final person in samplePeople) {
+      await _database.upsertPerson(person.toCompanion());
+    }
+    for (final user in sampleUsers) {
+      await _database.upsertAppUser(user.toCompanion());
+    }
+    for (final item in sampleItems) {
+      await _database.upsertItem(item.toCompanion());
+    }
+    for (final transaction in sampleTransactions) {
+      await _database.upsertTransaction(transaction.toCompanion());
+    }
+    for (final session in sampleCycleCountSessions) {
+      await _database.upsertCycleCountSession(session.toCompanion());
+    }
+    for (final line in sampleCycleCountLines) {
+      await _database.upsertCycleCountLine(line.toCompanion());
+    }
+    for (final field in sampleCustomFieldDefinitions) {
+      await _database.upsertCustomFieldDefinition(field.toCompanion());
+    }
+    for (final value in sampleCustomFieldValues) {
+      await _database.upsertCustomFieldValue(value.toCompanion());
+    }
+    await _database.upsertPlan(samplePlan.toCompanion());
+    await _database.upsertCompanyUsage(sampleCompanyUsage.toCompanion());
+  }
+
+  Future<void> _loadFromDatabase() async {
+    _unitsOfMeasure
+      ..clear()
+      ..addAll(
+        (await _database.getAllUnitsOfMeasure()).map((row) => row.toDomain()),
+      );
+    _locations
+      ..clear()
+      ..addAll(
+        (await _database.getAllLocations()).map((row) => row.toDomain()),
+      );
+    _people
+      ..clear()
+      ..addAll((await _database.getAllPeople()).map((row) => row.toDomain()));
+    _users
+      ..clear()
+      ..addAll((await _database.getAllAppUsers()).map((row) => row.toDomain()));
+    _items
+      ..clear()
+      ..addAll((await _database.getAllItems()).map((row) => row.toDomain()));
+    _transactions
+      ..clear()
+      ..addAll(
+        (await _database.getAllTransactions()).map((row) => row.toDomain()),
+      );
+    _cycleCountSessions
+      ..clear()
+      ..addAll(
+        (await _database.getAllCycleCountSessions()).map(
+          (row) => row.toDomain(),
+        ),
+      );
+    _cycleCountLines
+      ..clear()
+      ..addAll(
+        (await _database.getAllCycleCountLines()).map((row) => row.toDomain()),
+      );
+    _customFieldDefinitions
+      ..clear()
+      ..addAll(
+        (await _database.getAllCustomFieldDefinitions()).map(
+          (row) => row.toDomain(),
+        ),
+      );
+    _customFieldValues
+      ..clear()
+      ..addAll(
+        (await _database.getAllCustomFieldValues()).map(
+          (row) => row.toDomain(),
+        ),
+      );
+
+    final plans = await _database.getAllPlans();
+    _plan = plans.isEmpty ? samplePlan : plans.first.toDomain();
+    final usages = await _database.getAllCompanyUsage();
+    _companyUsage = usages.isEmpty
+        ? sampleCompanyUsage
+        : usages.first.toDomain();
+  }
+
   void addItem(Item item) {
     _items.add(item);
+    unawaited(_database.upsertItem(item.toCompanion()));
     notifyListeners();
   }
 
@@ -63,31 +165,37 @@ class AppStore extends ChangeNotifier {
     }
 
     _items[itemIndex] = item;
+    unawaited(_database.upsertItem(item.toCompanion()));
     notifyListeners();
   }
 
   void addTransaction(InventoryTransaction transaction) {
     _transactions.add(transaction);
+    unawaited(_database.upsertTransaction(transaction.toCompanion()));
     notifyListeners();
   }
 
   void addUnitOfMeasure(UnitOfMeasure unit) {
     _unitsOfMeasure.add(unit);
+    unawaited(_database.upsertUnitOfMeasure(unit.toCompanion()));
     notifyListeners();
   }
 
   void addLocation(Location location) {
     _locations.add(location);
+    unawaited(_database.upsertLocation(location.toCompanion()));
     notifyListeners();
   }
 
   void addCustomFieldDefinition(CustomFieldDefinition field) {
     _customFieldDefinitions.add(field);
+    unawaited(_database.upsertCustomFieldDefinition(field.toCompanion()));
     notifyListeners();
   }
 
   void addCycleCountSession(CycleCountSession session) {
     _cycleCountSessions.add(session);
+    unawaited(_database.upsertCycleCountSession(session.toCompanion()));
     notifyListeners();
   }
 
@@ -100,11 +208,15 @@ class AppStore extends ChangeNotifier {
     }
 
     _cycleCountSessions[sessionIndex] = session;
+    unawaited(_database.upsertCycleCountSession(session.toCompanion()));
     notifyListeners();
   }
 
   void addCycleCountLines(List<CycleCountLine> lines) {
     _cycleCountLines.addAll(lines);
+    for (final line in lines) {
+      unawaited(_database.upsertCycleCountLine(line.toCompanion()));
+    }
     notifyListeners();
   }
 
@@ -117,6 +229,7 @@ class AppStore extends ChangeNotifier {
     }
 
     _cycleCountLines[lineIndex] = line;
+    unawaited(_database.upsertCycleCountLine(line.toCompanion()));
     notifyListeners();
   }
 
@@ -146,35 +259,45 @@ class AppStore extends ChangeNotifier {
       }
 
       final item = _items[itemIndex];
-      _items[itemIndex] = item.copyWith(
+      final updatedItem = item.copyWith(
         quantityOnHand: countedQuantity,
         updatedAt: now,
       );
+      _items[itemIndex] = updatedItem;
+      unawaited(_database.upsertItem(updatedItem.toCompanion()));
 
       if (variance != 0) {
-        _transactions.add(
-          InventoryTransaction(
-            id: 'txn-cycle-${now.microsecondsSinceEpoch}-${line.id}',
-            itemId: item.id,
-            transactionType: InventoryTransactionType.cycleCountAdjustment,
-            quantityDelta: variance,
-            unitOfMeasureId: line.unitOfMeasureId,
-            fromLocationId: variance < 0 ? line.locationId : null,
-            toLocationId: variance > 0 ? line.locationId : null,
-            assignedToPersonId: null,
-            performedByUserId: _users.isEmpty ? null : _users.first.id,
-            notes: 'Cycle count adjustment: ${session.name}',
-            createdAt: now,
-          ),
+        final transaction = InventoryTransaction(
+          id: 'txn-cycle-${now.microsecondsSinceEpoch}-${line.id}',
+          itemId: item.id,
+          transactionType: InventoryTransactionType.cycleCountAdjustment,
+          quantityDelta: variance,
+          unitOfMeasureId: line.unitOfMeasureId,
+          fromLocationId: variance < 0 ? line.locationId : null,
+          toLocationId: variance > 0 ? line.locationId : null,
+          assignedToPersonId: null,
+          performedByUserId: _users.isEmpty ? null : _users.first.id,
+          notes: 'Cycle count adjustment: ${session.name}',
+          createdAt: now,
         );
+        _transactions.add(transaction);
+        unawaited(_database.upsertTransaction(transaction.toCompanion()));
       }
     }
 
-    _cycleCountSessions[sessionIndex] = session.copyWith(
+    final approvedSession = session.copyWith(
       status: CycleCountStatus.approved,
       approvedAt: now,
     );
+    _cycleCountSessions[sessionIndex] = approvedSession;
+    unawaited(_database.upsertCycleCountSession(approvedSession.toCompanion()));
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    unawaited(_database.close());
+    super.dispose();
   }
 }
 

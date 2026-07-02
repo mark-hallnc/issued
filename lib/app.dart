@@ -8,18 +8,32 @@ import 'screens/scan_screen.dart';
 import 'screens/settings_screen.dart';
 
 class IssuedApp extends StatefulWidget {
-  const IssuedApp({super.key});
+  const IssuedApp({super.key, this.store});
+
+  final AppStore? store;
 
   @override
   State<IssuedApp> createState() => _IssuedAppState();
 }
 
 class _IssuedAppState extends State<IssuedApp> {
-  final AppStore _store = AppStore();
+  late final AppStore _store;
+  late final Future<void> _initializeStore;
+  late final bool _ownsStore;
+
+  @override
+  void initState() {
+    super.initState();
+    _store = widget.store ?? AppStore();
+    _ownsStore = widget.store == null;
+    _initializeStore = _store.initialize();
+  }
 
   @override
   void dispose() {
-    _store.dispose();
+    if (_ownsStore) {
+      _store.dispose();
+    }
     super.dispose();
   }
 
@@ -75,7 +89,47 @@ class _IssuedAppState extends State<IssuedApp> {
             ),
           ),
         ),
-        home: const IssuedShell(),
+        home: FutureBuilder<void>(
+          future: _initializeStore,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const _LoadingScreen();
+            }
+
+            if (snapshot.hasError) {
+              return _StartupErrorScreen(error: snapshot.error);
+            }
+
+            return const IssuedShell();
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _LoadingScreen extends StatelessWidget {
+  const _LoadingScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(body: Center(child: CircularProgressIndicator()));
+  }
+}
+
+class _StartupErrorScreen extends StatelessWidget {
+  const _StartupErrorScreen({required this.error});
+
+  final Object? error;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text('Unable to load Issued data: $error'),
+        ),
       ),
     );
   }
