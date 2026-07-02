@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:issued_app/app.dart';
-import 'package:issued_app/core/sample_data.dart';
+import 'package:issued_app/core/app_store.dart';
 
 void main() {
   testWidgets('Issued shell shows dashboard and navigates tabs', (
@@ -35,7 +35,8 @@ void main() {
     await tester.pump();
     await tester.tap(find.widgetWithText(FilledButton, 'Save Item'));
     await tester.pumpAndSettle();
-    expect(sampleItems.any((item) => item.name == 'Safety Glasses'), isTrue);
+    final store = AppStoreScope.of(tester.element(find.byType(MaterialApp)));
+    expect(store.items.any((item) => item.name == 'Safety Glasses'), isTrue);
 
     await tester.tap(find.text('Torque Wrench'));
     await tester.pumpAndSettle();

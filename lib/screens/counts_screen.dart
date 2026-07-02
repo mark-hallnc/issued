@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../core/app_store.dart';
 import '../core/models/models.dart';
-import '../core/sample_data.dart';
 import 'create_cycle_count_screen.dart';
 import 'cycle_count_detail_screen.dart';
 
@@ -15,6 +15,8 @@ class CountsScreen extends StatefulWidget {
 class _CountsScreenState extends State<CountsScreen> {
   @override
   Widget build(BuildContext context) {
+    final store = AppStoreScope.of(context);
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -35,8 +37,12 @@ class _CountsScreenState extends State<CountsScreen> {
           ),
         ),
         const SizedBox(height: 16),
-        for (final session in sampleCycleCountSessions) ...[
-          _CycleCountCard(session: session, onTap: () => _openSession(session)),
+        for (final session in store.cycleCountSessions) ...[
+          _CycleCountCard(
+            session: session,
+            store: store,
+            onTap: () => _openSession(session),
+          ),
           const SizedBox(height: 10),
         ],
       ],
@@ -73,15 +79,20 @@ class _CountsScreenState extends State<CountsScreen> {
 }
 
 class _CycleCountCard extends StatelessWidget {
-  const _CycleCountCard({required this.session, required this.onTap});
+  const _CycleCountCard({
+    required this.session,
+    required this.store,
+    required this.onTap,
+  });
 
   final CycleCountSession session;
+  final AppStore store;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final assignedUser = _assignedUserName(session.assignedToUserId);
-    final lineCount = sampleCycleCountLines
+    final lineCount = store.cycleCountLines
         .where((line) => line.sessionId == session.id)
         .length;
 
@@ -137,9 +148,9 @@ class _CycleCountCard extends StatelessWidget {
       return null;
     }
 
-    for (final user in sampleUsers) {
+    for (final user in store.users) {
       if (user.id == userId) {
-        for (final person in samplePeople) {
+        for (final person in store.people) {
           if (person.id == user.personId) {
             return person.displayName;
           }

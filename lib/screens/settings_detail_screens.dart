@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../core/app_store.dart';
 import '../core/models/models.dart';
-import '../core/sample_data.dart';
 
 class CompanySettingsScreen extends StatelessWidget {
   const CompanySettingsScreen({super.key});
@@ -26,10 +26,12 @@ class UsersRolesSettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final store = AppStoreScope.of(context);
+
     return _SettingsScaffold(
       title: 'Users & Roles',
       children: [
-        for (final person in samplePeople) ...[
+        for (final person in store.people) ...[
           Card(
             child: ListTile(
               leading: Icon(
@@ -39,7 +41,7 @@ class UsersRolesSettingsScreen extends StatelessWidget {
                 color: const Color(0xFF1E3A5F),
               ),
               title: Text(person.displayName),
-              subtitle: Text(_personSubtitle(person)),
+              subtitle: Text(_personSubtitle(store, person)),
             ),
           ),
           const SizedBox(height: 10),
@@ -48,8 +50,8 @@ class UsersRolesSettingsScreen extends StatelessWidget {
     );
   }
 
-  String _personSubtitle(Person person) {
-    final user = _userForPerson(person.id);
+  String _personSubtitle(AppStore store, Person person) {
+    final user = _userForPerson(store, person.id);
     if (user == null) {
       return 'Non-login assignee';
     }
@@ -57,8 +59,8 @@ class UsersRolesSettingsScreen extends StatelessWidget {
     return 'Login user - ${_roleLabel(user.role)}';
   }
 
-  AppUser? _userForPerson(String personId) {
-    for (final user in sampleUsers) {
+  AppUser? _userForPerson(AppStore store, String personId) {
+    for (final user in store.users) {
       if (user.personId == personId) {
         return user;
       }
@@ -88,6 +90,8 @@ class LocationsSettingsScreen extends StatefulWidget {
 class _LocationsSettingsScreenState extends State<LocationsSettingsScreen> {
   @override
   Widget build(BuildContext context) {
+    final store = AppStoreScope.of(context);
+
     return _SettingsScaffold(
       title: 'Locations',
       action: FilledButton.icon(
@@ -96,7 +100,7 @@ class _LocationsSettingsScreenState extends State<LocationsSettingsScreen> {
         label: const Text('Add Location'),
       ),
       children: [
-        for (final location in sampleLocations) ...[
+        for (final location in store.locations) ...[
           Card(
             child: ListTile(
               leading: const Icon(
@@ -123,9 +127,11 @@ class _LocationsSettingsScreenState extends State<LocationsSettingsScreen> {
       return;
     }
 
-    setState(() {
-      sampleLocations.add(location);
-    });
+    if (!mounted) {
+      return;
+    }
+
+    AppStoreScope.of(context).addLocation(location);
   }
 }
 
@@ -141,6 +147,8 @@ class _UnitsOfMeasureSettingsScreenState
     extends State<UnitsOfMeasureSettingsScreen> {
   @override
   Widget build(BuildContext context) {
+    final store = AppStoreScope.of(context);
+
     return _SettingsScaffold(
       title: 'Units of Measure',
       action: FilledButton.icon(
@@ -149,7 +157,7 @@ class _UnitsOfMeasureSettingsScreenState
         label: const Text('Add UOM'),
       ),
       children: [
-        for (final unit in sampleUnitsOfMeasure) ...[
+        for (final unit in store.unitsOfMeasure) ...[
           Card(
             child: ListTile(
               leading: const Icon(
@@ -178,9 +186,11 @@ class _UnitsOfMeasureSettingsScreenState
       return;
     }
 
-    setState(() {
-      sampleUnitsOfMeasure.add(unit);
-    });
+    if (!mounted) {
+      return;
+    }
+
+    AppStoreScope.of(context).addUnitOfMeasure(unit);
   }
 }
 
@@ -196,6 +206,8 @@ class _CustomFieldsSettingsScreenState
     extends State<CustomFieldsSettingsScreen> {
   @override
   Widget build(BuildContext context) {
+    final store = AppStoreScope.of(context);
+
     return _SettingsScaffold(
       title: 'Custom Fields',
       action: FilledButton.icon(
@@ -204,7 +216,7 @@ class _CustomFieldsSettingsScreenState
         label: const Text('Add Custom Field'),
       ),
       children: [
-        for (final field in sampleCustomFieldDefinitions) ...[
+        for (final field in store.customFieldDefinitions) ...[
           Card(
             child: ListTile(
               leading: const Icon(
@@ -233,9 +245,11 @@ class _CustomFieldsSettingsScreenState
       return;
     }
 
-    setState(() {
-      sampleCustomFieldDefinitions.add(field);
-    });
+    if (!mounted) {
+      return;
+    }
+
+    AppStoreScope.of(context).addCustomFieldDefinition(field);
   }
 
   String _entityLabel(CustomFieldEntityType entityType) {
@@ -263,6 +277,7 @@ class PlanUsageSettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final store = AppStoreScope.of(context);
     const itemLimit = 25;
     const userLimit = 3;
     const locationLimit = 5;
@@ -299,13 +314,13 @@ class PlanUsageSettingsScreen extends StatelessWidget {
         const SizedBox(height: 12),
         _UsageBar(
           label: 'Items',
-          used: sampleItems.where((item) => item.isActive).length,
+          used: store.items.where((item) => item.isActive).length,
           limit: itemLimit,
         ),
-        _UsageBar(label: 'Users', used: sampleUsers.length, limit: userLimit),
+        _UsageBar(label: 'Users', used: store.users.length, limit: userLimit),
         _UsageBar(
           label: 'Locations',
-          used: sampleLocations.length,
+          used: store.locations.length,
           limit: locationLimit,
         ),
         const _UsageBar(label: 'Photos', used: 0, limit: photoLimit),

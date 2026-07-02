@@ -1,65 +1,82 @@
 import 'package:flutter/material.dart';
 
+import 'core/app_store.dart';
 import 'screens/counts_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/items_screen.dart';
 import 'screens/scan_screen.dart';
 import 'screens/settings_screen.dart';
 
-class IssuedApp extends StatelessWidget {
+class IssuedApp extends StatefulWidget {
   const IssuedApp({super.key});
+
+  @override
+  State<IssuedApp> createState() => _IssuedAppState();
+}
+
+class _IssuedAppState extends State<IssuedApp> {
+  final AppStore _store = AppStore();
+
+  @override
+  void dispose() {
+    _store.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     const seedColor = Color(0xFF1E3A5F);
 
-    return MaterialApp(
-      title: 'Issued',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: seedColor,
-          brightness: Brightness.light,
-          surface: const Color(0xFFF4F6F8),
-        ),
-        scaffoldBackgroundColor: const Color(0xFFF4F6F8),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF17212F),
-          foregroundColor: Colors.white,
-          centerTitle: false,
-          elevation: 0,
-        ),
-        cardTheme: CardThemeData(
-          color: Colors.white,
-          elevation: 0,
-          margin: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: const BorderSide(color: Color(0xFFE1E6EC)),
+    return AppStoreScope(
+      store: _store,
+      child: MaterialApp(
+        title: 'Issued',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          useMaterial3: true,
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: seedColor,
+            brightness: Brightness.light,
+            surface: const Color(0xFFF4F6F8),
           ),
-        ),
-        filledButtonTheme: FilledButtonThemeData(
-          style: FilledButton.styleFrom(
-            backgroundColor: seedColor,
+          scaffoldBackgroundColor: const Color(0xFFF4F6F8),
+          appBarTheme: const AppBarTheme(
+            backgroundColor: Color(0xFF17212F),
             foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            centerTitle: false,
+            elevation: 0,
+          ),
+          cardTheme: CardThemeData(
+            color: Colors.white,
+            elevation: 0,
+            margin: EdgeInsets.zero,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(12),
+              side: const BorderSide(color: Color(0xFFE1E6EC)),
+            ),
+          ),
+          filledButtonTheme: FilledButtonThemeData(
+            style: FilledButton.styleFrom(
+              backgroundColor: seedColor,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+          outlinedButtonTheme: OutlinedButtonThemeData(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF1E3A5F),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
           ),
         ),
-        outlinedButtonTheme: OutlinedButtonThemeData(
-          style: OutlinedButton.styleFrom(
-            foregroundColor: const Color(0xFF1E3A5F),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-        ),
+        home: const IssuedShell(),
       ),
-      home: const IssuedShell(),
     );
   }
 }

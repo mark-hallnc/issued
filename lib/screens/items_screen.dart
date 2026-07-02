@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../core/app_store.dart';
 import '../core/models/models.dart';
-import '../core/sample_data.dart';
 import 'add_item_screen.dart';
 import 'item_detail_screen.dart';
 
@@ -19,7 +19,8 @@ class _ItemsScreenState extends State<ItemsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final visibleItems = sampleItems.where(_matchesSelectedFilter).toList();
+    final store = AppStoreScope.of(context);
+    final visibleItems = store.items.where(_matchesSelectedFilter).toList();
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -85,7 +86,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
         ),
         const SizedBox(height: 16),
         for (final item in visibleItems) ...[
-          _ItemCard(item: item, onChanged: () => setState(() {})),
+          _ItemCard(item: item, store: store, onChanged: () => setState(() {})),
           const SizedBox(height: 10),
         ],
       ],
@@ -151,9 +152,14 @@ class _FilterChip extends StatelessWidget {
 }
 
 class _ItemCard extends StatelessWidget {
-  const _ItemCard({required this.item, required this.onChanged});
+  const _ItemCard({
+    required this.item,
+    required this.store,
+    required this.onChanged,
+  });
 
   final Item item;
+  final AppStore store;
   final VoidCallback onChanged;
 
   @override
@@ -215,7 +221,7 @@ class _ItemCard extends StatelessWidget {
   }
 
   UnitOfMeasure? _unitById(String unitId) {
-    for (final unit in sampleUnitsOfMeasure) {
+    for (final unit in store.unitsOfMeasure) {
       if (unit.id == unitId) {
         return unit;
       }
@@ -225,7 +231,7 @@ class _ItemCard extends StatelessWidget {
   }
 
   Location? _locationById(String locationId) {
-    for (final location in sampleLocations) {
+    for (final location in store.locations) {
       if (location.id == locationId) {
         return location;
       }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../core/app_store.dart';
 import '../core/models/models.dart';
-import '../core/sample_data.dart';
 import 'cycle_count_detail_screen.dart';
 
 enum CountScope { allItems, location, category, lowStock }
@@ -18,13 +18,13 @@ class _CreateCycleCountScreenState extends State<CreateCycleCountScreen> {
   final _nameController = TextEditingController();
 
   CountScope _scope = CountScope.allItems;
-  Location _selectedLocation = sampleLocations.first;
-  String _selectedCategory = _categories.first;
+  Location? _selectedLocation;
+  String? _selectedCategory;
   bool _blindCount = true;
   DateTime? _dueAt;
 
-  static List<String> get _categories {
-    final categories = sampleItems
+  List<String> _categories(AppStore store) {
+    final categories = store.items
         .map((item) => item.category)
         .where((category) => category.trim().isNotEmpty)
         .toSet()
@@ -41,6 +41,11 @@ class _CreateCycleCountScreenState extends State<CreateCycleCountScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final store = AppStoreScope.of(context);
+    final categories = _categories(store);
+    _selectedLocation ??= store.locations.first;
+    _selectedCategory ??= categories.first;
+
     return Scaffold(
       appBar: AppBar(title: const Text('New Cycle Count')),
       bottomNavigationBar: SafeArea(
@@ -106,7 +111,7 @@ class _CreateCycleCountScreenState extends State<CreateCycleCountScreen> {
                   labelText: 'Location',
                   border: OutlineInputBorder(),
                 ),
-                items: sampleLocations
+                items: store.locations
                     .map(
                       (location) => DropdownMenuItem(
                         value: location,
@@ -133,7 +138,7 @@ class _CreateCycleCountScreenState extends State<CreateCycleCountScreen> {
                   labelText: 'Category',
                   border: OutlineInputBorder(),
                 ),
-                items: _categories
+                items: categories
                     .map(
                       (category) => DropdownMenuItem(
                         value: category,
@@ -201,19 +206,20 @@ class _CreateCycleCountScreenState extends State<CreateCycleCountScreen> {
       return;
     }
 
+    final store = AppStoreScope.of(context);
     final now = DateTime.now();
     final session = CycleCountSession(
       id: 'count-${now.microsecondsSinceEpoch}',
       name: _nameController.text.trim(),
       status: CycleCountStatus.assigned,
-      assignedToUserId: sampleUsers.isEmpty ? null : sampleUsers.first.id,
+      assignedToUserId: store.users.isEmpty ? null : store.users.first.id,
       blindCount: _blindCount,
       dueAt: _dueAt,
       createdAt: now,
       submittedAt: null,
       approvedAt: null,
     );
-    final lines = _matchingItems().map((item) {
+    final lines = _matchingItems(store).map((item) {
       return CycleCountLine(
         id: 'line-${session.id}-${item.id}',
         sessionId: session.id,
@@ -227,8 +233,8 @@ class _CreateCycleCountScreenState extends State<CreateCycleCountScreen> {
       );
     }).toList();
 
-    sampleCycleCountSessions.add(session);
-    sampleCycleCountLines.addAll(lines);
+    store.addCycleCountSession(session);
+    store.addCycleCountLines(lines);
 
     Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(
@@ -237,15 +243,15 @@ class _CreateCycleCountScreenState extends State<CreateCycleCountScreen> {
     );
   }
 
-  Iterable<Item> _matchingItems() {
-    return sampleItems.where((item) {
+  Iterable<Item> _matchingItems(AppStore store) {
+    return store.items.where((item) {
       if (!item.isActive) {
         return false;
       }
 
       return switch (_scope) {
         CountScope.allItems => true,
-        CountScope.location => item.locationId == _selectedLocation.id,
+        CountScope.location => item.locationId == _selectedLocation!.id,
         CountScope.category => item.category == _selectedCategory,
         CountScope.lowStock => item.quantityOnHand <= item.minimumQuantity,
       };

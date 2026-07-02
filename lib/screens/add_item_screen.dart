@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../core/app_store.dart';
 import '../core/models/models.dart';
-import '../core/sample_data.dart';
 
 class AddItemScreen extends StatefulWidget {
   const AddItemScreen({super.key});
@@ -23,8 +23,8 @@ class _AddItemScreenState extends State<AddItemScreen> {
   final _notesController = TextEditingController();
 
   ItemType _itemType = ItemType.consumable;
-  UnitOfMeasure _selectedUnit = sampleUnitsOfMeasure.first;
-  Location _selectedLocation = sampleLocations.first;
+  UnitOfMeasure? _selectedUnit;
+  Location? _selectedLocation;
   bool _allowFractionalQuantity = false;
 
   @override
@@ -43,6 +43,10 @@ class _AddItemScreenState extends State<AddItemScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final store = AppStoreScope.of(context);
+    _selectedUnit ??= store.unitsOfMeasure.first;
+    _selectedLocation ??= store.locations.first;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Add Item')),
       bottomNavigationBar: SafeArea(
@@ -136,7 +140,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
                 labelText: 'Unit of measure',
                 border: OutlineInputBorder(),
               ),
-              items: sampleUnitsOfMeasure
+              items: store.unitsOfMeasure
                   .map(
                     (unit) => DropdownMenuItem(
                       value: unit,
@@ -161,7 +165,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
                 labelText: 'Location',
                 border: OutlineInputBorder(),
               ),
-              items: sampleLocations
+              items: store.locations
                   .map(
                     (location) => DropdownMenuItem(
                       value: location,
@@ -282,6 +286,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
       return;
     }
 
+    final store = AppStoreScope.of(context);
     final now = DateTime.now();
     final item = Item(
       id: 'item-${now.microsecondsSinceEpoch}',
@@ -289,10 +294,10 @@ class _AddItemScreenState extends State<AddItemScreen> {
       description: _notesController.text.trim(),
       itemType: _itemType,
       category: _categoryController.text.trim(),
-      locationId: _selectedLocation.id,
+      locationId: _selectedLocation!.id,
       quantityOnHand: double.parse(_quantityController.text.trim()),
       minimumQuantity: double.parse(_minimumQuantityController.text.trim()),
-      unitOfMeasureId: _selectedUnit.id,
+      unitOfMeasureId: _selectedUnit!.id,
       barcode: _emptyToNull(_barcodeController.text),
       sku: _emptyToNull(_skuController.text),
       supplier: _emptyToNull(_supplierController.text),
@@ -306,7 +311,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
       updatedAt: now,
     );
 
-    sampleItems.add(item);
+    store.addItem(item);
     Navigator.of(context).pop(true);
   }
 

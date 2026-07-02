@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../core/app_store.dart';
 import '../core/models/models.dart';
-import '../core/sample_data.dart';
 
 class ItemDetailScreen extends StatefulWidget {
   const ItemDetailScreen({super.key, required this.item});
@@ -23,13 +23,14 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final unit = _unitById(_item.unitOfMeasureId);
-    final location = _locationById(_item.locationId);
+    final store = AppStoreScope.of(context);
+    final unit = _unitById(store, _item.unitOfMeasureId);
+    final location = _locationById(store, _item.locationId);
     final showReturnableActions =
         _item.itemType == ItemType.returnable ||
         _item.itemType == ItemType.asset;
-    final checkedOutPerson = _checkedOutPerson();
-    final recentTransactions = _recentTransactions();
+    final checkedOutPerson = _checkedOutPerson(store);
+    final recentTransactions = _recentTransactions(store);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Item Detail')),
@@ -227,6 +228,8 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
   }
 
   Future<void> _issueItem() async {
+    final store = AppStoreScope.of(context);
+    final person = _defaultPerson(store);
     final result = await _showQuantityNotesDialog(
       title: _item.itemType == ItemType.consumable
           ? 'Issue Consumable'
@@ -249,12 +252,13 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
       -result.quantity,
       notes: result.notes,
       fromLocationId: _item.locationId,
-      assignedToPersonId: _defaultPerson()?.id,
+      assignedToPersonId: person?.id,
     );
   }
 
   Future<void> _checkOutItem() async {
-    final person = _defaultPerson();
+    final store = AppStoreScope.of(context);
+    final person = _defaultPerson(store);
     final result = await _showQuantityNotesDialog(
       title: 'Check Out Item',
       quantityLabel: 'Quantity checked out',
@@ -311,8 +315,10 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
   Future<void> _transferItem() async {
     final result = await showDialog<_TransferResult>(
       context: context,
-      builder: (context) =>
-          _TransferDialog(currentLocationId: _item.locationId),
+      builder: (context) => _TransferDialog(
+        currentLocationId: _item.locationId,
+        store: AppStoreScope.of(context),
+      ),
     );
 
     if (result == null) {
@@ -404,11 +410,8 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
   }
 
   void _applyItemUpdate(Item updatedItem) {
-    final itemIndex = sampleItems.indexWhere((item) => item.id == _item.id);
-
-    if (itemIndex != -1) {
-      sampleItems[itemIndex] = updatedItem;
-    }
+    final store = AppStoreScope.of(context);
+    store.updateItem(updatedItem);
 
     setState(() {
       _item = updatedItem;
@@ -423,7 +426,8 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     String? toLocationId,
     String? assignedToPersonId,
   }) {
-    sampleTransactions.add(
+    final store = AppStoreScope.of(context);
+    store.addTransaction(
       InventoryTransaction(
         id: 'txn-${DateTime.now().microsecondsSinceEpoch}',
         itemId: _item.id,
@@ -433,7 +437,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
         fromLocationId: fromLocationId,
         toLocationId: toLocationId,
         assignedToPersonId: assignedToPersonId,
-        performedByUserId: sampleUsers.isEmpty ? null : sampleUsers.first.id,
+        performedByUserId: store.users.isEmpty ? null : store.users.first.id,
         notes: notes,
         createdAt: DateTime.now(),
       ),
@@ -442,8 +446,8 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     setState(() {});
   }
 
-  List<InventoryTransaction> _recentTransactions() {
-    final transactions = sampleTransactions
+  List<InventoryTransaction> _recentTransactions(AppStore store) {
+    final transactions = store.transactions
         .where((transaction) => transaction.itemId == _item.id)
         .toList();
 
@@ -453,15 +457,15 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     return transactions.take(5).toList();
   }
 
-  String? _checkedOutPerson() {
-    for (final transaction in _recentTransactions()) {
+  String? _checkedOutPerson(AppStore store) {
+    for (final transaction in _recentTransactions(store)) {
       if (transaction.transactionType == InventoryTransactionType.checkout) {
         final personId = transaction.assignedToPersonId;
         if (personId == null) {
           return 'assigned person';
         }
 
-        return _personById(personId)?.displayName ?? 'assigned person';
+        return _personById(store, personId)?.displayName ?? 'assigned person';
       }
 
       if (transaction.transactionType == InventoryTransactionType.returnItem ||
@@ -474,12 +478,12 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     return null;
   }
 
-  Person? _defaultPerson() {
-    return samplePeople.isEmpty ? null : samplePeople.last;
+  Person? _defaultPerson(AppStore store) {
+    return store.people.isEmpty ? null : store.people.last;
   }
 
-  Person? _personById(String personId) {
-    for (final person in samplePeople) {
+  Person? _personById(AppStore store, String personId) {
+    for (final person in store.people) {
       if (person.id == personId) {
         return person;
       }
@@ -488,8 +492,8 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     return null;
   }
 
-  UnitOfMeasure? _unitById(String unitId) {
-    for (final unit in sampleUnitsOfMeasure) {
+  UnitOfMeasure? _unitById(AppStore store, String unitId) {
+    for (final unit in store.unitsOfMeasure) {
       if (unit.id == unitId) {
         return unit;
       }
@@ -498,8 +502,8 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     return null;
   }
 
-  Location? _locationById(String locationId) {
-    for (final location in sampleLocations) {
+  Location? _locationById(AppStore store, String locationId) {
+    for (final location in store.locations) {
       if (location.id == locationId) {
         return location;
       }
@@ -624,9 +628,10 @@ class _QuantityNotesDialogState extends State<_QuantityNotesDialog> {
 }
 
 class _TransferDialog extends StatefulWidget {
-  const _TransferDialog({required this.currentLocationId});
+  const _TransferDialog({required this.currentLocationId, required this.store});
 
   final String currentLocationId;
+  final AppStore store;
 
   @override
   State<_TransferDialog> createState() => _TransferDialogState();
@@ -639,10 +644,10 @@ class _TransferDialogState extends State<_TransferDialog> {
   @override
   void initState() {
     super.initState();
-    _toLocationId = sampleLocations
+    _toLocationId = widget.store.locations
         .firstWhere(
           (location) => location.id != widget.currentLocationId,
-          orElse: () => sampleLocations.first,
+          orElse: () => widget.store.locations.first,
         )
         .id;
   }
@@ -655,9 +660,9 @@ class _TransferDialogState extends State<_TransferDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final fromLocation = sampleLocations.firstWhere(
+    final fromLocation = widget.store.locations.firstWhere(
       (location) => location.id == widget.currentLocationId,
-      orElse: () => sampleLocations.first,
+      orElse: () => widget.store.locations.first,
     );
 
     return AlertDialog(
@@ -670,7 +675,7 @@ class _TransferDialogState extends State<_TransferDialog> {
             DropdownButtonFormField<String>(
               initialValue: _toLocationId,
               decoration: const InputDecoration(labelText: 'To location'),
-              items: sampleLocations
+              items: widget.store.locations
                   .map(
                     (location) => DropdownMenuItem(
                       value: location.id,

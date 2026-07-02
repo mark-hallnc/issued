@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../core/app_store.dart';
 import '../core/models/models.dart';
-import '../core/sample_data.dart';
 
 class CycleCountDetailScreen extends StatefulWidget {
   const CycleCountDetailScreen({super.key, required this.session});
@@ -20,17 +20,7 @@ class _CycleCountDetailScreenState extends State<CycleCountDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _session = _freshSession(widget.session);
-    for (final line in _lines()) {
-      _quantityControllers[line.id] = TextEditingController(
-        text: line.countedQuantity == null
-            ? ''
-            : _formatQuantity(line.countedQuantity!),
-      );
-      _notesControllers[line.id] = TextEditingController(
-        text: line.notes ?? '',
-      );
-    }
+    _session = widget.session;
   }
 
   @override
@@ -46,6 +36,12 @@ class _CycleCountDetailScreenState extends State<CycleCountDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final store = AppStoreScope.of(context);
+    _session = _freshSession(store, _session);
+    final lines = _lines(store);
+    for (final line in lines) {
+      _ensureControllers(line);
+    }
     final isSubmitted = _session.status == CycleCountStatus.submitted;
     final isApproved = _session.status == CycleCountStatus.approved;
 
@@ -94,7 +90,7 @@ class _CycleCountDetailScreenState extends State<CycleCountDetailScreen> {
                             ? 'Blind count'
                             : 'Expected shown',
                       ),
-                      _InfoPill(label: '${_lines().length} lines'),
+                      _InfoPill(label: '${lines.length} lines'),
                       if (_session.dueAt != null)
                         _InfoPill(label: 'Due ${_formatDate(_session.dueAt!)}'),
                     ],
@@ -104,10 +100,11 @@ class _CycleCountDetailScreenState extends State<CycleCountDetailScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          for (final line in _lines()) ...[
+          for (final line in lines) ...[
             _CountLineCard(
               line: line,
               session: _session,
+              store: store,
               quantityController: _quantityControllers[line.id]!,
               notesController: _notesControllers[line.id]!,
               enabled: !isSubmitted && !isApproved,
@@ -120,9 +117,10 @@ class _CycleCountDetailScreenState extends State<CycleCountDetailScreen> {
   }
 
   void _submitCount() {
+    final store = AppStoreScope.of(context);
     final updatedLines = <CycleCountLine>[];
 
-    for (final line in _lines()) {
+    for (final line in _lines(store)) {
       final countText = _quantityControllers[line.id]!.text.trim();
       final countedQuantity = double.tryParse(countText);
 
@@ -148,10 +146,11 @@ class _CycleCountDetailScreenState extends State<CycleCountDetailScreen> {
     }
 
     for (final updatedLine in updatedLines) {
-      _replaceLine(updatedLine);
+      store.updateCycleCountLine(updatedLine);
     }
 
     _replaceSession(
+      store,
       CycleCountSession(
         id: _session.id,
         name: _session.name,
@@ -167,93 +166,46 @@ class _CycleCountDetailScreenState extends State<CycleCountDetailScreen> {
   }
 
   void _approveCount() {
-    final now = DateTime.now();
-
-    for (final line in _lines()) {
-      final variance = line.varianceQuantity ?? 0;
-      if (variance == 0) {
-        continue;
-      }
-
-      final itemIndex = sampleItems.indexWhere(
-        (item) => item.id == line.itemId,
-      );
-      if (itemIndex == -1) {
-        continue;
-      }
-
-      final item = sampleItems[itemIndex];
-      sampleItems[itemIndex] = item.copyWith(
-        quantityOnHand: line.countedQuantity ?? item.quantityOnHand,
-        updatedAt: now,
-      );
-      sampleTransactions.add(
-        InventoryTransaction(
-          id: 'txn-cycle-${now.microsecondsSinceEpoch}-${line.id}',
-          itemId: item.id,
-          transactionType: InventoryTransactionType.cycleCountAdjustment,
-          quantityDelta: variance,
-          unitOfMeasureId: line.unitOfMeasureId,
-          fromLocationId: variance < 0 ? line.locationId : null,
-          toLocationId: variance > 0 ? line.locationId : null,
-          assignedToPersonId: null,
-          performedByUserId: sampleUsers.isEmpty ? null : sampleUsers.first.id,
-          notes: 'Cycle count adjustment: ${_session.name}',
-          createdAt: now,
-        ),
-      );
-    }
-
-    _replaceSession(
-      CycleCountSession(
-        id: _session.id,
-        name: _session.name,
-        status: CycleCountStatus.approved,
-        assignedToUserId: _session.assignedToUserId,
-        blindCount: _session.blindCount,
-        dueAt: _session.dueAt,
-        createdAt: _session.createdAt,
-        submittedAt: _session.submittedAt,
-        approvedAt: now,
-      ),
-    );
+    final store = AppStoreScope.of(context);
+    store.approveCycleCount(_session.id);
+    setState(() {
+      _session = _freshSession(store, _session);
+    });
   }
 
-  CycleCountSession _freshSession(CycleCountSession session) {
-    return sampleCycleCountSessions.firstWhere(
+  CycleCountSession _freshSession(AppStore store, CycleCountSession session) {
+    return store.cycleCountSessions.firstWhere(
       (storedSession) => storedSession.id == session.id,
       orElse: () => session,
     );
   }
 
-  List<CycleCountLine> _lines() {
-    return sampleCycleCountLines
+  List<CycleCountLine> _lines(AppStore store) {
+    return store.cycleCountLines
         .where((line) => line.sessionId == _session.id)
         .toList();
   }
 
-  void _replaceLine(CycleCountLine updatedLine) {
-    final lineIndex = sampleCycleCountLines.indexWhere(
-      (line) => line.id == updatedLine.id,
-    );
-
-    if (lineIndex != -1) {
-      sampleCycleCountLines[lineIndex] = updatedLine;
-    }
-  }
-
-  void _replaceSession(CycleCountSession updatedSession) {
-    final sessionIndex = sampleCycleCountSessions.indexWhere(
-      (session) => session.id == updatedSession.id,
-    );
-
-    if (sessionIndex != -1) {
-      sampleCycleCountSessions[sessionIndex] = updatedSession;
-    }
-
+  void _replaceSession(AppStore store, CycleCountSession updatedSession) {
+    store.updateCycleCountSession(updatedSession);
     setState(() {
       _session = updatedSession;
     });
+  }
+
+  void _ensureControllers(CycleCountLine line) {
+    _quantityControllers.putIfAbsent(
+      line.id,
+      () => TextEditingController(
+        text: line.countedQuantity == null
+            ? ''
+            : _formatQuantity(line.countedQuantity!),
+      ),
+    );
+    _notesControllers.putIfAbsent(
+      line.id,
+      () => TextEditingController(text: line.notes ?? ''),
+    );
   }
 
   void _showMessage(String message) {
@@ -267,6 +219,7 @@ class _CountLineCard extends StatelessWidget {
   const _CountLineCard({
     required this.line,
     required this.session,
+    required this.store,
     required this.quantityController,
     required this.notesController,
     required this.enabled,
@@ -274,6 +227,7 @@ class _CountLineCard extends StatelessWidget {
 
   final CycleCountLine line;
   final CycleCountSession session;
+  final AppStore store;
   final TextEditingController quantityController;
   final TextEditingController notesController;
   final bool enabled;
@@ -352,7 +306,7 @@ class _CountLineCard extends StatelessWidget {
   }
 
   Item? _itemById(String itemId) {
-    for (final item in sampleItems) {
+    for (final item in store.items) {
       if (item.id == itemId) {
         return item;
       }
@@ -362,7 +316,7 @@ class _CountLineCard extends StatelessWidget {
   }
 
   Location? _locationById(String locationId) {
-    for (final location in sampleLocations) {
+    for (final location in store.locations) {
       if (location.id == locationId) {
         return location;
       }
@@ -372,7 +326,7 @@ class _CountLineCard extends StatelessWidget {
   }
 
   UnitOfMeasure? _unitById(String unitId) {
-    for (final unit in sampleUnitsOfMeasure) {
+    for (final unit in store.unitsOfMeasure) {
       if (unit.id == unitId) {
         return unit;
       }

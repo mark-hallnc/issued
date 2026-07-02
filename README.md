@@ -1,17 +1,21 @@
-# issued_app
+# Issued
 
-A new Flutter project.
+Issued is a tool crib and shop inventory app for tracking items, issue/return activity, cycle counts, units of measure, custom fields, users, roles, and plan limits.
 
-## Getting Started
+## Current Status
 
-This project is a starting point for a Flutter application.
+Issued is an early Flutter prototype with in-memory data. There is no database or persistence layer yet.
 
-A few resources to get you started if this is your first Flutter project:
+## Development Notes
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+Run static analysis:
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```sh
+flutter analyze
+```
+
+Run the app:
+
+```sh
+flutter run
+```
