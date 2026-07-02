@@ -85,7 +85,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
         ),
         const SizedBox(height: 16),
         for (final item in visibleItems) ...[
-          _ItemCard(item: item),
+          _ItemCard(item: item, onChanged: () => setState(() {})),
           const SizedBox(height: 10),
         ],
       ],
@@ -151,9 +151,10 @@ class _FilterChip extends StatelessWidget {
 }
 
 class _ItemCard extends StatelessWidget {
-  const _ItemCard({required this.item});
+  const _ItemCard({required this.item, required this.onChanged});
 
   final Item item;
+  final VoidCallback onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -165,12 +166,13 @@ class _ItemCard extends StatelessWidget {
     return Card(
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: () {
-          Navigator.of(context).push(
+        onTap: () async {
+          await Navigator.of(context).push(
             MaterialPageRoute<void>(
               builder: (context) => ItemDetailScreen(item: item),
             ),
           );
+          onChanged();
         },
         child: Padding(
           padding: const EdgeInsets.all(14),
