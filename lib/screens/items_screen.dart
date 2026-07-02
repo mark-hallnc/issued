@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/models/models.dart';
 import '../core/sample_data.dart';
+import 'add_item_screen.dart';
 import 'item_detail_screen.dart';
 
 enum _ItemFilter { all, lowStock, consumable, returnable, asset }
@@ -38,6 +39,15 @@ class _ItemsScreenState extends State<ItemsScreen> {
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: Color(0xFFE1E6EC)),
             ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton.icon(
+            onPressed: _openAddItem,
+            icon: const Icon(Icons.add),
+            label: const Text('Add Item'),
           ),
         ),
         const SizedBox(height: 14),
@@ -96,6 +106,22 @@ class _ItemsScreenState extends State<ItemsScreen> {
     setState(() {
       _selectedFilter = filter;
     });
+  }
+
+  Future<void> _openAddItem() async {
+    final itemAdded = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(builder: (context) => const AddItemScreen()),
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    if (itemAdded == true) {
+      setState(() {
+        _selectedFilter = _ItemFilter.all;
+      });
+    }
   }
 }
 

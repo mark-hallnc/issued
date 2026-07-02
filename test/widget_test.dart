@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:issued_app/app.dart';
+import 'package:issued_app/core/sample_data.dart';
 
 void main() {
   testWidgets('Issued shell shows dashboard and navigates tabs', (
@@ -21,6 +22,20 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Cutting Disc 4.5 in'), findsOneWidget);
     expect(find.text('Low'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Add Item'));
+    await tester.pumpAndSettle();
+    expect(find.text('Add Item'), findsWidgets);
+
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Item name'),
+      'Safety Glasses',
+    );
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'Save Item'));
+    await tester.pumpAndSettle();
+    expect(sampleItems.any((item) => item.name == 'Safety Glasses'), isTrue);
 
     await tester.tap(find.text('Torque Wrench'));
     await tester.pumpAndSettle();
