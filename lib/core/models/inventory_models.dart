@@ -68,6 +68,7 @@ class Item {
     String? supplier,
     double? unitCost,
     String? photoPath,
+    bool clearPhotoPath = false,
     bool? isActive,
     bool? allowFractionalQuantity,
     DateTime? createdAt,
@@ -87,7 +88,7 @@ class Item {
       sku: sku ?? this.sku,
       supplier: supplier ?? this.supplier,
       unitCost: unitCost ?? this.unitCost,
-      photoPath: photoPath ?? this.photoPath,
+      photoPath: clearPhotoPath ? null : photoPath ?? this.photoPath,
       isActive: isActive ?? this.isActive,
       allowFractionalQuantity:
           allowFractionalQuantity ?? this.allowFractionalQuantity,

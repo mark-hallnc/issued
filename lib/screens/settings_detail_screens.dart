@@ -970,6 +970,8 @@ String? _required(String? value) {
 
 void _showPermissionDenied(BuildContext context) {
   ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(content: Text('Your current role does not allow this action.')),
+    const SnackBar(
+      content: Text('Your current role does not allow this action.'),
+    ),
   );
 }

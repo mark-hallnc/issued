@@ -381,7 +381,9 @@ class _ImportPreviewScreenState extends State<ImportPreviewScreen> {
 
   void _showPermissionDenied() {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Your current role does not allow this action.')),
+      const SnackBar(
+        content: Text('Your current role does not allow this action.'),
+      ),
     );
   }
 

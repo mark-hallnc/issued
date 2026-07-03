@@ -87,7 +87,9 @@ class _CountsScreenState extends State<CountsScreen> {
 
   void _showPermissionDenied() {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Your current role does not allow this action.')),
+      const SnackBar(
+        content: Text('Your current role does not allow this action.'),
+      ),
     );
   }
 }

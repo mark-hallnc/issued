@@ -227,7 +227,9 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
   void _showPermissionDenied() {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Your current role does not allow this action.')),
+      const SnackBar(
+        content: Text('Your current role does not allow this action.'),
+      ),
     );
   }
 }

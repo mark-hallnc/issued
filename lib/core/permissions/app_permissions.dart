@@ -34,8 +34,6 @@ String roleLabel(UserRole role) {
   };
 }
 
-void showPermissionDeniedMessage(
-  void Function(String message) showMessage,
-) {
+void showPermissionDeniedMessage(void Function(String message) showMessage) {
   showMessage('Your current role does not allow this action.');
 }

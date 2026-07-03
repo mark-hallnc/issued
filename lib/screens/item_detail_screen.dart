@@ -1,11 +1,16 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:printing/printing.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../core/app_store.dart';
 import '../core/labels/label_service.dart';
 import '../core/models/models.dart';
+import '../core/photos/item_photo_service.dart';
 import 'plan_screens.dart';
+import 'settings_detail_screens.dart';
 
 class ItemDetailScreen extends StatefulWidget {
   const ItemDetailScreen({super.key, required this.item});
@@ -17,6 +22,7 @@ class ItemDetailScreen extends StatefulWidget {
 }
 
 class _ItemDetailScreenState extends State<ItemDetailScreen> {
+  final _photoService = ItemPhotoService();
   late Item _item;
 
   @override
@@ -71,6 +77,13 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
             ),
           ),
           const SizedBox(height: 12),
+          _ItemPhotoCard(
+            item: _item,
+            canManagePhoto: permissions.canManageItems,
+            onAddOrReplace: _showPhotoSourcePicker,
+            onRemove: _removePhoto,
+          ),
+          const SizedBox(height: 12),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -103,7 +116,10 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                       value: '\$${_item.unitCost!.toStringAsFixed(2)}',
                     ),
                   if (_item.unitCost != null && !permissions.canViewCosts)
-                    const _DetailRow(label: 'Unit cost', value: 'Hidden by role'),
+                    const _DetailRow(
+                      label: 'Unit cost',
+                      value: 'Hidden by role',
+                    ),
                   _DetailRow(
                     label: 'Status',
                     value: checkedOutPerson == null
@@ -349,6 +365,131 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
       recommendedPlanCode: store
           .getLimitWarningForLabels()
           ?.recommendedPlanCode,
+    );
+  }
+
+  Future<void> _showPhotoSourcePicker() async {
+    final store = AppStoreScope.of(context);
+    if (!store.permissions.canManageItems) {
+      _showPermissionDenied();
+      return;
+    }
+
+    final hasPhoto = _item.photoPath?.trim().isNotEmpty ?? false;
+    if (!hasPhoto && !store.canAddPhoto) {
+      await _showPhotoLimitReached(store);
+      return;
+    }
+
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Take Photo'),
+              onTap: () => Navigator.of(context).pop(ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Choose From Gallery'),
+              onTap: () => Navigator.of(context).pop(ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (source == null) {
+      return;
+    }
+
+    try {
+      final pickedPhoto = await _photoService.pickPhoto(source);
+      if (pickedPhoto == null) {
+        return;
+      }
+
+      final savedPath = await _photoService.saveItemPhoto(
+        itemId: _item.id,
+        pickedFile: pickedPhoto,
+      );
+      _applyItemUpdate(
+        _item.copyWith(photoPath: savedPath, updatedAt: DateTime.now()),
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not save the item photo.')),
+      );
+    }
+  }
+
+  Future<void> _showPhotoLimitReached(AppStore store) async {
+    final action = await showDialog<_PhotoLimitAction>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Photo limit reached'),
+        content: Text(
+          'Your current plan includes up to ${store.currentPlan.photoLimit} item photos.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () =>
+                Navigator.of(context).pop(_PhotoLimitAction.cancel),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () =>
+                Navigator.of(context).pop(_PhotoLimitAction.viewPlan),
+            child: const Text('View Plan'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.of(context).pop(_PhotoLimitAction.upgrade),
+            child: const Text('Upgrade'),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    switch (action) {
+      case _PhotoLimitAction.viewPlan:
+        await Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (context) => const PlanUsageSettingsScreen(),
+          ),
+        );
+      case _PhotoLimitAction.upgrade:
+        await openComparePlans(
+          context,
+          recommendedPlanCode: store
+              .getLimitWarningForPhotos()
+              ?.recommendedPlanCode,
+        );
+      case _PhotoLimitAction.cancel || null:
+        return;
+    }
+  }
+
+  void _removePhoto() {
+    final store = AppStoreScope.of(context);
+    if (!store.permissions.canManageItems) {
+      _showPermissionDenied();
+      return;
+    }
+
+    _applyItemUpdate(
+      _item.copyWith(clearPhotoPath: true, updatedAt: DateTime.now()),
     );
   }
 
@@ -679,7 +820,9 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
 
   void _showPermissionDenied() {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Your current role does not allow this action.')),
+      const SnackBar(
+        content: Text('Your current role does not allow this action.'),
+      ),
     );
   }
 
@@ -772,6 +915,98 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     };
   }
 }
+
+class _ItemPhotoCard extends StatelessWidget {
+  const _ItemPhotoCard({
+    required this.item,
+    required this.canManagePhoto,
+    required this.onAddOrReplace,
+    required this.onRemove,
+  });
+
+  final Item item;
+  final bool canManagePhoto;
+  final VoidCallback onAddOrReplace;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final photoPath = item.photoPath?.trim();
+    final hasPhotoPath = photoPath != null && photoPath.isNotEmpty;
+    final photoFile = hasPhotoPath ? File(photoPath) : null;
+    final photoExists = photoFile?.existsSync() ?? false;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Item Photo',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF17212F),
+              ),
+            ),
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: AspectRatio(
+                aspectRatio: 16 / 9,
+                child: photoExists
+                    ? Image.file(photoFile!, fit: BoxFit.cover)
+                    : Container(
+                        color: const Color(0xFFF4F6F8),
+                        child: const Center(
+                          child: Icon(
+                            Icons.photo_camera_outlined,
+                            size: 48,
+                            color: Color(0xFF5C6672),
+                          ),
+                        ),
+                      ),
+              ),
+            ),
+            if (hasPhotoPath && !photoExists && canManagePhoto) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Photo file is missing. Replace or remove it.',
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: const Color(0xFF7A4B00)),
+              ),
+            ],
+            if (canManagePhoto) ...[
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  FilledButton.icon(
+                    onPressed: onAddOrReplace,
+                    icon: Icon(
+                      hasPhotoPath ? Icons.refresh : Icons.add_a_photo,
+                    ),
+                    label: Text(hasPhotoPath ? 'Replace Photo' : 'Add Photo'),
+                  ),
+                  if (hasPhotoPath)
+                    OutlinedButton.icon(
+                      onPressed: onRemove,
+                      icon: const Icon(Icons.delete_outline),
+                      label: const Text('Remove Photo'),
+                    ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+enum _PhotoLimitAction { cancel, viewPlan, upgrade }
 
 class _QuantityNotesDialog extends StatefulWidget {
   const _QuantityNotesDialog({

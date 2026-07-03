@@ -68,7 +68,10 @@ class AppStore extends ChangeNotifier {
       }
     }
 
-    return _users.firstWhere((user) => user.isActive, orElse: () => _users.first);
+    return _users.firstWhere(
+      (user) => user.isActive,
+      orElse: () => _users.first,
+    );
   }
 
   Person? get currentPerson {
@@ -98,6 +101,10 @@ class AppStore extends ChangeNotifier {
       userCount: _users.where((user) => user.isActive).length,
       locationCount: _locations.where((location) => location.isActive).length,
       photoCount: _items.where((item) {
+        if (!item.isActive) {
+          return false;
+        }
+
         final photoPath = item.photoPath?.trim();
         return photoPath != null && photoPath.isNotEmpty;
       }).length,
@@ -271,6 +278,7 @@ class AppStore extends ChangeNotifier {
   bool get canAddUser => currentUsage.userCount < currentPlan.userLimit;
   bool get canExportLabel =>
       currentUsage.labelExportCount < currentPlan.labelExportLimit;
+  bool get canAddPhoto => currentUsage.photoCount < currentPlan.photoLimit;
 
   PlanLimitWarning? getLimitWarningForItems() {
     return _limitWarning(
@@ -308,18 +316,22 @@ class AppStore extends ChangeNotifier {
     );
   }
 
+  PlanLimitWarning? getLimitWarningForPhotos() {
+    return _limitWarning(
+      kind: PlanLimitKind.photos,
+      used: currentUsage.photoCount,
+      limit: currentPlan.photoLimit,
+      unitLabel: 'photo slots',
+    );
+  }
+
   List<PlanLimitWarning> getLimitWarnings() {
     final warnings = [
       getLimitWarningForItems(),
       getLimitWarningForLocations(),
       getLimitWarningForUsers(),
       getLimitWarningForLabels(),
-      _limitWarning(
-        kind: PlanLimitKind.photos,
-        used: currentUsage.photoCount,
-        limit: currentPlan.photoLimit,
-        unitLabel: 'photo slots',
-      ),
+      getLimitWarningForPhotos(),
     ].whereType<PlanLimitWarning>().toList();
 
     warnings.sort((left, right) {

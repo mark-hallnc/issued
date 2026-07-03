@@ -68,5 +68,9 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Issued uses the camera to add item photos.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Issued uses your photo library to choose item photos.</string>
 </dict>
 </plist>
