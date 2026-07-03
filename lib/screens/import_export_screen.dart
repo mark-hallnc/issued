@@ -1,7 +1,5 @@
-import 'dart:convert';
 import 'dart:io';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -101,71 +99,9 @@ class ImportExportScreen extends StatelessWidget {
   }
 
   Future<void> _startImport(BuildContext context) async {
-    final store = AppStoreScope.of(context);
-    if (!store.permissions.canImportExport) {
-      _showPermissionDenied(context);
-      return;
-    }
-
-    if (!store.currentPlan.csvImportEnabled) {
-      final action = await showPlanLimitDialog(
-        context,
-        title: 'CSV import needs an upgrade',
-        message: 'CSV import is not included in the Free plan.',
-        recommendedPlanCode: 'starter',
-      );
-
-      if (context.mounted && action == PlanLimitDialogAction.upgrade) {
-        await openComparePlans(context, recommendedPlanCode: 'starter');
-      }
-      return;
-    }
-
-    FilePickerResult? result;
-    try {
-      result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['csv'],
-        withData: true,
-      );
-    } catch (_) {
-      if (context.mounted) {
-        _showMessage(context, 'Could not open the file picker.');
-      }
-      return;
-    }
-
-    if (result == null || result.files.isEmpty) {
-      return;
-    }
-
-    final pickedFile = result.files.single;
-    final bytes = pickedFile.bytes;
-    if (bytes == null) {
-      if (context.mounted) {
-        _showMessage(context, 'Could not read that CSV file.');
-      }
-      return;
-    }
-
-    CsvImportPreview preview;
-    try {
-      preview = parseItemsCsv(utf8.decode(bytes, allowMalformed: true), store);
-    } catch (_) {
-      if (context.mounted) {
-        _showMessage(context, 'That file could not be parsed as CSV.');
-      }
-      return;
-    }
-
-    if (!context.mounted) {
-      return;
-    }
-
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (context) => ImportPreviewScreen(preview: preview),
-      ),
+    _showMessage(
+      context,
+      'CSV file import is temporarily disabled while file selection support is being updated.',
     );
   }
 
