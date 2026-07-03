@@ -16,6 +16,22 @@ class ImportExportScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final store = AppStoreScope.of(context);
+    if (!store.permissions.canImportExport) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Import & Export')),
+        body: const Padding(
+          padding: EdgeInsets.all(16),
+          child: Card(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('Your current role does not allow this action.'),
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(title: const Text('Import & Export')),
       body: ListView(
@@ -86,6 +102,11 @@ class ImportExportScreen extends StatelessWidget {
 
   Future<void> _startImport(BuildContext context) async {
     final store = AppStoreScope.of(context);
+    if (!store.permissions.canImportExport) {
+      _showPermissionDenied(context);
+      return;
+    }
+
     if (!store.currentPlan.csvImportEnabled) {
       final action = await showPlanLimitDialog(
         context,
@@ -153,6 +174,11 @@ class ImportExportScreen extends StatelessWidget {
     required String filename,
     required String csvText,
   }) async {
+    if (!AppStoreScope.of(context).permissions.canImportExport) {
+      _showPermissionDenied(context);
+      return;
+    }
+
     try {
       final directory = await getTemporaryDirectory();
       final file = File('${directory.path}${Platform.pathSeparator}$filename');
@@ -181,6 +207,10 @@ class ImportExportScreen extends StatelessWidget {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _showPermissionDenied(BuildContext context) {
+    _showMessage(context, 'Your current role does not allow this action.');
   }
 }
 
@@ -295,6 +325,11 @@ class _ImportPreviewScreenState extends State<ImportPreviewScreen> {
 
   Future<void> _importRows() async {
     final store = AppStoreScope.of(context);
+    if (!store.permissions.canImportExport) {
+      _showPermissionDenied();
+      return;
+    }
+
     final newItemCount = newActiveItemCountForMode(
       widget.preview,
       _duplicateMode,
@@ -341,6 +376,12 @@ class _ImportPreviewScreenState extends State<ImportPreviewScreen> {
     Navigator.of(context).pop();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Imported $importedCount items from CSV.')),
+    );
+  }
+
+  void _showPermissionDenied() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Your current role does not allow this action.')),
     );
   }
 

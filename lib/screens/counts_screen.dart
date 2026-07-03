@@ -16,6 +16,7 @@ class _CountsScreenState extends State<CountsScreen> {
   @override
   Widget build(BuildContext context) {
     final store = AppStoreScope.of(context);
+    final canCreateCounts = store.permissions.canManageCycleCounts;
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -28,15 +29,17 @@ class _CountsScreenState extends State<CountsScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: FilledButton.icon(
-            onPressed: _openCreateCount,
-            icon: const Icon(Icons.add_task),
-            label: const Text('New Cycle Count'),
+        if (canCreateCounts) ...[
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FilledButton.icon(
+              onPressed: _openCreateCount,
+              icon: const Icon(Icons.add_task),
+              label: const Text('New Cycle Count'),
+            ),
           ),
-        ),
-        const SizedBox(height: 16),
+          const SizedBox(height: 16),
+        ],
         for (final session in store.cycleCountSessions) ...[
           _CycleCountCard(
             session: session,
@@ -50,6 +53,11 @@ class _CountsScreenState extends State<CountsScreen> {
   }
 
   Future<void> _openCreateCount() async {
+    if (!AppStoreScope.of(context).permissions.canManageCycleCounts) {
+      _showPermissionDenied();
+      return;
+    }
+
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => const CreateCycleCountScreen(),
@@ -75,6 +83,12 @@ class _CountsScreenState extends State<CountsScreen> {
     }
 
     setState(() {});
+  }
+
+  void _showPermissionDenied() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Your current role does not allow this action.')),
+    );
   }
 }
 

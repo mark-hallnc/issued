@@ -80,6 +80,15 @@ class ComparePlansScreen extends StatelessWidget {
   }
 
   void _selectPlan(BuildContext context, AppStore store, Plan plan) {
+    if (!store.permissions.canManagePlan) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Your current role does not allow this action.'),
+        ),
+      );
+      return;
+    }
+
     if (plan.code == store.currentPlan.code) {
       return;
     }

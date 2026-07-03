@@ -107,6 +107,7 @@ class _LimitWarningCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isReached = warning.severity == PlanLimitSeverity.reached;
+    final canManagePlan = AppStoreScope.of(context).permissions.canManagePlan;
 
     return Card(
       color: isReached ? const Color(0xFFFFF3E0) : const Color(0xFFEAF2FF),
@@ -137,13 +138,19 @@ class _LimitWarningCard extends StatelessWidget {
                   },
                   child: const Text('View Plan'),
                 ),
-                FilledButton(
-                  onPressed: () => openComparePlans(
-                    context,
-                    recommendedPlanCode: warning.recommendedPlanCode,
+                if (canManagePlan)
+                  FilledButton(
+                    onPressed: () => openComparePlans(
+                      context,
+                      recommendedPlanCode: warning.recommendedPlanCode,
+                    ),
+                    child: const Text('Upgrade'),
+                  )
+                else
+                  const OutlinedButton(
+                    onPressed: null,
+                    child: Text('Ask an admin to upgrade'),
                   ),
-                  child: const Text('Upgrade'),
-                ),
               ],
             ),
           ],

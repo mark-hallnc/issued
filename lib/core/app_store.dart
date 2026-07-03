@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'database/app_database.dart';
 import 'database/model_mappers.dart';
 import 'models/models.dart';
+import 'permissions/app_permissions.dart';
 import 'sample_data.dart';
 
 class AppStore extends ChangeNotifier {
@@ -24,6 +25,8 @@ class AppStore extends ChangeNotifier {
   final List<CustomFieldValue> _customFieldValues = [];
   Plan _plan = samplePlan;
   CompanyUsage _companyUsage = sampleCompanyUsage;
+  String? _currentUserId;
+  UserRole? _currentRoleOverride;
   bool _isInitialized = false;
 
   bool get isInitialized => _isInitialized;
@@ -45,6 +48,49 @@ class AppStore extends ChangeNotifier {
   Plan get plan => _plan;
   CompanyUsage get companyUsage => _companyUsage;
   Plan get currentPlan => _plan;
+  AppUser? get currentUser {
+    if (_users.isEmpty) {
+      return null;
+    }
+
+    final requestedUserId = _currentUserId;
+    if (requestedUserId != null) {
+      for (final user in _users) {
+        if (user.id == requestedUserId && user.isActive) {
+          return user;
+        }
+      }
+    }
+
+    for (final user in _users) {
+      if (user.isActive && user.role == UserRole.admin) {
+        return user;
+      }
+    }
+
+    return _users.firstWhere((user) => user.isActive, orElse: () => _users.first);
+  }
+
+  Person? get currentPerson {
+    final personId = currentUser?.personId;
+    if (personId == null) {
+      return null;
+    }
+
+    for (final person in _people) {
+      if (person.id == personId) {
+        return person;
+      }
+    }
+
+    return null;
+  }
+
+  UserRole get currentRole {
+    return _currentRoleOverride ?? currentUser?.role ?? UserRole.manager;
+  }
+
+  AppPermissions get permissions => AppPermissions(currentRole);
   List<Plan> get availablePlans => List.unmodifiable(samplePlans);
   CompanyUsage get currentUsage {
     return CompanyUsage(
@@ -65,8 +111,35 @@ class AppStore extends ChangeNotifier {
     }
 
     await _loadFromDatabase();
+    await _ensureLocalTestUsers();
     _isInitialized = true;
     notifyListeners();
+  }
+
+  Future<void> _ensureLocalTestUsers() async {
+    var addedUsers = false;
+    for (final person in samplePeople) {
+      if (_people.any((storedPerson) => storedPerson.id == person.id)) {
+        continue;
+      }
+
+      _people.add(person);
+      await _database.upsertPerson(person.toCompanion());
+      addedUsers = true;
+    }
+    for (final user in sampleUsers) {
+      if (_users.any((storedUser) => storedUser.id == user.id)) {
+        continue;
+      }
+
+      _users.add(user);
+      await _database.upsertAppUser(user.toCompanion());
+      addedUsers = true;
+    }
+
+    if (addedUsers) {
+      await _loadFromDatabase();
+    }
   }
 
   Future<void> _seedDatabase() async {
@@ -162,6 +235,7 @@ class AppStore extends ChangeNotifier {
     _companyUsage = usages.isEmpty
         ? sampleCompanyUsage
         : usages.first.toDomain();
+    _currentUserId ??= currentUser?.id;
   }
 
   void addItem(Item item) {
@@ -264,6 +338,22 @@ class AppStore extends ChangeNotifier {
     );
     _plan = plan;
     unawaited(_database.upsertPlan(plan.toCompanion()));
+    notifyListeners();
+  }
+
+  void setCurrentUserForTesting(String userId) {
+    for (final user in _users) {
+      if (user.id == userId && user.isActive) {
+        _currentUserId = userId;
+        _currentRoleOverride = null;
+        notifyListeners();
+        return;
+      }
+    }
+  }
+
+  void setCurrentRoleForTesting(UserRole role) {
+    _currentRoleOverride = role;
     notifyListeners();
   }
 

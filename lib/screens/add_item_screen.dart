@@ -292,6 +292,11 @@ class _AddItemScreenState extends State<AddItemScreen> {
 
   void _saveItem() {
     final store = AppStoreScope.of(context);
+    if (!store.permissions.canManageItems) {
+      _showPermissionDenied();
+      return;
+    }
+
     if (!store.canAddItem) {
       _showItemLimitReached(store);
       return;
@@ -327,6 +332,12 @@ class _AddItemScreenState extends State<AddItemScreen> {
 
     store.addItem(item);
     Navigator.of(context).pop(true);
+  }
+
+  void _showPermissionDenied() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Your current role does not allow this action.')),
+    );
   }
 
   Future<void> _showItemLimitReached(AppStore store) async {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/app_store.dart';
 import '../core/models/models.dart';
+import '../core/permissions/app_permissions.dart';
 import 'plan_screens.dart';
 
 class CompanySettingsScreen extends StatelessWidget {
@@ -28,10 +29,40 @@ class UsersRolesSettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final store = AppStoreScope.of(context);
+    if (!store.permissions.canManageUsers) {
+      return const _PermissionScaffold(title: 'Users & Roles');
+    }
 
     return _SettingsScaffold(
       title: 'Users & Roles',
       children: [
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Current User',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '${store.currentPerson?.displayName ?? 'Local User'} - ${roleLabel(store.currentRole)}',
+                ),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: () => _showUserSwitcher(context, store),
+                  icon: const Icon(Icons.swap_horiz),
+                  label: const Text('Switch User - Local testing only'),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
         for (final person in store.people) ...[
           Card(
             child: ListTile(
@@ -57,7 +88,7 @@ class UsersRolesSettingsScreen extends StatelessWidget {
       return 'Non-login assignee';
     }
 
-    return 'Login user - ${_roleLabel(user.role)}';
+    return 'Login user - ${roleLabel(user.role)}';
   }
 
   AppUser? _userForPerson(AppStore store, String personId) {
@@ -70,13 +101,38 @@ class UsersRolesSettingsScreen extends StatelessWidget {
     return null;
   }
 
-  String _roleLabel(UserRole role) {
-    return switch (role) {
-      UserRole.admin => 'Admin',
-      UserRole.manager => 'Manager',
-      UserRole.worker => 'Worker',
-      UserRole.viewOnly => 'View only',
-    };
+  Future<void> _showUserSwitcher(BuildContext context, AppStore store) {
+    return showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Switch current user'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final user in store.users.where((user) => user.isActive))
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(_personNameForUser(store, user)),
+                subtitle: Text(roleLabel(user.role)),
+                onTap: () {
+                  store.setCurrentUserForTesting(user.id);
+                  Navigator.of(context).pop();
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _personNameForUser(AppStore store, AppUser user) {
+    for (final person in store.people) {
+      if (person.id == user.personId) {
+        return person.displayName;
+      }
+    }
+
+    return user.email;
   }
 }
 
@@ -95,11 +151,13 @@ class _LocationsSettingsScreenState extends State<LocationsSettingsScreen> {
 
     return _SettingsScaffold(
       title: 'Locations',
-      action: FilledButton.icon(
-        onPressed: _showAddLocationForm,
-        icon: const Icon(Icons.add_location_alt),
-        label: const Text('Add Location'),
-      ),
+      action: store.permissions.canManageSettings
+          ? FilledButton.icon(
+              onPressed: _showAddLocationForm,
+              icon: const Icon(Icons.add_location_alt),
+              label: const Text('Add Location'),
+            )
+          : null,
       children: [
         for (final location in store.locations) ...[
           Card(
@@ -120,6 +178,11 @@ class _LocationsSettingsScreenState extends State<LocationsSettingsScreen> {
 
   Future<void> _showAddLocationForm() async {
     final store = AppStoreScope.of(context);
+    if (!store.permissions.canManageSettings) {
+      _showPermissionDenied(context);
+      return;
+    }
+
     if (!store.canAddLocation) {
       final action = await showPlanLimitDialog(
         context,
@@ -177,11 +240,13 @@ class _UnitsOfMeasureSettingsScreenState
 
     return _SettingsScaffold(
       title: 'Units of Measure',
-      action: FilledButton.icon(
-        onPressed: _showAddUomForm,
-        icon: const Icon(Icons.add),
-        label: const Text('Add UOM'),
-      ),
+      action: store.permissions.canManageSettings
+          ? FilledButton.icon(
+              onPressed: _showAddUomForm,
+              icon: const Icon(Icons.add),
+              label: const Text('Add UOM'),
+            )
+          : null,
       children: [
         for (final unit in store.unitsOfMeasure) ...[
           Card(
@@ -203,6 +268,12 @@ class _UnitsOfMeasureSettingsScreenState
   }
 
   Future<void> _showAddUomForm() async {
+    final store = AppStoreScope.of(context);
+    if (!store.permissions.canManageSettings) {
+      _showPermissionDenied(context);
+      return;
+    }
+
     final unit = await showDialog<UnitOfMeasure>(
       context: context,
       builder: (context) => const _AddUomDialog(),
@@ -216,7 +287,7 @@ class _UnitsOfMeasureSettingsScreenState
       return;
     }
 
-    AppStoreScope.of(context).addUnitOfMeasure(unit);
+    store.addUnitOfMeasure(unit);
   }
 }
 
@@ -236,11 +307,13 @@ class _CustomFieldsSettingsScreenState
 
     return _SettingsScaffold(
       title: 'Custom Fields',
-      action: FilledButton.icon(
-        onPressed: _showAddCustomFieldForm,
-        icon: const Icon(Icons.add),
-        label: const Text('Add Custom Field'),
-      ),
+      action: store.permissions.canManageSettings
+          ? FilledButton.icon(
+              onPressed: _showAddCustomFieldForm,
+              icon: const Icon(Icons.add),
+              label: const Text('Add Custom Field'),
+            )
+          : null,
       children: [
         for (final field in store.customFieldDefinitions) ...[
           Card(
@@ -262,6 +335,12 @@ class _CustomFieldsSettingsScreenState
   }
 
   Future<void> _showAddCustomFieldForm() async {
+    final store = AppStoreScope.of(context);
+    if (!store.permissions.canManageSettings) {
+      _showPermissionDenied(context);
+      return;
+    }
+
     final field = await showDialog<CustomFieldDefinition>(
       context: context,
       builder: (context) => const _AddCustomFieldDialog(),
@@ -275,7 +354,7 @@ class _CustomFieldsSettingsScreenState
       return;
     }
 
-    AppStoreScope.of(context).addCustomFieldDefinition(field);
+    store.addCustomFieldDefinition(field);
   }
 
   String _entityLabel(CustomFieldEntityType entityType) {
@@ -306,6 +385,7 @@ class PlanUsageSettingsScreen extends StatelessWidget {
     final store = AppStoreScope.of(context);
     final plan = store.currentPlan;
     final usage = store.currentUsage;
+    final canManagePlan = store.permissions.canManagePlan;
 
     return _SettingsScaffold(
       title: 'Plan & Usage',
@@ -395,10 +475,12 @@ class PlanUsageSettingsScreen extends StatelessWidget {
               label: const Text('Compare Plans'),
             ),
             FilledButton.icon(
-              onPressed: () => openComparePlans(
-                context,
-                recommendedPlanCode: _recommendedPlanCode(store),
-              ),
+              onPressed: canManagePlan
+                  ? () => openComparePlans(
+                      context,
+                      recommendedPlanCode: _recommendedPlanCode(store),
+                    )
+                  : () => _showPermissionDenied(context),
               icon: const Icon(Icons.upgrade),
               label: const Text('Upgrade Plan'),
             ),
@@ -834,6 +916,27 @@ class _SettingsScaffold extends StatelessWidget {
   }
 }
 
+class _PermissionScaffold extends StatelessWidget {
+  const _PermissionScaffold({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SettingsScaffold(
+      title: title,
+      children: const [
+        Card(
+          child: Padding(
+            padding: EdgeInsets.all(16),
+            child: Text('Your current role does not allow this action.'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _InfoCard extends StatelessWidget {
   const _InfoCard({
     required this.icon,
@@ -863,4 +966,10 @@ String? _required(String? value) {
   }
 
   return null;
+}
+
+void _showPermissionDenied(BuildContext context) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text('Your current role does not allow this action.')),
+  );
 }

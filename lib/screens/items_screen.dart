@@ -23,6 +23,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
   @override
   Widget build(BuildContext context) {
     final store = AppStoreScope.of(context);
+    final permissions = store.permissions;
     final visibleItems = store.items.where(_matchesSelectedFilter).toList();
     final exportableItems = visibleItems
         .where((item) => item.isActive)
@@ -56,17 +57,18 @@ class _ItemsScreenState extends State<ItemsScreen> {
             runSpacing: 10,
             children: [
               FilledButton.icon(
-                onPressed: _openAddItem,
+                onPressed: permissions.canManageItems ? _openAddItem : null,
                 icon: const Icon(Icons.add),
                 label: const Text('Add Item'),
               ),
-              OutlinedButton.icon(
-                onPressed: exportableItems.isEmpty
-                    ? null
-                    : () => _exportLabels(store, exportableItems),
-                icon: const Icon(Icons.qr_code_2),
-                label: const Text('Export Labels'),
-              ),
+              if (permissions.canImportExport)
+                OutlinedButton.icon(
+                  onPressed: exportableItems.isEmpty
+                      ? null
+                      : () => _exportLabels(store, exportableItems),
+                  icon: const Icon(Icons.qr_code_2),
+                  label: const Text('Export Labels'),
+                ),
             ],
           ),
         ),
@@ -139,6 +141,11 @@ class _ItemsScreenState extends State<ItemsScreen> {
 
   Future<void> _openAddItem() async {
     final store = AppStoreScope.of(context);
+    if (!store.permissions.canManageItems) {
+      _showPermissionDenied();
+      return;
+    }
+
     if (!store.canAddItem) {
       await _showItemLimitReached(store);
       return;
@@ -160,6 +167,11 @@ class _ItemsScreenState extends State<ItemsScreen> {
   }
 
   Future<void> _exportLabels(AppStore store, List<Item> items) async {
+    if (!store.permissions.canImportExport) {
+      _showPermissionDenied();
+      return;
+    }
+
     if (!store.canExportLabel) {
       await _showLabelLimitReached(store);
       return;
@@ -174,6 +186,12 @@ class _ItemsScreenState extends State<ItemsScreen> {
     if (didExport && mounted) {
       store.recordLabelExport();
     }
+  }
+
+  void _showPermissionDenied() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Your current role does not allow this action.')),
+    );
   }
 
   Future<void> _showItemLimitReached(AppStore store) async {

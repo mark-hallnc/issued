@@ -28,6 +28,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final store = AppStoreScope.of(context);
+    final permissions = store.permissions;
     final unit = _unitById(store, _item.unitOfMeasureId);
     final location = _locationById(store, _item.locationId);
     final showReturnableActions =
@@ -96,11 +97,13 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                     _DetailRow(label: 'Barcode', value: _item.barcode!),
                   if (_item.supplier != null)
                     _DetailRow(label: 'Supplier', value: _item.supplier!),
-                  if (_item.unitCost != null)
+                  if (_item.unitCost != null && permissions.canViewCosts)
                     _DetailRow(
                       label: 'Unit cost',
                       value: '\$${_item.unitCost!.toStringAsFixed(2)}',
                     ),
+                  if (_item.unitCost != null && !permissions.canViewCosts)
+                    const _DetailRow(label: 'Unit cost', value: 'Hidden by role'),
                   _DetailRow(
                     label: 'Status',
                     value: checkedOutPerson == null
@@ -151,16 +154,18 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                     spacing: 10,
                     runSpacing: 10,
                     children: [
-                      OutlinedButton.icon(
-                        onPressed: _shareLabel,
-                        icon: const Icon(Icons.ios_share),
-                        label: const Text('Share Label'),
-                      ),
-                      FilledButton.icon(
-                        onPressed: _printLabel,
-                        icon: const Icon(Icons.print),
-                        label: const Text('Print/Export Label'),
-                      ),
+                      if (permissions.canImportExport) ...[
+                        OutlinedButton.icon(
+                          onPressed: _shareLabel,
+                          icon: const Icon(Icons.ios_share),
+                          label: const Text('Share Label'),
+                        ),
+                        FilledButton.icon(
+                          onPressed: _printLabel,
+                          icon: const Icon(Icons.print),
+                          label: const Text('Print/Export Label'),
+                        ),
+                      ],
                     ],
                   ),
                 ],
@@ -186,50 +191,58 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                     spacing: 10,
                     runSpacing: 10,
                     children: [
-                      _ActionButton(
-                        label: 'Issue',
-                        icon: Icons.call_made,
-                        onPressed: _issueItem,
-                      ),
-                      _ActionButton(
-                        label: 'Receive',
-                        icon: Icons.add_box,
-                        onPressed: _receiveStock,
-                      ),
-                      _ActionButton(
-                        label: 'Transfer',
-                        icon: Icons.swap_horiz,
-                        onPressed: _transferItem,
-                      ),
-                      _ActionButton(
-                        label: 'Adjust',
-                        icon: Icons.tune,
-                        onPressed: _adjustQuantity,
-                      ),
+                      if (permissions.canIssueItems)
+                        _ActionButton(
+                          label: 'Issue',
+                          icon: Icons.call_made,
+                          onPressed: _issueItem,
+                        ),
+                      if (permissions.canReceiveStock)
+                        _ActionButton(
+                          label: 'Receive',
+                          icon: Icons.add_box,
+                          onPressed: _receiveStock,
+                        ),
+                      if (permissions.canTransferStock)
+                        _ActionButton(
+                          label: 'Transfer',
+                          icon: Icons.swap_horiz,
+                          onPressed: _transferItem,
+                        ),
+                      if (permissions.canAdjustQuantity)
+                        _ActionButton(
+                          label: 'Adjust',
+                          icon: Icons.tune,
+                          onPressed: _adjustQuantity,
+                        ),
                       if (showReturnableActions) ...[
-                        _ActionButton(
-                          label: 'Check Out',
-                          icon: Icons.assignment_ind,
-                          onPressed: _checkOutItem,
-                        ),
-                        _ActionButton(
-                          label: 'Return',
-                          icon: Icons.assignment_return,
-                          onPressed: _returnItem,
-                        ),
-                        _ActionButton(
-                          label: 'Mark Lost/Damaged',
-                          icon: Icons.report_problem_outlined,
-                          onPressed: _markLostOrDamaged,
-                        ),
+                        if (permissions.canIssueItems)
+                          _ActionButton(
+                            label: 'Check Out',
+                            icon: Icons.assignment_ind,
+                            onPressed: _checkOutItem,
+                          ),
+                        if (permissions.canIssueItems)
+                          _ActionButton(
+                            label: 'Return',
+                            icon: Icons.assignment_return,
+                            onPressed: _returnItem,
+                          ),
+                        if (permissions.canAdjustQuantity)
+                          _ActionButton(
+                            label: 'Mark Lost/Damaged',
+                            icon: Icons.report_problem_outlined,
+                            onPressed: _markLostOrDamaged,
+                          ),
                       ],
-                      _ActionButton(
-                        label: _item.isActive ? 'Archive' : 'Unarchive',
-                        icon: _item.isActive
-                            ? Icons.archive_outlined
-                            : Icons.unarchive_outlined,
-                        onPressed: _toggleArchive,
-                      ),
+                      if (permissions.canArchiveItems)
+                        _ActionButton(
+                          label: _item.isActive ? 'Archive' : 'Unarchive',
+                          icon: _item.isActive
+                              ? Icons.archive_outlined
+                              : Icons.unarchive_outlined,
+                          onPressed: _toggleArchive,
+                        ),
                     ],
                   ),
                 ],
@@ -272,6 +285,11 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
 
   Future<void> _shareLabel() async {
     final store = AppStoreScope.of(context);
+    if (!store.permissions.canImportExport) {
+      _showPermissionDenied();
+      return;
+    }
+
     if (!store.canExportLabel) {
       await _showLabelLimitReached(store);
       return;
@@ -290,6 +308,11 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
 
   Future<void> _printLabel() async {
     final store = AppStoreScope.of(context);
+    if (!store.permissions.canImportExport) {
+      _showPermissionDenied();
+      return;
+    }
+
     if (!store.canExportLabel) {
       await _showLabelLimitReached(store);
       return;
@@ -330,6 +353,12 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
   }
 
   Future<void> _receiveStock() async {
+    final store = AppStoreScope.of(context);
+    if (!store.permissions.canReceiveStock) {
+      _showPermissionDenied();
+      return;
+    }
+
     final result = await _showQuantityNotesDialog(
       title: 'Receive Stock',
       quantityLabel: 'Quantity received',
@@ -355,6 +384,11 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
 
   Future<void> _issueItem() async {
     final store = AppStoreScope.of(context);
+    if (!store.permissions.canIssueItems) {
+      _showPermissionDenied();
+      return;
+    }
+
     final person = _defaultPerson(store);
     final result = await _showQuantityNotesDialog(
       title: _item.itemType == ItemType.consumable
@@ -384,6 +418,11 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
 
   Future<void> _checkOutItem() async {
     final store = AppStoreScope.of(context);
+    if (!store.permissions.canIssueItems) {
+      _showPermissionDenied();
+      return;
+    }
+
     final person = _defaultPerson(store);
     final result = await _showQuantityNotesDialog(
       title: 'Check Out Item',
@@ -414,6 +453,12 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
   }
 
   Future<void> _returnItem() async {
+    final store = AppStoreScope.of(context);
+    if (!store.permissions.canIssueItems) {
+      _showPermissionDenied();
+      return;
+    }
+
     final result = await _showQuantityNotesDialog(
       title: 'Return Item',
       quantityLabel: 'Quantity returned',
@@ -439,6 +484,12 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
   }
 
   Future<void> _transferItem() async {
+    final store = AppStoreScope.of(context);
+    if (!store.permissions.canTransferStock) {
+      _showPermissionDenied();
+      return;
+    }
+
     final result = await showDialog<_TransferResult>(
       context: context,
       builder: (context) => _TransferDialog(
@@ -468,6 +519,12 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
   }
 
   Future<void> _adjustQuantity() async {
+    final store = AppStoreScope.of(context);
+    if (!store.permissions.canAdjustQuantity) {
+      _showPermissionDenied();
+      return;
+    }
+
     final result = await _showQuantityNotesDialog(
       title: 'Set Quantity On Hand',
       quantityLabel: 'New quantity on hand',
@@ -494,6 +551,12 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
   }
 
   Future<void> _markLostOrDamaged() async {
+    final store = AppStoreScope.of(context);
+    if (!store.permissions.canAdjustQuantity) {
+      _showPermissionDenied();
+      return;
+    }
+
     final result = await _showQuantityNotesDialog(
       title: 'Mark Lost/Damaged',
       quantityLabel: 'Quantity lost/damaged',
@@ -519,6 +582,12 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
   }
 
   Future<void> _toggleArchive() async {
+    final store = AppStoreScope.of(context);
+    if (!store.permissions.canArchiveItems) {
+      _showPermissionDenied();
+      return;
+    }
+
     if (_item.isActive) {
       _applyItemUpdate(
         _item.copyWith(isActive: false, updatedAt: DateTime.now()),
@@ -526,7 +595,6 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
       return;
     }
 
-    final store = AppStoreScope.of(context);
     if (!store.canAddItem) {
       final action = await showPlanLimitDialog(
         context,
@@ -607,6 +675,12 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     );
 
     setState(() {});
+  }
+
+  void _showPermissionDenied() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Your current role does not allow this action.')),
+    );
   }
 
   List<InventoryTransaction> _recentTransactions(AppStore store) {

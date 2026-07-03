@@ -44,6 +44,8 @@ class _CycleCountDetailScreenState extends State<CycleCountDetailScreen> {
     }
     final isSubmitted = _session.status == CycleCountStatus.submitted;
     final isApproved = _session.status == CycleCountStatus.approved;
+    final canSubmit = store.permissions.canPerformInventoryActions;
+    final canApprove = store.permissions.canApproveCycleCounts;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Cycle Count')),
@@ -52,12 +54,12 @@ class _CycleCountDetailScreenState extends State<CycleCountDetailScreen> {
           padding: const EdgeInsets.all(16),
           child: isSubmitted
               ? FilledButton.icon(
-                  onPressed: _approveCount,
+                  onPressed: canApprove ? _approveCount : null,
                   icon: const Icon(Icons.verified),
                   label: const Text('Approve Count'),
                 )
               : FilledButton.icon(
-                  onPressed: isApproved ? null : _submitCount,
+                  onPressed: isApproved || !canSubmit ? null : _submitCount,
                   icon: const Icon(Icons.send),
                   label: Text(isApproved ? 'Approved' : 'Submit Count'),
                 ),
@@ -107,7 +109,7 @@ class _CycleCountDetailScreenState extends State<CycleCountDetailScreen> {
               store: store,
               quantityController: _quantityControllers[line.id]!,
               notesController: _notesControllers[line.id]!,
-              enabled: !isSubmitted && !isApproved,
+              enabled: canSubmit && !isSubmitted && !isApproved,
             ),
             const SizedBox(height: 10),
           ],
@@ -118,6 +120,11 @@ class _CycleCountDetailScreenState extends State<CycleCountDetailScreen> {
 
   void _submitCount() {
     final store = AppStoreScope.of(context);
+    if (!store.permissions.canPerformInventoryActions) {
+      _showMessage('Your current role does not allow this action.');
+      return;
+    }
+
     final updatedLines = <CycleCountLine>[];
 
     for (final line in _lines(store)) {
@@ -167,6 +174,11 @@ class _CycleCountDetailScreenState extends State<CycleCountDetailScreen> {
 
   void _approveCount() {
     final store = AppStoreScope.of(context);
+    if (!store.permissions.canApproveCycleCounts) {
+      _showMessage('Your current role does not allow this action.');
+      return;
+    }
+
     store.approveCycleCount(_session.id);
     setState(() {
       _session = _freshSession(store, _session);

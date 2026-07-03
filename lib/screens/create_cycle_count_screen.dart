@@ -52,7 +52,9 @@ class _CreateCycleCountScreenState extends State<CreateCycleCountScreen> {
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: FilledButton.icon(
-            onPressed: _createSession,
+            onPressed: store.permissions.canManageCycleCounts
+                ? _createSession
+                : null,
             icon: const Icon(Icons.add_task),
             label: const Text('Create Count'),
           ),
@@ -202,17 +204,22 @@ class _CreateCycleCountScreenState extends State<CreateCycleCountScreen> {
   }
 
   void _createSession() {
+    final store = AppStoreScope.of(context);
+    if (!store.permissions.canManageCycleCounts) {
+      _showPermissionDenied();
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
-    final store = AppStoreScope.of(context);
     final now = DateTime.now();
     final session = CycleCountSession(
       id: 'count-${now.microsecondsSinceEpoch}',
       name: _nameController.text.trim(),
       status: CycleCountStatus.assigned,
-      assignedToUserId: store.users.isEmpty ? null : store.users.first.id,
+      assignedToUserId: store.currentUser?.id,
       blindCount: _blindCount,
       dueAt: _dueAt,
       createdAt: now,
@@ -240,6 +247,12 @@ class _CreateCycleCountScreenState extends State<CreateCycleCountScreen> {
       MaterialPageRoute<void>(
         builder: (context) => CycleCountDetailScreen(session: session),
       ),
+    );
+  }
+
+  void _showPermissionDenied() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Your current role does not allow this action.')),
     );
   }
 

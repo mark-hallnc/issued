@@ -141,7 +141,10 @@ class _ScannerScreenState extends State<ScannerScreen> {
     final action = await showDialog<_NotFoundAction>(
       context: context,
       barrierDismissible: false,
-      builder: (context) => _ItemNotFoundDialog(code: code),
+      builder: (context) => _ItemNotFoundDialog(
+        code: code,
+        canAddNew: AppStoreScope.of(context).permissions.canManageItems,
+      ),
     );
 
     if (!mounted) {
@@ -150,6 +153,12 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
     switch (action) {
       case _NotFoundAction.addNew:
+        if (!AppStoreScope.of(context).permissions.canManageItems) {
+          _showPermissionDenied();
+          await _resumeScanning();
+          return;
+        }
+
         final itemAdded = await Navigator.of(context).push<bool>(
           MaterialPageRoute<bool>(
             builder: (context) => AddItemScreen(initialBarcode: code),
@@ -215,6 +224,12 @@ class _ScannerScreenState extends State<ScannerScreen> {
   }
 
   String _normalize(String value) => value.trim().toLowerCase();
+
+  void _showPermissionDenied() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Your current role does not allow this action.')),
+    );
+  }
 }
 
 class _ManualEntryDialog extends StatefulWidget {
@@ -263,9 +278,10 @@ class _ManualEntryDialogState extends State<_ManualEntryDialog> {
 }
 
 class _ItemNotFoundDialog extends StatelessWidget {
-  const _ItemNotFoundDialog({required this.code});
+  const _ItemNotFoundDialog({required this.code, required this.canAddNew});
 
   final String code;
+  final bool canAddNew;
 
   @override
   Widget build(BuildContext context) {
@@ -281,10 +297,11 @@ class _ItemNotFoundDialog extends StatelessWidget {
           onPressed: () => Navigator.of(context).pop(_NotFoundAction.scanAgain),
           child: const Text('Scan Again'),
         ),
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(_NotFoundAction.addNew),
-          child: const Text('Add New Item'),
-        ),
+        if (canAddNew)
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(_NotFoundAction.addNew),
+            child: const Text('Add New Item'),
+          ),
       ],
     );
   }
