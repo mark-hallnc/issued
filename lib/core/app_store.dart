@@ -737,6 +737,222 @@ class AppStore extends ChangeNotifier {
     return getActiveReorderForItem(itemId) != null;
   }
 
+  InventorySummaryReport getInventorySummary() {
+    final activeItems = _items.where((item) => item.isActive).toList();
+
+    return InventorySummaryReport(
+      activeItemCount: activeItems.length,
+      archivedItemCount: _items.where((item) => !item.isActive).length,
+      consumableCount: activeItems
+          .where((item) => item.itemType == ItemType.consumable)
+          .length,
+      returnableCount: activeItems
+          .where((item) => item.itemType == ItemType.returnable)
+          .length,
+      assetCount: activeItems
+          .where((item) => item.itemType == ItemType.asset)
+          .length,
+      locationCount: _locations.where((location) => location.isActive).length,
+      lowStockCount: activeItems.where(isItemLowStock).length,
+      activeReorderCount: _reorderRequests.where((request) {
+        return request.status == ReorderStatus.needed ||
+            request.status == ReorderStatus.ordered;
+      }).length,
+      openCheckoutCount: openCheckoutRecords.length,
+    );
+  }
+
+  InventoryValueReport getInventoryValueReport() {
+    final byType = <ItemType, double>{};
+    final byLocation = <String, double>{};
+    var totalValue = 0.0;
+    var missingCostCount = 0;
+    var missingCostValue = 0.0;
+
+    for (final item in _items.where((item) => item.isActive)) {
+      final unitCost = item.unitCost;
+      if (unitCost == null) {
+        missingCostCount += 1;
+        missingCostValue += item.quantityOnHand;
+        continue;
+      }
+
+      final value = item.quantityOnHand * unitCost;
+      totalValue += value;
+      byType[item.itemType] = (byType[item.itemType] ?? 0) + value;
+      byLocation[item.locationId] = (byLocation[item.locationId] ?? 0) + value;
+    }
+
+    return InventoryValueReport(
+      totalValue: totalValue,
+      valueByType: byType,
+      valueByLocation: byLocation,
+      missingCostCount: missingCostCount,
+      missingCostQuantity: missingCostValue,
+    );
+  }
+
+  Map<ItemType, double> getInventoryValueByType() {
+    return getInventoryValueReport().valueByType;
+  }
+
+  Map<String, double> getInventoryValueByLocation() {
+    return getInventoryValueReport().valueByLocation;
+  }
+
+  List<UsageByItemRow> getUsageByItem(DateTime? start) {
+    final rowsByItem = <String, UsageByItemRow>{};
+    for (final transaction in _usageTransactions(start)) {
+      final quantity = transaction.quantityDelta.abs();
+      final existing = rowsByItem[transaction.itemId];
+      rowsByItem[transaction.itemId] = UsageByItemRow(
+        itemId: transaction.itemId,
+        quantity: (existing?.quantity ?? 0) + quantity,
+        unitOfMeasureId: transaction.unitOfMeasureId,
+        transactionCount: (existing?.transactionCount ?? 0) + 1,
+      );
+    }
+
+    final rows = rowsByItem.values.toList();
+    rows.sort((left, right) => right.quantity.compareTo(left.quantity));
+    return rows;
+  }
+
+  List<UsageByPersonRow> getUsageByPerson(DateTime? start) {
+    final rowsByPerson = <String, UsageByPersonRow>{};
+    final itemCountsByPerson = <String, Map<String, int>>{};
+    for (final transaction in _usageTransactions(start)) {
+      final personId = transaction.assignedToPersonId;
+      if (personId == null) {
+        continue;
+      }
+
+      final existing = rowsByPerson[personId];
+      rowsByPerson[personId] = UsageByPersonRow(
+        personId: personId,
+        quantity: (existing?.quantity ?? 0) + transaction.quantityDelta.abs(),
+        transactionCount: (existing?.transactionCount ?? 0) + 1,
+        topItemIds: const [],
+      );
+      final itemCounts = itemCountsByPerson.putIfAbsent(personId, () => {});
+      itemCounts[transaction.itemId] =
+          (itemCounts[transaction.itemId] ?? 0) + 1;
+    }
+
+    final rows = rowsByPerson.values.map((row) {
+      final itemCounts = itemCountsByPerson[row.personId] ?? {};
+      final topItemIds = itemCounts.entries.toList()
+        ..sort((left, right) => right.value.compareTo(left.value));
+      return UsageByPersonRow(
+        personId: row.personId,
+        quantity: row.quantity,
+        transactionCount: row.transactionCount,
+        topItemIds: topItemIds.take(3).map((entry) => entry.key).toList(),
+      );
+    }).toList();
+    rows.sort(
+      (left, right) => right.transactionCount.compareTo(left.transactionCount),
+    );
+    return rows;
+  }
+
+  List<LostDamagedReportRow> getLostDamagedActivity() {
+    final rows = <LostDamagedReportRow>[];
+    for (final transaction in _transactions) {
+      if (transaction.transactionType != InventoryTransactionType.markLost &&
+          transaction.transactionType != InventoryTransactionType.markDamaged) {
+        continue;
+      }
+
+      rows.add(
+        LostDamagedReportRow(
+          itemId: transaction.itemId,
+          status:
+              transaction.transactionType == InventoryTransactionType.markLost
+              ? 'Lost'
+              : 'Damaged',
+          quantity: transaction.quantityDelta.abs(),
+          unitOfMeasureId: transaction.unitOfMeasureId,
+          createdAt: transaction.createdAt,
+          notes: transaction.notes,
+          assignedToPersonId: transaction.assignedToPersonId,
+          locationId: transaction.fromLocationId ?? transaction.toLocationId,
+        ),
+      );
+    }
+
+    for (final record in _checkoutRecords) {
+      if (record.status != CheckoutStatus.lost &&
+          record.status != CheckoutStatus.damaged) {
+        continue;
+      }
+
+      rows.add(
+        LostDamagedReportRow(
+          itemId: record.itemId,
+          status: checkoutStatusLabel(record.status),
+          quantity: record.quantity,
+          unitOfMeasureId: record.unitOfMeasureId,
+          createdAt: record.returnedAt ?? record.checkedOutAt,
+          notes: record.notes,
+          assignedToPersonId: record.assignedToPersonId,
+          locationId: record.assignedToLocationId,
+        ),
+      );
+    }
+
+    rows.sort((left, right) => right.createdAt.compareTo(left.createdAt));
+    return rows;
+  }
+
+  List<CycleCountVarianceRow> getCycleCountVarianceRows() {
+    final rows = <CycleCountVarianceRow>[];
+    for (final line in _cycleCountLines) {
+      final counted = line.countedQuantity;
+      final variance = line.varianceQuantity;
+      if (counted == null || variance == null || variance == 0) {
+        continue;
+      }
+
+      final session = _cycleCountSessionById(line.sessionId);
+      rows.add(
+        CycleCountVarianceRow(
+          itemId: line.itemId,
+          sessionName: session?.name ?? 'Unknown count',
+          sessionDate:
+              session?.approvedAt ??
+              session?.submittedAt ??
+              session?.createdAt ??
+              DateTime.now(),
+          expectedQuantity: line.expectedQuantity,
+          countedQuantity: counted,
+          varianceQuantity: variance,
+          unitOfMeasureId: line.unitOfMeasureId,
+        ),
+      );
+    }
+
+    rows.sort((left, right) => right.sessionDate.compareTo(left.sessionDate));
+    return rows;
+  }
+
+  ReorderStatusSummary getReorderStatusSummary() {
+    return ReorderStatusSummary(
+      needed: _reorderRequests
+          .where((request) => request.status == ReorderStatus.needed)
+          .length,
+      ordered: _reorderRequests
+          .where((request) => request.status == ReorderStatus.ordered)
+          .length,
+      received: _reorderRequests
+          .where((request) => request.status == ReorderStatus.received)
+          .length,
+      canceled: _reorderRequests
+          .where((request) => request.status == ReorderStatus.canceled)
+          .length,
+    );
+  }
+
   Item? itemById(String itemId) {
     return _itemById(itemId);
   }
@@ -1271,6 +1487,34 @@ class AppStore extends ChangeNotifier {
     return null;
   }
 
+  CycleCountSession? _cycleCountSessionById(String sessionId) {
+    for (final session in _cycleCountSessions) {
+      if (session.id == sessionId) {
+        return session;
+      }
+    }
+
+    return null;
+  }
+
+  Iterable<InventoryTransaction> _usageTransactions(DateTime? start) {
+    return _transactions.where((transaction) {
+      if (start != null && transaction.createdAt.isBefore(start)) {
+        return false;
+      }
+
+      return switch (transaction.transactionType) {
+        InventoryTransactionType.issue ||
+        InventoryTransactionType.checkout ||
+        InventoryTransactionType.markLost ||
+        InventoryTransactionType.markDamaged => true,
+        InventoryTransactionType.cycleCountAdjustment =>
+          transaction.quantityDelta < 0,
+        _ => false,
+      };
+    });
+  }
+
   PlanLimitWarning? _limitWarning({
     required PlanLimitKind kind,
     required int used,
@@ -1469,6 +1713,130 @@ String? _emptyToNull(String? value) {
   }
 
   return trimmedValue;
+}
+
+class InventorySummaryReport {
+  const InventorySummaryReport({
+    required this.activeItemCount,
+    required this.archivedItemCount,
+    required this.consumableCount,
+    required this.returnableCount,
+    required this.assetCount,
+    required this.locationCount,
+    required this.lowStockCount,
+    required this.activeReorderCount,
+    required this.openCheckoutCount,
+  });
+
+  final int activeItemCount;
+  final int archivedItemCount;
+  final int consumableCount;
+  final int returnableCount;
+  final int assetCount;
+  final int locationCount;
+  final int lowStockCount;
+  final int activeReorderCount;
+  final int openCheckoutCount;
+}
+
+class InventoryValueReport {
+  const InventoryValueReport({
+    required this.totalValue,
+    required this.valueByType,
+    required this.valueByLocation,
+    required this.missingCostCount,
+    required this.missingCostQuantity,
+  });
+
+  final double totalValue;
+  final Map<ItemType, double> valueByType;
+  final Map<String, double> valueByLocation;
+  final int missingCostCount;
+  final double missingCostQuantity;
+}
+
+class UsageByItemRow {
+  const UsageByItemRow({
+    required this.itemId,
+    required this.quantity,
+    required this.unitOfMeasureId,
+    required this.transactionCount,
+  });
+
+  final String itemId;
+  final double quantity;
+  final String unitOfMeasureId;
+  final int transactionCount;
+}
+
+class UsageByPersonRow {
+  const UsageByPersonRow({
+    required this.personId,
+    required this.quantity,
+    required this.transactionCount,
+    required this.topItemIds,
+  });
+
+  final String personId;
+  final double quantity;
+  final int transactionCount;
+  final List<String> topItemIds;
+}
+
+class LostDamagedReportRow {
+  const LostDamagedReportRow({
+    required this.itemId,
+    required this.status,
+    required this.quantity,
+    required this.unitOfMeasureId,
+    required this.createdAt,
+    required this.notes,
+    required this.assignedToPersonId,
+    required this.locationId,
+  });
+
+  final String itemId;
+  final String status;
+  final double quantity;
+  final String unitOfMeasureId;
+  final DateTime createdAt;
+  final String? notes;
+  final String? assignedToPersonId;
+  final String? locationId;
+}
+
+class CycleCountVarianceRow {
+  const CycleCountVarianceRow({
+    required this.itemId,
+    required this.sessionName,
+    required this.sessionDate,
+    required this.expectedQuantity,
+    required this.countedQuantity,
+    required this.varianceQuantity,
+    required this.unitOfMeasureId,
+  });
+
+  final String itemId;
+  final String sessionName;
+  final DateTime sessionDate;
+  final double expectedQuantity;
+  final double countedQuantity;
+  final double varianceQuantity;
+  final String unitOfMeasureId;
+}
+
+class ReorderStatusSummary {
+  const ReorderStatusSummary({
+    required this.needed,
+    required this.ordered,
+    required this.received,
+    required this.canceled,
+  });
+
+  final int needed;
+  final int ordered;
+  final int received;
+  final int canceled;
 }
 
 class AppStoreScope extends InheritedNotifier<AppStore> {

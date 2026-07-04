@@ -6,6 +6,7 @@ import 'activity_screen.dart';
 import 'checked_out_screen.dart';
 import 'low_stock_screen.dart';
 import 'plan_screens.dart';
+import 'reports_screen.dart';
 import 'settings_detail_screens.dart';
 
 class DashboardScreen extends StatelessWidget {
@@ -95,6 +96,18 @@ class DashboardScreen extends StatelessWidget {
                 Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (context) => const ActivityScreen(),
+                  ),
+                );
+              },
+            ),
+            _DashboardCard(
+              title: 'Reports',
+              count: 'View',
+              icon: Icons.assessment_outlined,
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (context) => const ReportsScreen(),
                   ),
                 );
               },

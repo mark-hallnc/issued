@@ -4,6 +4,7 @@ import '../core/app_store.dart';
 import '../core/models/models.dart';
 import '../core/permissions/app_permissions.dart';
 import 'import_export_screen.dart';
+import 'reports_screen.dart';
 import 'settings_detail_screens.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -50,6 +51,11 @@ class SettingsScreen extends StatelessWidget {
           icon: Icons.query_stats_outlined,
           screen: PlanUsageSettingsScreen(),
         ),
+      const _SettingsRow(
+        title: 'Reports',
+        icon: Icons.assessment_outlined,
+        screen: ReportsScreen(),
+      ),
       if (permissions.canImportExport)
         const _SettingsRow(
           title: 'Import & Export',
