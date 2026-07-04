@@ -316,6 +316,12 @@ class _ItemsScreenState extends State<ItemsScreen> {
             value.textValue,
             value.numberValue?.toString(),
             value.selectedOption,
+            value.booleanValue == null
+                ? null
+                : value.booleanValue!
+                ? 'yes'
+                : 'no',
+            value.dateValue?.toIso8601String(),
           ].whereType<String>().join(' ');
         })
         .join(' ');

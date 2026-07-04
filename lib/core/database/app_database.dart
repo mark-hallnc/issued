@@ -29,7 +29,7 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? openDatabaseConnection());
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration {
@@ -43,6 +43,20 @@ class AppDatabase extends _$AppDatabase {
         }
         if (from < 4) {
           await migrator.createTable(companies);
+        }
+        if (from < 5) {
+          await migrator.addColumn(
+            customFieldDefinitions,
+            customFieldDefinitions.appliesToItemType,
+          );
+          await migrator.addColumn(
+            customFieldDefinitions,
+            customFieldDefinitions.appliesToCategory,
+          );
+          await migrator.addColumn(
+            customFieldDefinitions,
+            customFieldDefinitions.sortOrder,
+          );
         }
       },
     );
@@ -126,6 +140,12 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> upsertCustomFieldValue(CustomFieldValuesCompanion value) {
     return into(customFieldValues).insertOnConflictUpdate(value);
+  }
+
+  Future<void> deleteCustomFieldValueById(String id) {
+    return (delete(
+      customFieldValues,
+    )..where((value) => value.id.equals(id))).go();
   }
 
   Future<void> upsertPlan(PlansCompanion plan) {

@@ -143,6 +143,12 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
             ),
           ),
           const SizedBox(height: 12),
+          _ItemCustomFieldsCard(
+            item: _item,
+            store: store,
+            canEdit: permissions.canManageItems,
+          ),
+          const SizedBox(height: 12),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -1462,6 +1468,331 @@ class _SelectCheckoutDialog extends StatelessWidget {
 
 enum _PhotoLimitAction { cancel, viewPlan, upgrade }
 
+class _ItemCustomFieldsCard extends StatefulWidget {
+  const _ItemCustomFieldsCard({
+    required this.item,
+    required this.store,
+    required this.canEdit,
+  });
+
+  final Item item;
+  final AppStore store;
+  final bool canEdit;
+
+  @override
+  State<_ItemCustomFieldsCard> createState() => _ItemCustomFieldsCardState();
+}
+
+class _ItemCustomFieldsCardState extends State<_ItemCustomFieldsCard> {
+  @override
+  Widget build(BuildContext context) {
+    final fields = widget.store.activeCustomFieldsForItem(widget.item);
+    if (fields.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Custom Fields',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF17212F),
+                    ),
+                  ),
+                ),
+                if (widget.canEdit)
+                  OutlinedButton(
+                    onPressed: _editValues,
+                    child: const Text('Edit'),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            for (final field in fields)
+              _DetailRow(
+                label: field.name,
+                value: _customValueText(
+                  field,
+                  widget.store.getCustomFieldValue(field.id, widget.item.id),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _editValues() async {
+    final changed = await showDialog<bool>(
+      context: context,
+      builder: (context) =>
+          _EditCustomFieldValuesDialog(item: widget.item, store: widget.store),
+    );
+    if (changed == true && mounted) {
+      setState(() {});
+    }
+  }
+}
+
+class _EditCustomFieldValuesDialog extends StatefulWidget {
+  const _EditCustomFieldValuesDialog({required this.item, required this.store});
+
+  final Item item;
+  final AppStore store;
+
+  @override
+  State<_EditCustomFieldValuesDialog> createState() =>
+      _EditCustomFieldValuesDialogState();
+}
+
+class _EditCustomFieldValuesDialogState
+    extends State<_EditCustomFieldValuesDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final Map<String, TextEditingController> _textControllers = {};
+  final Map<String, bool> _boolValues = {};
+  final Map<String, DateTime?> _dateValues = {};
+  final Map<String, String?> _selectValues = {};
+
+  @override
+  void initState() {
+    super.initState();
+    for (final field in widget.store.activeCustomFieldsForItem(widget.item)) {
+      final value = widget.store.getCustomFieldValue(field.id, widget.item.id);
+      switch (field.fieldType) {
+        case CustomFieldType.text:
+          _textControllers[field.id] = TextEditingController(
+            text: value?.textValue ?? '',
+          );
+        case CustomFieldType.number:
+          _textControllers[field.id] = TextEditingController(
+            text: value?.numberValue?.toString() ?? '',
+          );
+        case CustomFieldType.date:
+          _dateValues[field.id] = value?.dateValue;
+        case CustomFieldType.boolean:
+          _boolValues[field.id] = value?.booleanValue ?? false;
+        case CustomFieldType.select:
+          _selectValues[field.id] = value?.selectedOption;
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final controller in _textControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final fields = widget.store.activeCustomFieldsForItem(widget.item);
+    return AlertDialog(
+      title: const Text('Edit Custom Fields'),
+      content: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final field in fields) ...[
+                _fieldControl(context, field),
+                const SizedBox(height: 12),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(onPressed: _save, child: const Text('Save')),
+      ],
+    );
+  }
+
+  Widget _fieldControl(BuildContext context, CustomFieldDefinition field) {
+    return switch (field.fieldType) {
+      CustomFieldType.text || CustomFieldType.number => TextFormField(
+        controller: _textControllers[field.id],
+        decoration: InputDecoration(labelText: field.name),
+        keyboardType: field.fieldType == CustomFieldType.number
+            ? const TextInputType.numberWithOptions(decimal: true)
+            : null,
+        validator: (value) {
+          if (field.isRequired && (value == null || value.trim().isEmpty)) {
+            return 'Required';
+          }
+          if (field.fieldType == CustomFieldType.number &&
+              (value ?? '').trim().isNotEmpty &&
+              double.tryParse(value!.trim()) == null) {
+            return 'Enter a valid number';
+          }
+          return null;
+        },
+      ),
+      CustomFieldType.date => OutlinedButton.icon(
+        onPressed: () async {
+          final now = DateTime.now();
+          final date = await showDatePicker(
+            context: context,
+            firstDate: DateTime(now.year - 20),
+            lastDate: DateTime(now.year + 50),
+            initialDate: _dateValues[field.id] ?? now,
+          );
+          if (date == null) {
+            return;
+          }
+          setState(() {
+            _dateValues[field.id] = date;
+          });
+        },
+        icon: const Icon(Icons.event),
+        label: Text(
+          _dateValues[field.id] == null
+              ? field.name
+              : '${field.name}: ${_formatDate(_dateValues[field.id]!)}',
+        ),
+      ),
+      CustomFieldType.boolean => SwitchListTile(
+        contentPadding: EdgeInsets.zero,
+        title: Text(field.name),
+        value: _boolValues[field.id] ?? false,
+        onChanged: (value) => setState(() => _boolValues[field.id] = value),
+      ),
+      CustomFieldType.select => DropdownButtonFormField<String>(
+        initialValue: _selectValues[field.id],
+        decoration: InputDecoration(labelText: field.name),
+        items: field.options
+            .map(
+              (option) => DropdownMenuItem(value: option, child: Text(option)),
+            )
+            .toList(),
+        onChanged: (value) => _selectValues[field.id] = value,
+        validator: (value) {
+          if (field.isRequired && (value == null || value.isEmpty)) {
+            return 'Required';
+          }
+          return null;
+        },
+      ),
+    };
+  }
+
+  void _save() {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+    final now = DateTime.now();
+    for (final field in widget.store.activeCustomFieldsForItem(widget.item)) {
+      final value = _valueForField(field, widget.item.id, now);
+      final existing = widget.store.getCustomFieldValue(
+        field.id,
+        widget.item.id,
+      );
+      if (value == null) {
+        if (existing != null) {
+          widget.store.deleteCustomFieldValue(existing.id);
+        }
+      } else {
+        widget.store.setCustomFieldValue(value);
+      }
+    }
+    Navigator.of(context).pop(true);
+  }
+
+  CustomFieldValue? _valueForField(
+    CustomFieldDefinition field,
+    String itemId,
+    DateTime now,
+  ) {
+    final id =
+        widget.store.getCustomFieldValue(field.id, itemId)?.id ??
+        'cfv-${field.id}-$itemId';
+    return switch (field.fieldType) {
+      CustomFieldType.text =>
+        (_textControllers[field.id]?.text.trim() ?? '').isEmpty
+            ? null
+            : CustomFieldValue(
+                id: id,
+                definitionId: field.id,
+                entityId: itemId,
+                textValue: _textControllers[field.id]!.text.trim(),
+                numberValue: null,
+                dateValue: null,
+                booleanValue: null,
+                selectedOption: null,
+              ),
+      CustomFieldType.number =>
+        (_textControllers[field.id]?.text.trim() ?? '').isEmpty
+            ? null
+            : CustomFieldValue(
+                id: id,
+                definitionId: field.id,
+                entityId: itemId,
+                textValue: null,
+                numberValue: double.parse(
+                  _textControllers[field.id]!.text.trim(),
+                ),
+                dateValue: null,
+                booleanValue: null,
+                selectedOption: null,
+              ),
+      CustomFieldType.date =>
+        _dateValues[field.id] == null
+            ? null
+            : CustomFieldValue(
+                id: id,
+                definitionId: field.id,
+                entityId: itemId,
+                textValue: null,
+                numberValue: null,
+                dateValue: _dateValues[field.id],
+                booleanValue: null,
+                selectedOption: null,
+              ),
+      CustomFieldType.boolean => CustomFieldValue(
+        id: id,
+        definitionId: field.id,
+        entityId: itemId,
+        textValue: null,
+        numberValue: null,
+        dateValue: null,
+        booleanValue: _boolValues[field.id] ?? false,
+        selectedOption: null,
+      ),
+      CustomFieldType.select =>
+        _selectValues[field.id] == null
+            ? null
+            : CustomFieldValue(
+                id: id,
+                definitionId: field.id,
+                entityId: itemId,
+                textValue: null,
+                numberValue: null,
+                dateValue: null,
+                booleanValue: null,
+                selectedOption: _selectValues[field.id],
+              ),
+    };
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.month}/${date.day}/${date.year}';
+  }
+}
+
 class _QuantityNotesDialog extends StatefulWidget {
   const _QuantityNotesDialog({
     required this.title,
@@ -1889,4 +2220,20 @@ String _formatQuantity(double quantity) {
   }
 
   return quantity.toStringAsFixed(2);
+}
+
+String _customValueText(CustomFieldDefinition field, CustomFieldValue? value) {
+  if (value == null) {
+    return field.isRequired ? 'Not set' : '';
+  }
+  return switch (field.fieldType) {
+    CustomFieldType.text => value.textValue ?? '',
+    CustomFieldType.number => value.numberValue?.toString() ?? '',
+    CustomFieldType.date =>
+      value.dateValue == null
+          ? ''
+          : '${value.dateValue!.month}/${value.dateValue!.day}/${value.dateValue!.year}',
+    CustomFieldType.boolean => value.booleanValue == true ? 'Yes' : 'No',
+    CustomFieldType.select => value.selectedOption ?? '',
+  };
 }

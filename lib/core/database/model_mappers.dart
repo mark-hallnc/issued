@@ -346,6 +346,11 @@ extension CustomFieldDefinitionRecordMapper on CustomFieldDefinitionRecord {
       fieldType: _enumByName(domain.CustomFieldType.values, fieldType),
       isRequired: isRequired,
       options: List<String>.from(jsonDecode(optionsJson) as List),
+      appliesToItemType: appliesToItemType == null
+          ? null
+          : _enumByName(domain.ItemType.values, appliesToItemType!),
+      appliesToCategory: appliesToCategory,
+      sortOrder: sortOrder,
       isActive: isActive,
     );
   }
@@ -360,6 +365,9 @@ extension CustomFieldDefinitionDomainMapper on domain.CustomFieldDefinition {
       fieldType: Value(fieldType.name),
       isRequired: Value(isRequired),
       optionsJson: Value(jsonEncode(options)),
+      appliesToItemType: Value(appliesToItemType?.name),
+      appliesToCategory: Value(appliesToCategory),
+      sortOrder: Value(sortOrder),
       isActive: Value(isActive),
     );
   }

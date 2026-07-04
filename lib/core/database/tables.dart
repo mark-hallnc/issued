@@ -172,6 +172,9 @@ class CustomFieldDefinitions extends Table {
   TextColumn get fieldType => text()();
   BoolColumn get isRequired => boolean()();
   TextColumn get optionsJson => text()();
+  TextColumn get appliesToItemType => text().nullable()();
+  TextColumn get appliesToCategory => text().nullable()();
+  IntColumn get sortOrder => integer().withDefault(const Constant(0))();
   BoolColumn get isActive => boolean()();
 
   @override

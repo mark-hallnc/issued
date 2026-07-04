@@ -24,6 +24,10 @@ class _AddItemScreenState extends State<AddItemScreen> {
   final _supplierController = TextEditingController();
   final _unitCostController = TextEditingController();
   final _notesController = TextEditingController();
+  final Map<String, TextEditingController> _customTextControllers = {};
+  final Map<String, bool> _customBoolValues = {};
+  final Map<String, DateTime?> _customDateValues = {};
+  final Map<String, String?> _customSelectValues = {};
 
   ItemType _itemType = ItemType.consumable;
   UnitOfMeasure? _selectedUnit;
@@ -47,6 +51,9 @@ class _AddItemScreenState extends State<AddItemScreen> {
     _supplierController.dispose();
     _unitCostController.dispose();
     _notesController.dispose();
+    for (final controller in _customTextControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -115,6 +122,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
                 border: OutlineInputBorder(),
               ),
               textInputAction: TextInputAction.next,
+              onChanged: (_) => setState(() {}),
             ),
             const SizedBox(height: 12),
             TextFormField(
@@ -252,6 +260,15 @@ class _AddItemScreenState extends State<AddItemScreen> {
               ),
               maxLines: 3,
             ),
+            const SizedBox(height: 12),
+            _CustomFieldsSection(
+              fields: store.activeCustomFieldsForItem(_draftItem(store)),
+              textControllers: _customTextControllers,
+              boolValues: _customBoolValues,
+              dateValues: _customDateValues,
+              selectValues: _customSelectValues,
+              onChanged: () => setState(() {}),
+            ),
           ],
         ),
       ),
@@ -331,7 +348,111 @@ class _AddItemScreenState extends State<AddItemScreen> {
     );
 
     store.addItem(item);
+    for (final field in store.activeCustomFieldsForItem(item)) {
+      final value = _customValueForField(field, item.id, now);
+      if (value != null) {
+        store.setCustomFieldValue(value);
+      }
+    }
     Navigator.of(context).pop(true);
+  }
+
+  Item _draftItem(AppStore store) {
+    final now = DateTime.now();
+    return Item(
+      id: 'draft',
+      name: _nameController.text,
+      description: _notesController.text,
+      itemType: _itemType,
+      category: _categoryController.text.trim(),
+      locationId: _selectedLocation?.id ?? store.locations.first.id,
+      quantityOnHand: 0,
+      minimumQuantity: 0,
+      unitOfMeasureId: _selectedUnit?.id ?? store.unitsOfMeasure.first.id,
+      barcode: null,
+      sku: null,
+      supplier: null,
+      unitCost: null,
+      photoPath: null,
+      isActive: true,
+      allowFractionalQuantity: false,
+      createdAt: now,
+      updatedAt: now,
+    );
+  }
+
+  CustomFieldValue? _customValueForField(
+    CustomFieldDefinition field,
+    String itemId,
+    DateTime now,
+  ) {
+    final id = 'cfv-${field.id}-$itemId';
+    return switch (field.fieldType) {
+      CustomFieldType.text =>
+        _emptyToNull(_customTextControllers[field.id]?.text ?? '') == null
+            ? null
+            : CustomFieldValue(
+                id: id,
+                definitionId: field.id,
+                entityId: itemId,
+                textValue: _customTextControllers[field.id]!.text.trim(),
+                numberValue: null,
+                dateValue: null,
+                booleanValue: null,
+                selectedOption: null,
+              ),
+      CustomFieldType.number =>
+        _emptyToNull(_customTextControllers[field.id]?.text ?? '') == null
+            ? null
+            : CustomFieldValue(
+                id: id,
+                definitionId: field.id,
+                entityId: itemId,
+                textValue: null,
+                numberValue: double.parse(
+                  _customTextControllers[field.id]!.text.trim(),
+                ),
+                dateValue: null,
+                booleanValue: null,
+                selectedOption: null,
+              ),
+      CustomFieldType.date =>
+        _customDateValues[field.id] == null
+            ? null
+            : CustomFieldValue(
+                id: id,
+                definitionId: field.id,
+                entityId: itemId,
+                textValue: null,
+                numberValue: null,
+                dateValue: _customDateValues[field.id],
+                booleanValue: null,
+                selectedOption: null,
+              ),
+      CustomFieldType.boolean => CustomFieldValue(
+        id: id,
+        definitionId: field.id,
+        entityId: itemId,
+        textValue: null,
+        numberValue: null,
+        dateValue: null,
+        booleanValue: _customBoolValues[field.id] ?? false,
+        selectedOption: null,
+      ),
+      CustomFieldType.select =>
+        _customSelectValues[field.id] == null
+            ? null
+            : CustomFieldValue(
+                id: id,
+                definitionId: field.id,
+                entityId: itemId,
+                textValue: null,
+                numberValue: null,
+                dateValue: null,
+                booleanValue: null,
+                selectedOption: _customSelectValues[field.id],
+              ),
+    };
   }
 
   void _showPermissionDenied() {
@@ -382,5 +503,179 @@ class _AddItemScreenState extends State<AddItemScreen> {
       ItemType.returnable => 'Returnable',
       ItemType.asset => 'Asset',
     };
+  }
+}
+
+class _CustomFieldsSection extends StatelessWidget {
+  const _CustomFieldsSection({
+    required this.fields,
+    required this.textControllers,
+    required this.boolValues,
+    required this.dateValues,
+    required this.selectValues,
+    required this.onChanged,
+  });
+
+  final List<CustomFieldDefinition> fields;
+  final Map<String, TextEditingController> textControllers;
+  final Map<String, bool> boolValues;
+  final Map<String, DateTime?> dateValues;
+  final Map<String, String?> selectValues;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    if (fields.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Card(
+      child: ExpansionTile(
+        initiallyExpanded: fields.length <= 4,
+        title: const Text('Custom Fields'),
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        children: [
+          for (final field in fields) ...[
+            _fieldControl(context, field),
+            const SizedBox(height: 12),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _fieldControl(BuildContext context, CustomFieldDefinition field) {
+    return switch (field.fieldType) {
+      CustomFieldType.text => TextFormField(
+        controller: _controllerFor(field),
+        decoration: InputDecoration(
+          labelText: _label(field),
+          border: const OutlineInputBorder(),
+        ),
+        validator: (value) => _requiredText(field, value),
+      ),
+      CustomFieldType.number => TextFormField(
+        controller: _controllerFor(field),
+        decoration: InputDecoration(
+          labelText: _label(field),
+          border: const OutlineInputBorder(),
+        ),
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        validator: (value) {
+          final requiredError = _requiredText(field, value);
+          if (requiredError != null) {
+            return requiredError;
+          }
+          if ((value ?? '').trim().isNotEmpty &&
+              double.tryParse(value!.trim()) == null) {
+            return 'Enter a valid number';
+          }
+          return null;
+        },
+      ),
+      CustomFieldType.date => FormField<DateTime?>(
+        initialValue: dateValues[field.id],
+        validator: (_) {
+          if (field.isRequired && dateValues[field.id] == null) {
+            return 'Required';
+          }
+          return null;
+        },
+        builder: (state) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final now = DateTime.now();
+                  final date = await showDatePicker(
+                    context: context,
+                    firstDate: DateTime(now.year - 20),
+                    lastDate: DateTime(now.year + 50),
+                    initialDate: dateValues[field.id] ?? now,
+                  );
+                  if (date == null) {
+                    return;
+                  }
+                  dateValues[field.id] = date;
+                  state.didChange(date);
+                  onChanged();
+                },
+                icon: const Icon(Icons.event),
+                label: Text(
+                  dateValues[field.id] == null
+                      ? _label(field)
+                      : '${field.name}: ${_formatDate(dateValues[field.id]!)}',
+                ),
+              ),
+              if (state.hasError)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    state.errorText!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
+      CustomFieldType.boolean => SwitchListTile(
+        contentPadding: EdgeInsets.zero,
+        title: Text(_label(field)),
+        value: boolValues[field.id] ?? false,
+        onChanged: (value) {
+          boolValues[field.id] = value;
+          onChanged();
+        },
+      ),
+      CustomFieldType.select => DropdownButtonFormField<String>(
+        initialValue: selectValues[field.id],
+        decoration: InputDecoration(
+          labelText: _label(field),
+          border: const OutlineInputBorder(),
+        ),
+        items: field.options
+            .map(
+              (option) =>
+                  DropdownMenuItem<String>(value: option, child: Text(option)),
+            )
+            .toList(),
+        onChanged: (value) {
+          selectValues[field.id] = value;
+          onChanged();
+        },
+        validator: (value) {
+          if (field.isRequired && (value == null || value.isEmpty)) {
+            return 'Required';
+          }
+          if (value != null && !field.options.contains(value)) {
+            return 'Choose a valid option';
+          }
+          return null;
+        },
+      ),
+    };
+  }
+
+  TextEditingController _controllerFor(CustomFieldDefinition field) {
+    return textControllers.putIfAbsent(field.id, () => TextEditingController());
+  }
+
+  String _label(CustomFieldDefinition field) {
+    return field.isRequired ? '${field.name} *' : field.name;
+  }
+
+  String? _requiredText(CustomFieldDefinition field, String? value) {
+    if (field.isRequired && (value == null || value.trim().isEmpty)) {
+      return 'Required';
+    }
+    return null;
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.month}/${date.day}/${date.year}';
   }
 }

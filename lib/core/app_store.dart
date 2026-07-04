@@ -737,6 +737,75 @@ class AppStore extends ChangeNotifier {
     return getActiveReorderForItem(itemId) != null;
   }
 
+  List<CustomFieldDefinition> activeCustomFieldsForItem(Item item) {
+    final fields = _customFieldDefinitions.where((field) {
+      if (!field.isActive || field.entityType != CustomFieldEntityType.item) {
+        return false;
+      }
+      final appliesToItemType = field.appliesToItemType;
+      if (appliesToItemType != null && appliesToItemType != item.itemType) {
+        return false;
+      }
+      final appliesToCategory = field.appliesToCategory?.trim();
+      if (appliesToCategory != null &&
+          appliesToCategory.isNotEmpty &&
+          appliesToCategory.toLowerCase() != item.category.toLowerCase()) {
+        return false;
+      }
+      return true;
+    }).toList();
+
+    fields.sort((left, right) {
+      final orderCompare = left.sortOrder.compareTo(right.sortOrder);
+      if (orderCompare != 0) {
+        return orderCompare;
+      }
+      return left.name.toLowerCase().compareTo(right.name.toLowerCase());
+    });
+    return fields;
+  }
+
+  List<CustomFieldValue> customFieldValuesForEntity(
+    String entityType,
+    String entityId,
+  ) {
+    return _customFieldValues
+        .where((value) => value.entityId == entityId)
+        .toList();
+  }
+
+  CustomFieldValue? getCustomFieldValue(
+    String fieldDefinitionId,
+    String entityId,
+  ) {
+    for (final value in _customFieldValues) {
+      if (value.definitionId == fieldDefinitionId &&
+          value.entityId == entityId) {
+        return value;
+      }
+    }
+    return null;
+  }
+
+  void setCustomFieldValue(CustomFieldValue value) {
+    final valueIndex = _customFieldValues.indexWhere(
+      (storedValue) => storedValue.id == value.id,
+    );
+    if (valueIndex == -1) {
+      _customFieldValues.add(value);
+    } else {
+      _customFieldValues[valueIndex] = value;
+    }
+    unawaited(_database.upsertCustomFieldValue(value.toCompanion()));
+    notifyListeners();
+  }
+
+  void deleteCustomFieldValue(String valueId) {
+    _customFieldValues.removeWhere((value) => value.id == valueId);
+    unawaited(_database.deleteCustomFieldValueById(valueId));
+    notifyListeners();
+  }
+
   InventorySummaryReport getInventorySummary() {
     final activeItems = _items.where((item) => item.isActive).toList();
 
@@ -1595,6 +1664,37 @@ class AppStore extends ChangeNotifier {
   void addCustomFieldDefinition(CustomFieldDefinition field) {
     _customFieldDefinitions.add(field);
     unawaited(_database.upsertCustomFieldDefinition(field.toCompanion()));
+    notifyListeners();
+  }
+
+  void updateCustomFieldDefinition(CustomFieldDefinition field) {
+    final fieldIndex = _customFieldDefinitions.indexWhere(
+      (storedField) => storedField.id == field.id,
+    );
+    if (fieldIndex == -1) {
+      return;
+    }
+
+    _customFieldDefinitions[fieldIndex] = field;
+    unawaited(_database.upsertCustomFieldDefinition(field.toCompanion()));
+    notifyListeners();
+  }
+
+  void archiveCustomFieldDefinition(String fieldId) {
+    final fieldIndex = _customFieldDefinitions.indexWhere(
+      (field) => field.id == fieldId,
+    );
+    if (fieldIndex == -1) {
+      return;
+    }
+
+    final archivedField = _customFieldDefinitions[fieldIndex].copyWith(
+      isActive: false,
+    );
+    _customFieldDefinitions[fieldIndex] = archivedField;
+    unawaited(
+      _database.upsertCustomFieldDefinition(archivedField.toCompanion()),
+    );
     notifyListeners();
   }
 

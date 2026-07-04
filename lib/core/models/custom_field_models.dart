@@ -1,3 +1,5 @@
+import 'inventory_models.dart';
+
 enum CustomFieldEntityType { item, location, person, transaction }
 
 enum CustomFieldType { text, number, date, boolean, select }
@@ -10,6 +12,9 @@ class CustomFieldDefinition {
     required this.fieldType,
     required this.isRequired,
     required this.options,
+    required this.appliesToItemType,
+    required this.appliesToCategory,
+    required this.sortOrder,
     required this.isActive,
   });
 
@@ -19,6 +24,9 @@ class CustomFieldDefinition {
   final CustomFieldType fieldType;
   final bool isRequired;
   final List<String> options;
+  final ItemType? appliesToItemType;
+  final String? appliesToCategory;
+  final int sortOrder;
   final bool isActive;
 
   CustomFieldDefinition copyWith({
@@ -28,6 +36,9 @@ class CustomFieldDefinition {
     CustomFieldType? fieldType,
     bool? isRequired,
     List<String>? options,
+    ItemType? appliesToItemType,
+    String? appliesToCategory,
+    int? sortOrder,
     bool? isActive,
   }) {
     return CustomFieldDefinition(
@@ -37,6 +48,9 @@ class CustomFieldDefinition {
       fieldType: fieldType ?? this.fieldType,
       isRequired: isRequired ?? this.isRequired,
       options: options ?? this.options,
+      appliesToItemType: appliesToItemType ?? this.appliesToItemType,
+      appliesToCategory: appliesToCategory ?? this.appliesToCategory,
+      sortOrder: sortOrder ?? this.sortOrder,
       isActive: isActive ?? this.isActive,
     );
   }

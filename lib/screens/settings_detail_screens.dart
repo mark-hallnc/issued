@@ -470,8 +470,17 @@ class _CustomFieldsSettingsScreenState
               ),
               title: Text(field.name),
               subtitle: Text(
-                '${_entityLabel(field.entityType)} - ${_fieldTypeLabel(field.fieldType)}${field.isRequired ? ' - Required' : ''}',
+                '${_entityLabel(field.entityType)} - ${_fieldTypeLabel(field.fieldType)}${field.isRequired ? ' - Required' : ''}${field.isActive ? '' : ' - Archived'}',
               ),
+              trailing: store.permissions.canManageSettings
+                  ? PopupMenuButton<String>(
+                      onSelected: (action) => _handleFieldAction(action, field),
+                      itemBuilder: (context) => const [
+                        PopupMenuItem(value: 'edit', child: Text('Edit')),
+                        PopupMenuItem(value: 'archive', child: Text('Archive')),
+                      ],
+                    )
+                  : null,
             ),
           ),
           const SizedBox(height: 10),
@@ -489,7 +498,7 @@ class _CustomFieldsSettingsScreenState
 
     final field = await showDialog<CustomFieldDefinition>(
       context: context,
-      builder: (context) => const _AddCustomFieldDialog(),
+      builder: (context) => _CustomFieldDialog(categories: _categories(store)),
     );
 
     if (field == null) {
@@ -501,6 +510,40 @@ class _CustomFieldsSettingsScreenState
     }
 
     store.addCustomFieldDefinition(field);
+  }
+
+  Future<void> _handleFieldAction(
+    String action,
+    CustomFieldDefinition field,
+  ) async {
+    final store = AppStoreScope.of(context);
+    if (!store.permissions.canManageSettings) {
+      _showPermissionDenied(context);
+      return;
+    }
+
+    if (action == 'archive') {
+      store.archiveCustomFieldDefinition(field.id);
+      return;
+    }
+
+    final updatedField = await showDialog<CustomFieldDefinition>(
+      context: context,
+      builder: (context) =>
+          _CustomFieldDialog(field: field, categories: _categories(store)),
+    );
+    if (updatedField != null) {
+      store.updateCustomFieldDefinition(updatedField);
+    }
+  }
+
+  List<String> _categories(AppStore store) {
+    return store.items
+        .map((item) => item.category.trim())
+        .where((category) => category.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
   }
 
   String _entityLabel(CustomFieldEntityType entityType) {
@@ -806,20 +849,42 @@ class _AddLocationDialogState extends State<_AddLocationDialog> {
   }
 }
 
-class _AddCustomFieldDialog extends StatefulWidget {
-  const _AddCustomFieldDialog();
+class _CustomFieldDialog extends StatefulWidget {
+  const _CustomFieldDialog({this.field, required this.categories});
 
   @override
-  State<_AddCustomFieldDialog> createState() => _AddCustomFieldDialogState();
+  State<_CustomFieldDialog> createState() => _CustomFieldDialogState();
+
+  final CustomFieldDefinition? field;
+  final List<String> categories;
 }
 
-class _AddCustomFieldDialogState extends State<_AddCustomFieldDialog> {
+class _CustomFieldDialogState extends State<_CustomFieldDialog> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _optionsController = TextEditingController();
   CustomFieldEntityType _entityType = CustomFieldEntityType.item;
   CustomFieldType _fieldType = CustomFieldType.text;
+  ItemType? _appliesToItemType;
+  String? _appliesToCategory;
   bool _isRequired = false;
+  bool _isActive = true;
+
+  @override
+  void initState() {
+    super.initState();
+    final field = widget.field;
+    if (field != null) {
+      _nameController.text = field.name;
+      _optionsController.text = field.options.join(', ');
+      _entityType = field.entityType;
+      _fieldType = field.fieldType;
+      _appliesToItemType = field.appliesToItemType;
+      _appliesToCategory = field.appliesToCategory;
+      _isRequired = field.isRequired;
+      _isActive = field.isActive;
+    }
+  }
 
   @override
   void dispose() {
@@ -831,7 +896,9 @@ class _AddCustomFieldDialogState extends State<_AddCustomFieldDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Add Custom Field'),
+      title: Text(
+        widget.field == null ? 'Add Custom Field' : 'Edit Custom Field',
+      ),
       content: Form(
         key: _formKey,
         child: SingleChildScrollView(
@@ -893,6 +960,50 @@ class _AddCustomFieldDialogState extends State<_AddCustomFieldDialog> {
                     helperText: 'Separate options with commas',
                   ),
                 ),
+              DropdownButtonFormField<ItemType?>(
+                initialValue: _appliesToItemType,
+                decoration: const InputDecoration(
+                  labelText: 'Applies to item type',
+                ),
+                items: [
+                  const DropdownMenuItem<ItemType?>(
+                    value: null,
+                    child: Text('Any'),
+                  ),
+                  for (final type in ItemType.values)
+                    DropdownMenuItem<ItemType?>(
+                      value: type,
+                      child: Text(_itemTypeLabel(type)),
+                    ),
+                ],
+                onChanged: (type) {
+                  setState(() {
+                    _appliesToItemType = type;
+                  });
+                },
+              ),
+              DropdownButtonFormField<String?>(
+                initialValue: _appliesToCategory,
+                decoration: const InputDecoration(
+                  labelText: 'Applies to category',
+                ),
+                items: [
+                  const DropdownMenuItem<String?>(
+                    value: null,
+                    child: Text('Any'),
+                  ),
+                  for (final category in widget.categories)
+                    DropdownMenuItem<String?>(
+                      value: category,
+                      child: Text(category),
+                    ),
+                ],
+                onChanged: (category) {
+                  setState(() {
+                    _appliesToCategory = category;
+                  });
+                },
+              ),
               CheckboxListTile(
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Required'),
@@ -900,6 +1011,16 @@ class _AddCustomFieldDialogState extends State<_AddCustomFieldDialog> {
                 onChanged: (value) {
                   setState(() {
                     _isRequired = value ?? false;
+                  });
+                },
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Active'),
+                value: _isActive,
+                onChanged: (value) {
+                  setState(() {
+                    _isActive = value;
                   });
                 },
               ),
@@ -924,7 +1045,9 @@ class _AddCustomFieldDialogState extends State<_AddCustomFieldDialog> {
 
     Navigator.of(context).pop(
       CustomFieldDefinition(
-        id: 'field-${DateTime.now().microsecondsSinceEpoch}',
+        id:
+            widget.field?.id ??
+            'field-${DateTime.now().microsecondsSinceEpoch}',
         entityType: _entityType,
         name: _nameController.text.trim(),
         fieldType: _fieldType,
@@ -934,7 +1057,10 @@ class _AddCustomFieldDialogState extends State<_AddCustomFieldDialog> {
             .map((option) => option.trim())
             .where((option) => option.isNotEmpty)
             .toList(),
-        isActive: true,
+        appliesToItemType: _appliesToItemType,
+        appliesToCategory: _appliesToCategory,
+        sortOrder: widget.field?.sortOrder ?? 0,
+        isActive: _isActive,
       ),
     );
   }
@@ -955,6 +1081,14 @@ class _AddCustomFieldDialogState extends State<_AddCustomFieldDialog> {
       CustomFieldType.date => 'Date',
       CustomFieldType.boolean => 'Yes/No',
       CustomFieldType.select => 'Dropdown',
+    };
+  }
+
+  String _itemTypeLabel(ItemType type) {
+    return switch (type) {
+      ItemType.consumable => 'Consumable',
+      ItemType.returnable => 'Returnable',
+      ItemType.asset => 'Asset',
     };
   }
 }

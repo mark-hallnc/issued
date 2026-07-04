@@ -68,6 +68,15 @@ class CsvImportRow {
 }
 
 String buildItemsCsv(AppStore store, {required bool includeArchived}) {
+  final customFields =
+      store.customFieldDefinitions
+          .where(
+            (field) =>
+                field.isActive &&
+                field.entityType == CustomFieldEntityType.item,
+          )
+          .toList()
+        ..sort((left, right) => left.sortOrder.compareTo(right.sortOrder));
   final rows = <List<Object?>>[
     [
       'id',
@@ -89,6 +98,7 @@ String buildItemsCsv(AppStore store, {required bool includeArchived}) {
       'is_active',
       'created_at',
       'updated_at',
+      for (final field in customFields) 'custom_${_slug(field.name)}',
     ],
   ];
 
@@ -119,6 +129,13 @@ String buildItemsCsv(AppStore store, {required bool includeArchived}) {
       item.isActive,
       item.createdAt.toIso8601String(),
       item.updatedAt.toIso8601String(),
+      for (final field in customFields)
+        _customFieldApplies(field, item)
+            ? _customFieldValueText(
+                field,
+                store.getCustomFieldValue(field.id, item.id),
+              )
+            : '',
     ]);
   }
 
@@ -571,3 +588,46 @@ String _userNameById(AppStore store, String? userId) {
 }
 
 String _normalize(String value) => value.trim().toLowerCase();
+
+bool _customFieldApplies(CustomFieldDefinition field, Item item) {
+  final appliesToItemType = field.appliesToItemType;
+  if (appliesToItemType != null && appliesToItemType != item.itemType) {
+    return false;
+  }
+  final appliesToCategory = field.appliesToCategory?.trim();
+  if (appliesToCategory != null &&
+      appliesToCategory.isNotEmpty &&
+      appliesToCategory.toLowerCase() != item.category.toLowerCase()) {
+    return false;
+  }
+  return true;
+}
+
+String _customFieldValueText(
+  CustomFieldDefinition field,
+  CustomFieldValue? value,
+) {
+  if (value == null) {
+    return '';
+  }
+  return switch (field.fieldType) {
+    CustomFieldType.text => value.textValue ?? '',
+    CustomFieldType.number => value.numberValue?.toString() ?? '',
+    CustomFieldType.date => value.dateValue?.toIso8601String() ?? '',
+    CustomFieldType.boolean =>
+      value.booleanValue == null
+          ? ''
+          : value.booleanValue!
+          ? 'yes'
+          : 'no',
+    CustomFieldType.select => value.selectedOption ?? '',
+  };
+}
+
+String _slug(String value) {
+  return value
+      .trim()
+      .toLowerCase()
+      .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+      .replaceAll(RegExp(r'^_+|_+$'), '');
+}

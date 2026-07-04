@@ -253,6 +253,9 @@ final sampleCustomFieldDefinitions = [
     fieldType: CustomFieldType.boolean,
     isRequired: false,
     options: [],
+    appliesToItemType: ItemType.asset,
+    appliesToCategory: null,
+    sortOrder: 0,
     isActive: true,
   ),
   const CustomFieldDefinition(
@@ -262,6 +265,9 @@ final sampleCustomFieldDefinitions = [
     fieldType: CustomFieldType.select,
     isRequired: false,
     options: ['Good', 'Service Due', 'Damaged'],
+    appliesToItemType: null,
+    appliesToCategory: 'Tools',
+    sortOrder: 1,
     isActive: true,
   ),
 ];

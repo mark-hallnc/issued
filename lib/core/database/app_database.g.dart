@@ -6101,6 +6101,42 @@ class $CustomFieldDefinitionsTable extends CustomFieldDefinitions
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _appliesToItemTypeMeta = const VerificationMeta(
+    'appliesToItemType',
+  );
+  @override
+  late final GeneratedColumn<String> appliesToItemType =
+      GeneratedColumn<String>(
+        'applies_to_item_type',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _appliesToCategoryMeta = const VerificationMeta(
+    'appliesToCategory',
+  );
+  @override
+  late final GeneratedColumn<String> appliesToCategory =
+      GeneratedColumn<String>(
+        'applies_to_category',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _sortOrderMeta = const VerificationMeta(
+    'sortOrder',
+  );
+  @override
+  late final GeneratedColumn<int> sortOrder = GeneratedColumn<int>(
+    'sort_order',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   static const VerificationMeta _isActiveMeta = const VerificationMeta(
     'isActive',
   );
@@ -6123,6 +6159,9 @@ class $CustomFieldDefinitionsTable extends CustomFieldDefinitions
     fieldType,
     isRequired,
     optionsJson,
+    appliesToItemType,
+    appliesToCategory,
+    sortOrder,
     isActive,
   ];
   @override
@@ -6185,6 +6224,30 @@ class $CustomFieldDefinitionsTable extends CustomFieldDefinitions
     } else if (isInserting) {
       context.missing(_optionsJsonMeta);
     }
+    if (data.containsKey('applies_to_item_type')) {
+      context.handle(
+        _appliesToItemTypeMeta,
+        appliesToItemType.isAcceptableOrUnknown(
+          data['applies_to_item_type']!,
+          _appliesToItemTypeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('applies_to_category')) {
+      context.handle(
+        _appliesToCategoryMeta,
+        appliesToCategory.isAcceptableOrUnknown(
+          data['applies_to_category']!,
+          _appliesToCategoryMeta,
+        ),
+      );
+    }
+    if (data.containsKey('sort_order')) {
+      context.handle(
+        _sortOrderMeta,
+        sortOrder.isAcceptableOrUnknown(data['sort_order']!, _sortOrderMeta),
+      );
+    }
     if (data.containsKey('is_active')) {
       context.handle(
         _isActiveMeta,
@@ -6229,6 +6292,18 @@ class $CustomFieldDefinitionsTable extends CustomFieldDefinitions
         DriftSqlType.string,
         data['${effectivePrefix}options_json'],
       )!,
+      appliesToItemType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}applies_to_item_type'],
+      ),
+      appliesToCategory: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}applies_to_category'],
+      ),
+      sortOrder: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sort_order'],
+      )!,
       isActive: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_active'],
@@ -6250,6 +6325,9 @@ class CustomFieldDefinitionRecord extends DataClass
   final String fieldType;
   final bool isRequired;
   final String optionsJson;
+  final String? appliesToItemType;
+  final String? appliesToCategory;
+  final int sortOrder;
   final bool isActive;
   const CustomFieldDefinitionRecord({
     required this.id,
@@ -6258,6 +6336,9 @@ class CustomFieldDefinitionRecord extends DataClass
     required this.fieldType,
     required this.isRequired,
     required this.optionsJson,
+    this.appliesToItemType,
+    this.appliesToCategory,
+    required this.sortOrder,
     required this.isActive,
   });
   @override
@@ -6269,6 +6350,13 @@ class CustomFieldDefinitionRecord extends DataClass
     map['field_type'] = Variable<String>(fieldType);
     map['is_required'] = Variable<bool>(isRequired);
     map['options_json'] = Variable<String>(optionsJson);
+    if (!nullToAbsent || appliesToItemType != null) {
+      map['applies_to_item_type'] = Variable<String>(appliesToItemType);
+    }
+    if (!nullToAbsent || appliesToCategory != null) {
+      map['applies_to_category'] = Variable<String>(appliesToCategory);
+    }
+    map['sort_order'] = Variable<int>(sortOrder);
     map['is_active'] = Variable<bool>(isActive);
     return map;
   }
@@ -6281,6 +6369,13 @@ class CustomFieldDefinitionRecord extends DataClass
       fieldType: Value(fieldType),
       isRequired: Value(isRequired),
       optionsJson: Value(optionsJson),
+      appliesToItemType: appliesToItemType == null && nullToAbsent
+          ? const Value.absent()
+          : Value(appliesToItemType),
+      appliesToCategory: appliesToCategory == null && nullToAbsent
+          ? const Value.absent()
+          : Value(appliesToCategory),
+      sortOrder: Value(sortOrder),
       isActive: Value(isActive),
     );
   }
@@ -6297,6 +6392,13 @@ class CustomFieldDefinitionRecord extends DataClass
       fieldType: serializer.fromJson<String>(json['fieldType']),
       isRequired: serializer.fromJson<bool>(json['isRequired']),
       optionsJson: serializer.fromJson<String>(json['optionsJson']),
+      appliesToItemType: serializer.fromJson<String?>(
+        json['appliesToItemType'],
+      ),
+      appliesToCategory: serializer.fromJson<String?>(
+        json['appliesToCategory'],
+      ),
+      sortOrder: serializer.fromJson<int>(json['sortOrder']),
       isActive: serializer.fromJson<bool>(json['isActive']),
     );
   }
@@ -6310,6 +6412,9 @@ class CustomFieldDefinitionRecord extends DataClass
       'fieldType': serializer.toJson<String>(fieldType),
       'isRequired': serializer.toJson<bool>(isRequired),
       'optionsJson': serializer.toJson<String>(optionsJson),
+      'appliesToItemType': serializer.toJson<String?>(appliesToItemType),
+      'appliesToCategory': serializer.toJson<String?>(appliesToCategory),
+      'sortOrder': serializer.toJson<int>(sortOrder),
       'isActive': serializer.toJson<bool>(isActive),
     };
   }
@@ -6321,6 +6426,9 @@ class CustomFieldDefinitionRecord extends DataClass
     String? fieldType,
     bool? isRequired,
     String? optionsJson,
+    Value<String?> appliesToItemType = const Value.absent(),
+    Value<String?> appliesToCategory = const Value.absent(),
+    int? sortOrder,
     bool? isActive,
   }) => CustomFieldDefinitionRecord(
     id: id ?? this.id,
@@ -6329,6 +6437,13 @@ class CustomFieldDefinitionRecord extends DataClass
     fieldType: fieldType ?? this.fieldType,
     isRequired: isRequired ?? this.isRequired,
     optionsJson: optionsJson ?? this.optionsJson,
+    appliesToItemType: appliesToItemType.present
+        ? appliesToItemType.value
+        : this.appliesToItemType,
+    appliesToCategory: appliesToCategory.present
+        ? appliesToCategory.value
+        : this.appliesToCategory,
+    sortOrder: sortOrder ?? this.sortOrder,
     isActive: isActive ?? this.isActive,
   );
   CustomFieldDefinitionRecord copyWithCompanion(
@@ -6347,6 +6462,13 @@ class CustomFieldDefinitionRecord extends DataClass
       optionsJson: data.optionsJson.present
           ? data.optionsJson.value
           : this.optionsJson,
+      appliesToItemType: data.appliesToItemType.present
+          ? data.appliesToItemType.value
+          : this.appliesToItemType,
+      appliesToCategory: data.appliesToCategory.present
+          ? data.appliesToCategory.value
+          : this.appliesToCategory,
+      sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
       isActive: data.isActive.present ? data.isActive.value : this.isActive,
     );
   }
@@ -6360,6 +6482,9 @@ class CustomFieldDefinitionRecord extends DataClass
           ..write('fieldType: $fieldType, ')
           ..write('isRequired: $isRequired, ')
           ..write('optionsJson: $optionsJson, ')
+          ..write('appliesToItemType: $appliesToItemType, ')
+          ..write('appliesToCategory: $appliesToCategory, ')
+          ..write('sortOrder: $sortOrder, ')
           ..write('isActive: $isActive')
           ..write(')'))
         .toString();
@@ -6373,6 +6498,9 @@ class CustomFieldDefinitionRecord extends DataClass
     fieldType,
     isRequired,
     optionsJson,
+    appliesToItemType,
+    appliesToCategory,
+    sortOrder,
     isActive,
   );
   @override
@@ -6385,6 +6513,9 @@ class CustomFieldDefinitionRecord extends DataClass
           other.fieldType == this.fieldType &&
           other.isRequired == this.isRequired &&
           other.optionsJson == this.optionsJson &&
+          other.appliesToItemType == this.appliesToItemType &&
+          other.appliesToCategory == this.appliesToCategory &&
+          other.sortOrder == this.sortOrder &&
           other.isActive == this.isActive);
 }
 
@@ -6396,6 +6527,9 @@ class CustomFieldDefinitionsCompanion
   final Value<String> fieldType;
   final Value<bool> isRequired;
   final Value<String> optionsJson;
+  final Value<String?> appliesToItemType;
+  final Value<String?> appliesToCategory;
+  final Value<int> sortOrder;
   final Value<bool> isActive;
   final Value<int> rowid;
   const CustomFieldDefinitionsCompanion({
@@ -6405,6 +6539,9 @@ class CustomFieldDefinitionsCompanion
     this.fieldType = const Value.absent(),
     this.isRequired = const Value.absent(),
     this.optionsJson = const Value.absent(),
+    this.appliesToItemType = const Value.absent(),
+    this.appliesToCategory = const Value.absent(),
+    this.sortOrder = const Value.absent(),
     this.isActive = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -6415,6 +6552,9 @@ class CustomFieldDefinitionsCompanion
     required String fieldType,
     required bool isRequired,
     required String optionsJson,
+    this.appliesToItemType = const Value.absent(),
+    this.appliesToCategory = const Value.absent(),
+    this.sortOrder = const Value.absent(),
     required bool isActive,
     this.rowid = const Value.absent(),
   }) : id = Value(id),
@@ -6431,6 +6571,9 @@ class CustomFieldDefinitionsCompanion
     Expression<String>? fieldType,
     Expression<bool>? isRequired,
     Expression<String>? optionsJson,
+    Expression<String>? appliesToItemType,
+    Expression<String>? appliesToCategory,
+    Expression<int>? sortOrder,
     Expression<bool>? isActive,
     Expression<int>? rowid,
   }) {
@@ -6441,6 +6584,9 @@ class CustomFieldDefinitionsCompanion
       if (fieldType != null) 'field_type': fieldType,
       if (isRequired != null) 'is_required': isRequired,
       if (optionsJson != null) 'options_json': optionsJson,
+      if (appliesToItemType != null) 'applies_to_item_type': appliesToItemType,
+      if (appliesToCategory != null) 'applies_to_category': appliesToCategory,
+      if (sortOrder != null) 'sort_order': sortOrder,
       if (isActive != null) 'is_active': isActive,
       if (rowid != null) 'rowid': rowid,
     });
@@ -6453,6 +6599,9 @@ class CustomFieldDefinitionsCompanion
     Value<String>? fieldType,
     Value<bool>? isRequired,
     Value<String>? optionsJson,
+    Value<String?>? appliesToItemType,
+    Value<String?>? appliesToCategory,
+    Value<int>? sortOrder,
     Value<bool>? isActive,
     Value<int>? rowid,
   }) {
@@ -6463,6 +6612,9 @@ class CustomFieldDefinitionsCompanion
       fieldType: fieldType ?? this.fieldType,
       isRequired: isRequired ?? this.isRequired,
       optionsJson: optionsJson ?? this.optionsJson,
+      appliesToItemType: appliesToItemType ?? this.appliesToItemType,
+      appliesToCategory: appliesToCategory ?? this.appliesToCategory,
+      sortOrder: sortOrder ?? this.sortOrder,
       isActive: isActive ?? this.isActive,
       rowid: rowid ?? this.rowid,
     );
@@ -6489,6 +6641,15 @@ class CustomFieldDefinitionsCompanion
     if (optionsJson.present) {
       map['options_json'] = Variable<String>(optionsJson.value);
     }
+    if (appliesToItemType.present) {
+      map['applies_to_item_type'] = Variable<String>(appliesToItemType.value);
+    }
+    if (appliesToCategory.present) {
+      map['applies_to_category'] = Variable<String>(appliesToCategory.value);
+    }
+    if (sortOrder.present) {
+      map['sort_order'] = Variable<int>(sortOrder.value);
+    }
     if (isActive.present) {
       map['is_active'] = Variable<bool>(isActive.value);
     }
@@ -6507,6 +6668,9 @@ class CustomFieldDefinitionsCompanion
           ..write('fieldType: $fieldType, ')
           ..write('isRequired: $isRequired, ')
           ..write('optionsJson: $optionsJson, ')
+          ..write('appliesToItemType: $appliesToItemType, ')
+          ..write('appliesToCategory: $appliesToCategory, ')
+          ..write('sortOrder: $sortOrder, ')
           ..write('isActive: $isActive, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -11416,6 +11580,9 @@ typedef $$CustomFieldDefinitionsTableCreateCompanionBuilder =
       required String fieldType,
       required bool isRequired,
       required String optionsJson,
+      Value<String?> appliesToItemType,
+      Value<String?> appliesToCategory,
+      Value<int> sortOrder,
       required bool isActive,
       Value<int> rowid,
     });
@@ -11427,6 +11594,9 @@ typedef $$CustomFieldDefinitionsTableUpdateCompanionBuilder =
       Value<String> fieldType,
       Value<bool> isRequired,
       Value<String> optionsJson,
+      Value<String?> appliesToItemType,
+      Value<String?> appliesToCategory,
+      Value<int> sortOrder,
       Value<bool> isActive,
       Value<int> rowid,
     });
@@ -11467,6 +11637,21 @@ class $$CustomFieldDefinitionsTableFilterComposer
 
   ColumnFilters<String> get optionsJson => $composableBuilder(
     column: $table.optionsJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get appliesToItemType => $composableBuilder(
+    column: $table.appliesToItemType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get appliesToCategory => $composableBuilder(
+    column: $table.appliesToCategory,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -11515,6 +11700,21 @@ class $$CustomFieldDefinitionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get appliesToItemType => $composableBuilder(
+    column: $table.appliesToItemType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get appliesToCategory => $composableBuilder(
+    column: $table.appliesToCategory,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get isActive => $composableBuilder(
     column: $table.isActive,
     builder: (column) => ColumnOrderings(column),
@@ -11553,6 +11753,19 @@ class $$CustomFieldDefinitionsTableAnnotationComposer
     column: $table.optionsJson,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get appliesToItemType => $composableBuilder(
+    column: $table.appliesToItemType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get appliesToCategory => $composableBuilder(
+    column: $table.appliesToCategory,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get sortOrder =>
+      $composableBuilder(column: $table.sortOrder, builder: (column) => column);
 
   GeneratedColumn<bool> get isActive =>
       $composableBuilder(column: $table.isActive, builder: (column) => column);
@@ -11610,6 +11823,9 @@ class $$CustomFieldDefinitionsTableTableManager
                 Value<String> fieldType = const Value.absent(),
                 Value<bool> isRequired = const Value.absent(),
                 Value<String> optionsJson = const Value.absent(),
+                Value<String?> appliesToItemType = const Value.absent(),
+                Value<String?> appliesToCategory = const Value.absent(),
+                Value<int> sortOrder = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CustomFieldDefinitionsCompanion(
@@ -11619,6 +11835,9 @@ class $$CustomFieldDefinitionsTableTableManager
                 fieldType: fieldType,
                 isRequired: isRequired,
                 optionsJson: optionsJson,
+                appliesToItemType: appliesToItemType,
+                appliesToCategory: appliesToCategory,
+                sortOrder: sortOrder,
                 isActive: isActive,
                 rowid: rowid,
               ),
@@ -11630,6 +11849,9 @@ class $$CustomFieldDefinitionsTableTableManager
                 required String fieldType,
                 required bool isRequired,
                 required String optionsJson,
+                Value<String?> appliesToItemType = const Value.absent(),
+                Value<String?> appliesToCategory = const Value.absent(),
+                Value<int> sortOrder = const Value.absent(),
                 required bool isActive,
                 Value<int> rowid = const Value.absent(),
               }) => CustomFieldDefinitionsCompanion.insert(
@@ -11639,6 +11861,9 @@ class $$CustomFieldDefinitionsTableTableManager
                 fieldType: fieldType,
                 isRequired: isRequired,
                 optionsJson: optionsJson,
+                appliesToItemType: appliesToItemType,
+                appliesToCategory: appliesToCategory,
+                sortOrder: sortOrder,
                 isActive: isActive,
                 rowid: rowid,
               ),
