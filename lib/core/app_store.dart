@@ -413,6 +413,20 @@ class AppStore extends ChangeNotifier {
     return _itemById(itemId)?.name ?? 'Unknown item';
   }
 
+  bool isItemLowStock(Item item) {
+    return item.isActive &&
+        item.minimumQuantity > 0 &&
+        item.quantityOnHand <= item.minimumQuantity;
+  }
+
+  bool isItemCheckedOut(String itemId) {
+    return openCheckoutRecords.any((record) => record.itemId == itemId);
+  }
+
+  bool isItemOnActiveReorder(String itemId) {
+    return getActiveReorderForItem(itemId) != null;
+  }
+
   Item? itemById(String itemId) {
     return _itemById(itemId);
   }
