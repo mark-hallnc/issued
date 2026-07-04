@@ -6,6 +6,7 @@ import 'screens/dashboard_screen.dart';
 import 'screens/items_screen.dart';
 import 'screens/scan_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/setup_screen.dart';
 
 class IssuedApp extends StatefulWidget {
   const IssuedApp({super.key, this.store});
@@ -100,7 +101,14 @@ class _IssuedAppState extends State<IssuedApp> {
               return _StartupErrorScreen(error: snapshot.error);
             }
 
-            return const IssuedShell();
+            return AnimatedBuilder(
+              animation: _store,
+              builder: (context, _) {
+                return _store.isSetupComplete
+                    ? const IssuedShell()
+                    : const SetupScreen();
+              },
+            );
           },
         ),
       ),

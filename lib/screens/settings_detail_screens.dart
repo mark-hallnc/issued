@@ -5,22 +5,168 @@ import '../core/models/models.dart';
 import '../core/permissions/app_permissions.dart';
 import 'plan_screens.dart';
 
-class CompanySettingsScreen extends StatelessWidget {
+class CompanySettingsScreen extends StatefulWidget {
   const CompanySettingsScreen({super.key});
 
   @override
+  State<CompanySettingsScreen> createState() => _CompanySettingsScreenState();
+}
+
+class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
+  @override
   Widget build(BuildContext context) {
-    return const _SettingsScaffold(
+    final store = AppStoreScope.of(context);
+    final company = store.company;
+    final canEdit = store.permissions.canManageSettings;
+
+    return _SettingsScaffold(
       title: 'Company',
       children: [
-        _InfoCard(
-          icon: Icons.business_outlined,
-          title: 'Issued Demo Company',
-          subtitle: 'Company profile settings will be configured here.',
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  company?.name ?? 'No workspace set',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text('Industry: ${company?.industry ?? 'Not set'}'),
+                Text(
+                  'Setup: ${company?.setupCompleted ?? false ? 'Complete' : 'Not complete'}',
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: canEdit ? _showEditCompanyDialog : null,
+                  icon: const Icon(Icons.edit_outlined),
+                  label: const Text('Edit Company'),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Development/testing tool',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Show setup again resets onboarding only. Inventory data is not deleted.',
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: canEdit ? _resetOnboarding : null,
+                  icon: const Icon(Icons.restart_alt),
+                  label: const Text('Show setup again'),
+                ),
+              ],
+            ),
+          ),
         ),
       ],
     );
   }
+
+  Future<void> _showEditCompanyDialog() async {
+    final store = AppStoreScope.of(context);
+    if (!store.permissions.canManageSettings) {
+      _showPermissionDenied(context);
+      return;
+    }
+
+    final company = store.company;
+    final nameController = TextEditingController(text: company?.name ?? '');
+    final industryController = TextEditingController(
+      text: company?.industry ?? '',
+    );
+    final formKey = GlobalKey<FormState>();
+
+    final result = await showDialog<_CompanyEditResult>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Company'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Workspace name'),
+                validator: _required,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: industryController,
+                decoration: const InputDecoration(labelText: 'Industry'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (!formKey.currentState!.validate()) {
+                return;
+              }
+              Navigator.of(context).pop(
+                _CompanyEditResult(
+                  name: nameController.text,
+                  industry: industryController.text,
+                ),
+              );
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    nameController.dispose();
+    industryController.dispose();
+
+    if (result == null) {
+      return;
+    }
+
+    await store.updateCompany(name: result.name, industry: result.industry);
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  Future<void> _resetOnboarding() async {
+    final store = AppStoreScope.of(context);
+    if (!store.permissions.canManageSettings) {
+      _showPermissionDenied(context);
+      return;
+    }
+
+    await store.resetOnboardingForTesting();
+  }
+}
+
+class _CompanyEditResult {
+  const _CompanyEditResult({required this.name, required this.industry});
+
+  final String name;
+  final String? industry;
 }
 
 class UsersRolesSettingsScreen extends StatelessWidget {
@@ -933,29 +1079,6 @@ class _PermissionScaffold extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _InfoCard extends StatelessWidget {
-  const _InfoCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: ListTile(
-        leading: Icon(icon, color: const Color(0xFF1E3A5F)),
-        title: Text(title),
-        subtitle: Text(subtitle),
-      ),
     );
   }
 }

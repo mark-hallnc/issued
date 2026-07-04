@@ -25,6 +25,7 @@ class AppStore extends ChangeNotifier {
   final List<CycleCountLine> _cycleCountLines = [];
   final List<CustomFieldDefinition> _customFieldDefinitions = [];
   final List<CustomFieldValue> _customFieldValues = [];
+  Company? _company;
   Plan _plan = samplePlan;
   CompanyUsage _companyUsage = sampleCompanyUsage;
   String? _currentUserId;
@@ -51,6 +52,8 @@ class AppStore extends ChangeNotifier {
       List.unmodifiable(_customFieldDefinitions);
   List<CustomFieldValue> get customFieldValues =>
       List.unmodifiable(_customFieldValues);
+  Company? get company => _company;
+  bool get isSetupComplete => _company?.setupCompleted ?? false;
   Plan get plan => _plan;
   CompanyUsage get companyUsage => _companyUsage;
   Plan get currentPlan => _plan;
@@ -119,14 +122,43 @@ class AppStore extends ChangeNotifier {
   }
 
   Future<void> initialize() async {
-    if (await _database.isEmpty) {
-      await _seedDatabase();
-    }
-
     await _loadFromDatabase();
-    await _ensureLocalTestUsers();
+    await _ensureBasePlanData();
+    await _ensureCompanyForExistingData();
+    if (isSetupComplete) {
+      await _ensureLocalTestUsers();
+    }
     _isInitialized = true;
     notifyListeners();
+  }
+
+  Future<void> _ensureBasePlanData() async {
+    if ((await _database.getAllPlans()).isEmpty) {
+      await _database.upsertPlan(samplePlan.toCompanion());
+      _plan = samplePlan;
+    }
+
+    if ((await _database.getAllCompanyUsage()).isEmpty) {
+      await _database.upsertCompanyUsage(sampleCompanyUsage.toCompanion());
+      _companyUsage = sampleCompanyUsage;
+    }
+  }
+
+  Future<void> _ensureCompanyForExistingData() async {
+    if (_company != null || _items.isEmpty) {
+      return;
+    }
+
+    final now = DateTime.now();
+    _company = Company(
+      id: 'company-local',
+      name: 'Issued Demo Shop',
+      industry: null,
+      createdAt: now,
+      updatedAt: now,
+      setupCompleted: true,
+    );
+    await _database.upsertCompany(_company!.toCompanion());
   }
 
   Future<void> _ensureLocalTestUsers() async {
@@ -155,39 +187,237 @@ class AppStore extends ChangeNotifier {
     }
   }
 
-  Future<void> _seedDatabase() async {
+  Future<void> _seedSampleDataIfNeeded() async {
     for (final unit in sampleUnitsOfMeasure) {
-      await _database.upsertUnitOfMeasure(unit.toCompanion());
+      await _ensureUnitOfMeasure(unit);
     }
     for (final location in sampleLocations) {
-      await _database.upsertLocation(location.toCompanion());
+      await _ensureLocation(location.name, location.type, id: location.id);
     }
     for (final person in samplePeople) {
-      await _database.upsertPerson(person.toCompanion());
+      await _ensurePerson(person);
     }
     for (final user in sampleUsers) {
-      await _database.upsertAppUser(user.toCompanion());
+      await _ensureUser(user);
     }
     for (final item in sampleItems) {
+      if (_items.any((storedItem) => storedItem.id == item.id)) {
+        continue;
+      }
+      _items.add(item);
       await _database.upsertItem(item.toCompanion());
     }
     for (final transaction in sampleTransactions) {
+      if (_transactions.any(
+        (storedTransaction) => storedTransaction.id == transaction.id,
+      )) {
+        continue;
+      }
+      _transactions.add(transaction);
       await _database.upsertTransaction(transaction.toCompanion());
     }
     for (final session in sampleCycleCountSessions) {
+      if (_cycleCountSessions.any(
+        (storedSession) => storedSession.id == session.id,
+      )) {
+        continue;
+      }
+      _cycleCountSessions.add(session);
       await _database.upsertCycleCountSession(session.toCompanion());
     }
     for (final line in sampleCycleCountLines) {
+      if (_cycleCountLines.any((storedLine) => storedLine.id == line.id)) {
+        continue;
+      }
+      _cycleCountLines.add(line);
       await _database.upsertCycleCountLine(line.toCompanion());
     }
     for (final field in sampleCustomFieldDefinitions) {
+      if (_customFieldDefinitions.any(
+        (storedField) => storedField.id == field.id,
+      )) {
+        continue;
+      }
+      _customFieldDefinitions.add(field);
       await _database.upsertCustomFieldDefinition(field.toCompanion());
     }
     for (final value in sampleCustomFieldValues) {
+      if (_customFieldValues.any((storedValue) => storedValue.id == value.id)) {
+        continue;
+      }
+      _customFieldValues.add(value);
       await _database.upsertCustomFieldValue(value.toCompanion());
     }
-    await _database.upsertPlan(samplePlan.toCompanion());
-    await _database.upsertCompanyUsage(sampleCompanyUsage.toCompanion());
+  }
+
+  Future<void> _ensureDefaultUnitsOfMeasure() async {
+    const defaultUnits = [
+      UnitOfMeasure(
+        id: 'uom-each',
+        name: 'Each',
+        abbreviation: 'ea',
+        allowsDecimal: false,
+        isActive: true,
+      ),
+      UnitOfMeasure(
+        id: 'uom-box',
+        name: 'Box',
+        abbreviation: 'box',
+        allowsDecimal: false,
+        isActive: true,
+      ),
+      UnitOfMeasure(
+        id: 'uom-case',
+        name: 'Case',
+        abbreviation: 'case',
+        allowsDecimal: false,
+        isActive: true,
+      ),
+      UnitOfMeasure(
+        id: 'uom-pair',
+        name: 'Pair',
+        abbreviation: 'pair',
+        allowsDecimal: false,
+        isActive: true,
+      ),
+      UnitOfMeasure(
+        id: 'uom-foot',
+        name: 'Foot',
+        abbreviation: 'ft',
+        allowsDecimal: true,
+        isActive: true,
+      ),
+      UnitOfMeasure(
+        id: 'uom-gallon',
+        name: 'Gallon',
+        abbreviation: 'gal',
+        allowsDecimal: true,
+        isActive: true,
+      ),
+      UnitOfMeasure(
+        id: 'uom-quart',
+        name: 'Quart',
+        abbreviation: 'qt',
+        allowsDecimal: true,
+        isActive: true,
+      ),
+      UnitOfMeasure(
+        id: 'uom-pound',
+        name: 'Pound',
+        abbreviation: 'lb',
+        allowsDecimal: true,
+        isActive: true,
+      ),
+      UnitOfMeasure(
+        id: 'uom-set',
+        name: 'Set',
+        abbreviation: 'set',
+        allowsDecimal: false,
+        isActive: true,
+      ),
+      UnitOfMeasure(
+        id: 'uom-kit',
+        name: 'Kit',
+        abbreviation: 'kit',
+        allowsDecimal: false,
+        isActive: true,
+      ),
+    ];
+
+    for (final unit in defaultUnits) {
+      await _ensureUnitOfMeasure(unit);
+    }
+  }
+
+  Future<void> _ensureUnitOfMeasure(UnitOfMeasure unit) async {
+    final exists = _unitsOfMeasure.any((storedUnit) {
+      return storedUnit.id == unit.id ||
+          storedUnit.name.toLowerCase() == unit.name.toLowerCase() ||
+          storedUnit.abbreviation.toLowerCase() ==
+              unit.abbreviation.toLowerCase();
+    });
+    if (exists) {
+      return;
+    }
+
+    _unitsOfMeasure.add(unit);
+    await _database.upsertUnitOfMeasure(unit.toCompanion());
+  }
+
+  Future<void> _ensureLocation(String name, String type, {String? id}) async {
+    final normalizedName = name.trim();
+    final existing = _locations.any((location) {
+      return location.id == id ||
+          location.name.toLowerCase() == normalizedName.toLowerCase();
+    });
+    if (existing) {
+      return;
+    }
+
+    final location = Location(
+      id: id ?? 'loc-${DateTime.now().microsecondsSinceEpoch}',
+      name: normalizedName,
+      type: type,
+      parentLocationId: null,
+      isActive: true,
+    );
+    _locations.add(location);
+    await _database.upsertLocation(location.toCompanion());
+  }
+
+  Future<void> _ensureAdminUser(
+    String displayName,
+    String? email,
+    DateTime now,
+  ) async {
+    final person = Person(
+      id: 'person-first-admin',
+      displayName: displayName,
+      email: email,
+      phone: null,
+      isActive: true,
+      isLoginUser: true,
+    );
+    await _ensurePerson(person);
+
+    final user = AppUser(
+      id: 'user-first-admin',
+      personId: person.id,
+      email: email ?? 'admin@issued.local',
+      role: UserRole.admin,
+      isActive: true,
+      createdAt: now,
+    );
+    await _ensureUser(user);
+    _currentUserId = user.id;
+  }
+
+  Future<void> _ensurePerson(Person person) async {
+    final exists = _people.any((storedPerson) {
+      final emailMatches =
+          person.email != null &&
+          storedPerson.email?.toLowerCase() == person.email!.toLowerCase();
+      return storedPerson.id == person.id || emailMatches;
+    });
+    if (exists) {
+      return;
+    }
+
+    _people.add(person);
+    await _database.upsertPerson(person.toCompanion());
+  }
+
+  Future<void> _ensureUser(AppUser user) async {
+    final exists = _users.any((storedUser) {
+      return storedUser.id == user.id ||
+          storedUser.email.toLowerCase() == user.email.toLowerCase();
+    });
+    if (exists) {
+      return;
+    }
+
+    _users.add(user);
+    await _database.upsertAppUser(user.toCompanion());
   }
 
   Future<void> _loadFromDatabase() async {
@@ -252,6 +482,8 @@ class AppStore extends ChangeNotifier {
         ),
       );
 
+    final companies = await _database.getAllCompanies();
+    _company = companies.isEmpty ? null : companies.first.toDomain();
     final plans = await _database.getAllPlans();
     _plan = plans.isEmpty ? samplePlan : plans.first.toDomain();
     final usages = await _database.getAllCompanyUsage();
@@ -382,6 +614,84 @@ class AppStore extends ChangeNotifier {
 
   void setCurrentRoleForTesting(UserRole role) {
     _currentRoleOverride = role;
+    notifyListeners();
+  }
+
+  Future<void> completeSetup({
+    required String companyName,
+    required String? industry,
+    required String locationName,
+    required String locationType,
+    required String adminDisplayName,
+    required String? adminEmail,
+    required bool includeSampleData,
+  }) async {
+    final now = DateTime.now();
+    final normalizedCompanyName = companyName.trim();
+    final normalizedIndustry = _emptyToNull(industry);
+    final normalizedLocationName = locationName.trim();
+    final normalizedAdminName = adminDisplayName.trim();
+    final normalizedEmail = _emptyToNull(adminEmail);
+
+    _company = Company(
+      id: _company?.id ?? 'company-local',
+      name: normalizedCompanyName,
+      industry: normalizedIndustry,
+      createdAt: _company?.createdAt ?? now,
+      updatedAt: now,
+      setupCompleted: true,
+    );
+    await _database.upsertCompany(_company!.toCompanion());
+
+    await _ensureDefaultUnitsOfMeasure();
+    await _ensureLocation(normalizedLocationName, locationType);
+    await _ensureAdminUser(normalizedAdminName, normalizedEmail, now);
+
+    if (includeSampleData && _items.isEmpty) {
+      await _seedSampleDataIfNeeded();
+    }
+
+    await _loadFromDatabase();
+    _currentUserId ??= currentUser?.id;
+    notifyListeners();
+  }
+
+  Future<void> updateCompany({
+    required String name,
+    required String? industry,
+  }) async {
+    if (!permissions.canManageSettings) {
+      return;
+    }
+
+    final now = DateTime.now();
+    _company = Company(
+      id: _company?.id ?? 'company-local',
+      name: name.trim(),
+      industry: _emptyToNull(industry),
+      createdAt: _company?.createdAt ?? now,
+      updatedAt: now,
+      setupCompleted: _company?.setupCompleted ?? true,
+    );
+    await _database.upsertCompany(_company!.toCompanion());
+    notifyListeners();
+  }
+
+  Future<void> resetOnboardingForTesting() async {
+    if (!permissions.canManageSettings) {
+      return;
+    }
+
+    final now = DateTime.now();
+    _company = Company(
+      id: _company?.id ?? 'company-local',
+      name: _company?.name ?? 'Issued Workspace',
+      industry: _company?.industry,
+      createdAt: _company?.createdAt ?? now,
+      updatedAt: now,
+      setupCompleted: false,
+    );
+    await _database.upsertCompany(_company!.toCompanion());
     notifyListeners();
   }
 
@@ -1150,6 +1460,15 @@ class AppStore extends ChangeNotifier {
     unawaited(_database.close());
     super.dispose();
   }
+}
+
+String? _emptyToNull(String? value) {
+  final trimmedValue = value?.trim();
+  if (trimmedValue == null || trimmedValue.isEmpty) {
+    return null;
+  }
+
+  return trimmedValue;
 }
 
 class AppStoreScope extends InheritedNotifier<AppStore> {

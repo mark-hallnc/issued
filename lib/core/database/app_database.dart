@@ -21,6 +21,7 @@ part 'app_database.g.dart';
     CustomFieldValues,
     Plans,
     CompanyUsages,
+    Companies,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -28,7 +29,7 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? openDatabaseConnection());
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration {
@@ -39,6 +40,9 @@ class AppDatabase extends _$AppDatabase {
         }
         if (from < 3) {
           await migrator.createTable(checkoutRecords);
+        }
+        if (from < 4) {
+          await migrator.createTable(companies);
         }
       },
     );
@@ -72,6 +76,7 @@ class AppDatabase extends _$AppDatabase {
   Future<List<PlanRecord>> getAllPlans() => select(plans).get();
   Future<List<CompanyUsageRecord>> getAllCompanyUsage() =>
       select(companyUsages).get();
+  Future<List<CompanyRecord>> getAllCompanies() => select(companies).get();
 
   Future<void> upsertItem(ItemsCompanion item) {
     return into(items).insertOnConflictUpdate(item);
@@ -129,5 +134,9 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> upsertCompanyUsage(CompanyUsagesCompanion usage) {
     return into(companyUsages).insertOnConflictUpdate(usage);
+  }
+
+  Future<void> upsertCompany(CompaniesCompanion company) {
+    return into(companies).insertOnConflictUpdate(company);
   }
 }

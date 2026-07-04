@@ -461,6 +461,32 @@ extension CompanyUsageDomainMapper on domain.CompanyUsage {
   }
 }
 
+extension CompanyRecordMapper on CompanyRecord {
+  domain.Company toDomain() {
+    return domain.Company(
+      id: id,
+      name: name,
+      industry: industry,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      setupCompleted: setupCompleted,
+    );
+  }
+}
+
+extension CompanyDomainMapper on domain.Company {
+  CompaniesCompanion toCompanion() {
+    return CompaniesCompanion(
+      id: Value(id),
+      name: Value(name),
+      industry: Value(industry),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      setupCompleted: Value(setupCompleted),
+    );
+  }
+}
+
 T _enumByName<T extends Enum>(List<T> values, String name) {
   return values.firstWhere((value) => value.name == name);
 }

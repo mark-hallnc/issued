@@ -7968,6 +7968,423 @@ class CompanyUsagesCompanion extends UpdateCompanion<CompanyUsageRecord> {
   }
 }
 
+class $CompaniesTable extends Companies
+    with TableInfo<$CompaniesTable, CompanyRecord> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CompaniesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _industryMeta = const VerificationMeta(
+    'industry',
+  );
+  @override
+  late final GeneratedColumn<String> industry = GeneratedColumn<String>(
+    'industry',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _setupCompletedMeta = const VerificationMeta(
+    'setupCompleted',
+  );
+  @override
+  late final GeneratedColumn<bool> setupCompleted = GeneratedColumn<bool>(
+    'setup_completed',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("setup_completed" IN (0, 1))',
+    ),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    industry,
+    createdAt,
+    updatedAt,
+    setupCompleted,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'companies';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CompanyRecord> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('industry')) {
+      context.handle(
+        _industryMeta,
+        industry.isAcceptableOrUnknown(data['industry']!, _industryMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    if (data.containsKey('setup_completed')) {
+      context.handle(
+        _setupCompletedMeta,
+        setupCompleted.isAcceptableOrUnknown(
+          data['setup_completed']!,
+          _setupCompletedMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_setupCompletedMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  CompanyRecord map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CompanyRecord(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      industry: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}industry'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      setupCompleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}setup_completed'],
+      )!,
+    );
+  }
+
+  @override
+  $CompaniesTable createAlias(String alias) {
+    return $CompaniesTable(attachedDatabase, alias);
+  }
+}
+
+class CompanyRecord extends DataClass implements Insertable<CompanyRecord> {
+  final String id;
+  final String name;
+  final String? industry;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final bool setupCompleted;
+  const CompanyRecord({
+    required this.id,
+    required this.name,
+    this.industry,
+    required this.createdAt,
+    required this.updatedAt,
+    required this.setupCompleted,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
+    if (!nullToAbsent || industry != null) {
+      map['industry'] = Variable<String>(industry);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    map['setup_completed'] = Variable<bool>(setupCompleted);
+    return map;
+  }
+
+  CompaniesCompanion toCompanion(bool nullToAbsent) {
+    return CompaniesCompanion(
+      id: Value(id),
+      name: Value(name),
+      industry: industry == null && nullToAbsent
+          ? const Value.absent()
+          : Value(industry),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      setupCompleted: Value(setupCompleted),
+    );
+  }
+
+  factory CompanyRecord.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CompanyRecord(
+      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      industry: serializer.fromJson<String?>(json['industry']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      setupCompleted: serializer.fromJson<bool>(json['setupCompleted']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
+      'industry': serializer.toJson<String?>(industry),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'setupCompleted': serializer.toJson<bool>(setupCompleted),
+    };
+  }
+
+  CompanyRecord copyWith({
+    String? id,
+    String? name,
+    Value<String?> industry = const Value.absent(),
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    bool? setupCompleted,
+  }) => CompanyRecord(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    industry: industry.present ? industry.value : this.industry,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    setupCompleted: setupCompleted ?? this.setupCompleted,
+  );
+  CompanyRecord copyWithCompanion(CompaniesCompanion data) {
+    return CompanyRecord(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      industry: data.industry.present ? data.industry.value : this.industry,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      setupCompleted: data.setupCompleted.present
+          ? data.setupCompleted.value
+          : this.setupCompleted,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CompanyRecord(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('industry: $industry, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('setupCompleted: $setupCompleted')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, name, industry, createdAt, updatedAt, setupCompleted);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CompanyRecord &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.industry == this.industry &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.setupCompleted == this.setupCompleted);
+}
+
+class CompaniesCompanion extends UpdateCompanion<CompanyRecord> {
+  final Value<String> id;
+  final Value<String> name;
+  final Value<String?> industry;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<bool> setupCompleted;
+  final Value<int> rowid;
+  const CompaniesCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.industry = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.setupCompleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CompaniesCompanion.insert({
+    required String id,
+    required String name,
+    this.industry = const Value.absent(),
+    required DateTime createdAt,
+    required DateTime updatedAt,
+    required bool setupCompleted,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       name = Value(name),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt),
+       setupCompleted = Value(setupCompleted);
+  static Insertable<CompanyRecord> custom({
+    Expression<String>? id,
+    Expression<String>? name,
+    Expression<String>? industry,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<bool>? setupCompleted,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (industry != null) 'industry': industry,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (setupCompleted != null) 'setup_completed': setupCompleted,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CompaniesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? name,
+    Value<String?>? industry,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<bool>? setupCompleted,
+    Value<int>? rowid,
+  }) {
+    return CompaniesCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      industry: industry ?? this.industry,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      setupCompleted: setupCompleted ?? this.setupCompleted,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (industry.present) {
+      map['industry'] = Variable<String>(industry.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (setupCompleted.present) {
+      map['setup_completed'] = Variable<bool>(setupCompleted.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CompaniesCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('industry: $industry, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('setupCompleted: $setupCompleted, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -7995,6 +8412,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $CustomFieldValuesTable(this);
   late final $PlansTable plans = $PlansTable(this);
   late final $CompanyUsagesTable companyUsages = $CompanyUsagesTable(this);
+  late final $CompaniesTable companies = $CompaniesTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -8014,6 +8432,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     customFieldValues,
     plans,
     companyUsages,
+    companies,
   ];
 }
 
@@ -11998,6 +12417,227 @@ typedef $$CompanyUsagesTableProcessedTableManager =
       CompanyUsageRecord,
       PrefetchHooks Function()
     >;
+typedef $$CompaniesTableCreateCompanionBuilder =
+    CompaniesCompanion Function({
+      required String id,
+      required String name,
+      Value<String?> industry,
+      required DateTime createdAt,
+      required DateTime updatedAt,
+      required bool setupCompleted,
+      Value<int> rowid,
+    });
+typedef $$CompaniesTableUpdateCompanionBuilder =
+    CompaniesCompanion Function({
+      Value<String> id,
+      Value<String> name,
+      Value<String?> industry,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<bool> setupCompleted,
+      Value<int> rowid,
+    });
+
+class $$CompaniesTableFilterComposer
+    extends Composer<_$AppDatabase, $CompaniesTable> {
+  $$CompaniesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get industry => $composableBuilder(
+    column: $table.industry,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get setupCompleted => $composableBuilder(
+    column: $table.setupCompleted,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CompaniesTableOrderingComposer
+    extends Composer<_$AppDatabase, $CompaniesTable> {
+  $$CompaniesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get industry => $composableBuilder(
+    column: $table.industry,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get setupCompleted => $composableBuilder(
+    column: $table.setupCompleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CompaniesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CompaniesTable> {
+  $$CompaniesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get industry =>
+      $composableBuilder(column: $table.industry, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get setupCompleted => $composableBuilder(
+    column: $table.setupCompleted,
+    builder: (column) => column,
+  );
+}
+
+class $$CompaniesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CompaniesTable,
+          CompanyRecord,
+          $$CompaniesTableFilterComposer,
+          $$CompaniesTableOrderingComposer,
+          $$CompaniesTableAnnotationComposer,
+          $$CompaniesTableCreateCompanionBuilder,
+          $$CompaniesTableUpdateCompanionBuilder,
+          (
+            CompanyRecord,
+            BaseReferences<_$AppDatabase, $CompaniesTable, CompanyRecord>,
+          ),
+          CompanyRecord,
+          PrefetchHooks Function()
+        > {
+  $$CompaniesTableTableManager(_$AppDatabase db, $CompaniesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CompaniesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CompaniesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$CompaniesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String?> industry = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<bool> setupCompleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CompaniesCompanion(
+                id: id,
+                name: name,
+                industry: industry,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                setupCompleted: setupCompleted,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String name,
+                Value<String?> industry = const Value.absent(),
+                required DateTime createdAt,
+                required DateTime updatedAt,
+                required bool setupCompleted,
+                Value<int> rowid = const Value.absent(),
+              }) => CompaniesCompanion.insert(
+                id: id,
+                name: name,
+                industry: industry,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                setupCompleted: setupCompleted,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CompaniesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CompaniesTable,
+      CompanyRecord,
+      $$CompaniesTableFilterComposer,
+      $$CompaniesTableOrderingComposer,
+      $$CompaniesTableAnnotationComposer,
+      $$CompaniesTableCreateCompanionBuilder,
+      $$CompaniesTableUpdateCompanionBuilder,
+      (
+        CompanyRecord,
+        BaseReferences<_$AppDatabase, $CompaniesTable, CompanyRecord>,
+      ),
+      CompanyRecord,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -12033,4 +12673,6 @@ class $AppDatabaseManager {
       $$PlansTableTableManager(_db, _db.plans);
   $$CompanyUsagesTableTableManager get companyUsages =>
       $$CompanyUsagesTableTableManager(_db, _db.companyUsages);
+  $$CompaniesTableTableManager get companies =>
+      $$CompaniesTableTableManager(_db, _db.companies);
 }
