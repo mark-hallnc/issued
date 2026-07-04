@@ -93,6 +93,24 @@ class InventoryTransactions extends Table {
   Set<Column<Object>> get primaryKey => {id};
 }
 
+@DataClassName('ReorderRequestRecord')
+class ReorderRequests extends Table {
+  TextColumn get id => text()();
+  TextColumn get itemId => text()();
+  RealColumn get requestedQuantity => real()();
+  TextColumn get unitOfMeasureId => text()();
+  TextColumn get supplier => text().nullable()();
+  TextColumn get status => text()();
+  TextColumn get notes => text().nullable()();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get orderedAt => dateTime().nullable()();
+  DateTimeColumn get receivedAt => dateTime().nullable()();
+  TextColumn get createdByUserId => text().nullable()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
 @DataClassName('CycleCountSessionRecord')
 class CycleCountSessions extends Table {
   TextColumn get id => text()();

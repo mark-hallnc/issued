@@ -19,6 +19,7 @@ class AppStore extends ChangeNotifier {
   final List<Person> _people = [];
   final List<AppUser> _users = [];
   final List<InventoryTransaction> _transactions = [];
+  final List<ReorderRequest> _reorderRequests = [];
   final List<CycleCountSession> _cycleCountSessions = [];
   final List<CycleCountLine> _cycleCountLines = [];
   final List<CustomFieldDefinition> _customFieldDefinitions = [];
@@ -37,6 +38,8 @@ class AppStore extends ChangeNotifier {
   List<AppUser> get users => List.unmodifiable(_users);
   List<InventoryTransaction> get transactions =>
       List.unmodifiable(_transactions);
+  List<ReorderRequest> get reorderRequests =>
+      List.unmodifiable(_reorderRequests);
   List<CycleCountSession> get cycleCountSessions =>
       List.unmodifiable(_cycleCountSessions);
   List<CycleCountLine> get cycleCountLines =>
@@ -209,6 +212,11 @@ class AppStore extends ChangeNotifier {
       ..addAll(
         (await _database.getAllTransactions()).map((row) => row.toDomain()),
       );
+    _reorderRequests
+      ..clear()
+      ..addAll(
+        (await _database.getAllReorderRequests()).map((row) => row.toDomain()),
+      );
     _cycleCountSessions
       ..clear()
       ..addAll(
@@ -373,6 +381,232 @@ class AppStore extends ChangeNotifier {
     _transactions.add(transaction);
     unawaited(_database.upsertTransaction(transaction.toCompanion()));
     notifyListeners();
+  }
+
+  List<Item> getLowStockItems() {
+    final lowStockItems = _items.where((item) {
+      return item.isActive &&
+          item.minimumQuantity > 0 &&
+          item.quantityOnHand <= item.minimumQuantity;
+    }).toList();
+
+    lowStockItems.sort((left, right) {
+      return left.name.toLowerCase().compareTo(right.name.toLowerCase());
+    });
+
+    return lowStockItems;
+  }
+
+  double getSuggestedReorderQuantity(Item item) {
+    var quantity = item.minimumQuantity - item.quantityOnHand;
+    if (quantity <= 0) {
+      quantity = 1;
+    }
+
+    final unit = _unitById(item.unitOfMeasureId);
+    if (unit == null || !unit.allowsDecimal || !item.allowFractionalQuantity) {
+      return quantity.ceilToDouble();
+    }
+
+    return quantity;
+  }
+
+  ReorderRequest? getActiveReorderForItem(String itemId) {
+    for (final request in _reorderRequests) {
+      if (request.itemId == itemId &&
+          (request.status == ReorderStatus.needed ||
+              request.status == ReorderStatus.ordered)) {
+        return request;
+      }
+    }
+
+    return null;
+  }
+
+  ReorderRequest? reorderRequestById(String reorderId) {
+    for (final request in _reorderRequests) {
+      if (request.id == reorderId) {
+        return request;
+      }
+    }
+
+    return null;
+  }
+
+  bool get canManageReorders => permissions.canManageItems;
+  bool get canReceiveReorders =>
+      canManageReorders || permissions.canReceiveStock;
+
+  bool createReorderRequest(String itemId, double quantity, String? notes) {
+    if (!canManageReorders || quantity <= 0) {
+      return false;
+    }
+
+    final item = _itemById(itemId);
+    if (item == null || getActiveReorderForItem(itemId) != null) {
+      return false;
+    }
+
+    final now = DateTime.now();
+    final normalizedNotes = notes?.trim();
+    final request = ReorderRequest(
+      id: 'reorder-${now.microsecondsSinceEpoch}',
+      itemId: item.id,
+      requestedQuantity: quantity,
+      unitOfMeasureId: item.unitOfMeasureId,
+      supplier: item.supplier,
+      status: ReorderStatus.needed,
+      notes: normalizedNotes == null || normalizedNotes.isEmpty
+          ? null
+          : normalizedNotes,
+      createdAt: now,
+      orderedAt: null,
+      receivedAt: null,
+      createdByUserId: currentUser?.id,
+    );
+
+    _reorderRequests.add(request);
+    unawaited(_database.upsertReorderRequest(request.toCompanion()));
+    notifyListeners();
+    return true;
+  }
+
+  bool markReorderOrdered(String reorderId) {
+    if (!canManageReorders) {
+      return false;
+    }
+
+    final requestIndex = _reorderRequests.indexWhere(
+      (request) => request.id == reorderId,
+    );
+    if (requestIndex == -1) {
+      return false;
+    }
+
+    final request = _reorderRequests[requestIndex];
+    if (request.status != ReorderStatus.needed) {
+      return false;
+    }
+
+    final now = DateTime.now();
+    final updatedRequest = request.copyWith(
+      status: ReorderStatus.ordered,
+      orderedAt: now,
+    );
+    _reorderRequests[requestIndex] = updatedRequest;
+    unawaited(_database.upsertReorderRequest(updatedRequest.toCompanion()));
+    notifyListeners();
+    return true;
+  }
+
+  bool receiveReorder(
+    String reorderId,
+    double receivedQuantity,
+    String? notes,
+  ) {
+    if (!canReceiveReorders || receivedQuantity <= 0) {
+      return false;
+    }
+
+    final requestIndex = _reorderRequests.indexWhere(
+      (request) => request.id == reorderId,
+    );
+    if (requestIndex == -1) {
+      return false;
+    }
+
+    final request = _reorderRequests[requestIndex];
+    if (request.status != ReorderStatus.needed &&
+        request.status != ReorderStatus.ordered) {
+      return false;
+    }
+
+    final itemIndex = _items.indexWhere((item) => item.id == request.itemId);
+    if (itemIndex == -1) {
+      return false;
+    }
+
+    final now = DateTime.now();
+    final item = _items[itemIndex];
+    final updatedItem = item.copyWith(
+      quantityOnHand: item.quantityOnHand + receivedQuantity,
+      updatedAt: now,
+    );
+    _items[itemIndex] = updatedItem;
+    unawaited(_database.upsertItem(updatedItem.toCompanion()));
+
+    final normalizedNotes = notes?.trim();
+    final transaction = InventoryTransaction(
+      id: 'txn-reorder-${now.microsecondsSinceEpoch}',
+      itemId: item.id,
+      transactionType: InventoryTransactionType.receive,
+      quantityDelta: receivedQuantity,
+      unitOfMeasureId: item.unitOfMeasureId,
+      fromLocationId: null,
+      toLocationId: item.locationId,
+      assignedToPersonId: null,
+      performedByUserId: currentUser?.id,
+      notes: normalizedNotes == null || normalizedNotes.isEmpty
+          ? 'Received from reorder'
+          : 'Received from reorder: $normalizedNotes',
+      createdAt: now,
+    );
+    _transactions.add(transaction);
+    unawaited(_database.upsertTransaction(transaction.toCompanion()));
+
+    final updatedRequest = request.copyWith(
+      status: ReorderStatus.received,
+      receivedAt: now,
+    );
+    _reorderRequests[requestIndex] = updatedRequest;
+    unawaited(_database.upsertReorderRequest(updatedRequest.toCompanion()));
+    notifyListeners();
+    return true;
+  }
+
+  bool cancelReorder(String reorderId) {
+    if (!canManageReorders) {
+      return false;
+    }
+
+    final requestIndex = _reorderRequests.indexWhere(
+      (request) => request.id == reorderId,
+    );
+    if (requestIndex == -1) {
+      return false;
+    }
+
+    final request = _reorderRequests[requestIndex];
+    if (request.status != ReorderStatus.needed &&
+        request.status != ReorderStatus.ordered) {
+      return false;
+    }
+
+    final updatedRequest = request.copyWith(status: ReorderStatus.canceled);
+    _reorderRequests[requestIndex] = updatedRequest;
+    unawaited(_database.upsertReorderRequest(updatedRequest.toCompanion()));
+    notifyListeners();
+    return true;
+  }
+
+  Item? _itemById(String itemId) {
+    for (final item in _items) {
+      if (item.id == itemId) {
+        return item;
+      }
+    }
+
+    return null;
+  }
+
+  UnitOfMeasure? _unitById(String unitOfMeasureId) {
+    for (final unit in _unitsOfMeasure) {
+      if (unit.id == unitOfMeasureId) {
+        return unit;
+      }
+    }
+
+    return null;
   }
 
   PlanLimitWarning? _limitWarning({

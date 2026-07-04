@@ -123,7 +123,9 @@ class _ItemsScreenState extends State<ItemsScreen> {
     return switch (_selectedFilter) {
       _ItemFilter.all => item.isActive,
       _ItemFilter.lowStock =>
-        item.isActive && item.quantityOnHand <= item.minimumQuantity,
+        item.isActive &&
+            item.minimumQuantity > 0 &&
+            item.quantityOnHand <= item.minimumQuantity,
       _ItemFilter.consumable =>
         item.isActive && item.itemType == ItemType.consumable,
       _ItemFilter.returnable =>
@@ -341,7 +343,8 @@ class _ItemCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final isLowStock = item.quantityOnHand <= item.minimumQuantity;
+    final isLowStock =
+        item.minimumQuantity > 0 && item.quantityOnHand <= item.minimumQuantity;
     final unit = _unitById(item.unitOfMeasureId);
     final location = _locationById(item.locationId);
 

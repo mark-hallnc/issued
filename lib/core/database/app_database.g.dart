@@ -3325,6 +3325,682 @@ class InventoryTransactionsCompanion
   }
 }
 
+class $ReorderRequestsTable extends ReorderRequests
+    with TableInfo<$ReorderRequestsTable, ReorderRequestRecord> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ReorderRequestsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _itemIdMeta = const VerificationMeta('itemId');
+  @override
+  late final GeneratedColumn<String> itemId = GeneratedColumn<String>(
+    'item_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _requestedQuantityMeta = const VerificationMeta(
+    'requestedQuantity',
+  );
+  @override
+  late final GeneratedColumn<double> requestedQuantity =
+      GeneratedColumn<double>(
+        'requested_quantity',
+        aliasedName,
+        false,
+        type: DriftSqlType.double,
+        requiredDuringInsert: true,
+      );
+  static const VerificationMeta _unitOfMeasureIdMeta = const VerificationMeta(
+    'unitOfMeasureId',
+  );
+  @override
+  late final GeneratedColumn<String> unitOfMeasureId = GeneratedColumn<String>(
+    'unit_of_measure_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _supplierMeta = const VerificationMeta(
+    'supplier',
+  );
+  @override
+  late final GeneratedColumn<String> supplier = GeneratedColumn<String>(
+    'supplier',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+    'notes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _orderedAtMeta = const VerificationMeta(
+    'orderedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> orderedAt = GeneratedColumn<DateTime>(
+    'ordered_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _receivedAtMeta = const VerificationMeta(
+    'receivedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> receivedAt = GeneratedColumn<DateTime>(
+    'received_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdByUserIdMeta = const VerificationMeta(
+    'createdByUserId',
+  );
+  @override
+  late final GeneratedColumn<String> createdByUserId = GeneratedColumn<String>(
+    'created_by_user_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    itemId,
+    requestedQuantity,
+    unitOfMeasureId,
+    supplier,
+    status,
+    notes,
+    createdAt,
+    orderedAt,
+    receivedAt,
+    createdByUserId,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'reorder_requests';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ReorderRequestRecord> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('item_id')) {
+      context.handle(
+        _itemIdMeta,
+        itemId.isAcceptableOrUnknown(data['item_id']!, _itemIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_itemIdMeta);
+    }
+    if (data.containsKey('requested_quantity')) {
+      context.handle(
+        _requestedQuantityMeta,
+        requestedQuantity.isAcceptableOrUnknown(
+          data['requested_quantity']!,
+          _requestedQuantityMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_requestedQuantityMeta);
+    }
+    if (data.containsKey('unit_of_measure_id')) {
+      context.handle(
+        _unitOfMeasureIdMeta,
+        unitOfMeasureId.isAcceptableOrUnknown(
+          data['unit_of_measure_id']!,
+          _unitOfMeasureIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_unitOfMeasureIdMeta);
+    }
+    if (data.containsKey('supplier')) {
+      context.handle(
+        _supplierMeta,
+        supplier.isAcceptableOrUnknown(data['supplier']!, _supplierMeta),
+      );
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_statusMeta);
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+        _notesMeta,
+        notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('ordered_at')) {
+      context.handle(
+        _orderedAtMeta,
+        orderedAt.isAcceptableOrUnknown(data['ordered_at']!, _orderedAtMeta),
+      );
+    }
+    if (data.containsKey('received_at')) {
+      context.handle(
+        _receivedAtMeta,
+        receivedAt.isAcceptableOrUnknown(data['received_at']!, _receivedAtMeta),
+      );
+    }
+    if (data.containsKey('created_by_user_id')) {
+      context.handle(
+        _createdByUserIdMeta,
+        createdByUserId.isAcceptableOrUnknown(
+          data['created_by_user_id']!,
+          _createdByUserIdMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ReorderRequestRecord map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ReorderRequestRecord(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      itemId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}item_id'],
+      )!,
+      requestedQuantity: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}requested_quantity'],
+      )!,
+      unitOfMeasureId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}unit_of_measure_id'],
+      )!,
+      supplier: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}supplier'],
+      ),
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      notes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notes'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      orderedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}ordered_at'],
+      ),
+      receivedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}received_at'],
+      ),
+      createdByUserId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}created_by_user_id'],
+      ),
+    );
+  }
+
+  @override
+  $ReorderRequestsTable createAlias(String alias) {
+    return $ReorderRequestsTable(attachedDatabase, alias);
+  }
+}
+
+class ReorderRequestRecord extends DataClass
+    implements Insertable<ReorderRequestRecord> {
+  final String id;
+  final String itemId;
+  final double requestedQuantity;
+  final String unitOfMeasureId;
+  final String? supplier;
+  final String status;
+  final String? notes;
+  final DateTime createdAt;
+  final DateTime? orderedAt;
+  final DateTime? receivedAt;
+  final String? createdByUserId;
+  const ReorderRequestRecord({
+    required this.id,
+    required this.itemId,
+    required this.requestedQuantity,
+    required this.unitOfMeasureId,
+    this.supplier,
+    required this.status,
+    this.notes,
+    required this.createdAt,
+    this.orderedAt,
+    this.receivedAt,
+    this.createdByUserId,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['item_id'] = Variable<String>(itemId);
+    map['requested_quantity'] = Variable<double>(requestedQuantity);
+    map['unit_of_measure_id'] = Variable<String>(unitOfMeasureId);
+    if (!nullToAbsent || supplier != null) {
+      map['supplier'] = Variable<String>(supplier);
+    }
+    map['status'] = Variable<String>(status);
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || orderedAt != null) {
+      map['ordered_at'] = Variable<DateTime>(orderedAt);
+    }
+    if (!nullToAbsent || receivedAt != null) {
+      map['received_at'] = Variable<DateTime>(receivedAt);
+    }
+    if (!nullToAbsent || createdByUserId != null) {
+      map['created_by_user_id'] = Variable<String>(createdByUserId);
+    }
+    return map;
+  }
+
+  ReorderRequestsCompanion toCompanion(bool nullToAbsent) {
+    return ReorderRequestsCompanion(
+      id: Value(id),
+      itemId: Value(itemId),
+      requestedQuantity: Value(requestedQuantity),
+      unitOfMeasureId: Value(unitOfMeasureId),
+      supplier: supplier == null && nullToAbsent
+          ? const Value.absent()
+          : Value(supplier),
+      status: Value(status),
+      notes: notes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(notes),
+      createdAt: Value(createdAt),
+      orderedAt: orderedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(orderedAt),
+      receivedAt: receivedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(receivedAt),
+      createdByUserId: createdByUserId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(createdByUserId),
+    );
+  }
+
+  factory ReorderRequestRecord.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ReorderRequestRecord(
+      id: serializer.fromJson<String>(json['id']),
+      itemId: serializer.fromJson<String>(json['itemId']),
+      requestedQuantity: serializer.fromJson<double>(json['requestedQuantity']),
+      unitOfMeasureId: serializer.fromJson<String>(json['unitOfMeasureId']),
+      supplier: serializer.fromJson<String?>(json['supplier']),
+      status: serializer.fromJson<String>(json['status']),
+      notes: serializer.fromJson<String?>(json['notes']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      orderedAt: serializer.fromJson<DateTime?>(json['orderedAt']),
+      receivedAt: serializer.fromJson<DateTime?>(json['receivedAt']),
+      createdByUserId: serializer.fromJson<String?>(json['createdByUserId']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'itemId': serializer.toJson<String>(itemId),
+      'requestedQuantity': serializer.toJson<double>(requestedQuantity),
+      'unitOfMeasureId': serializer.toJson<String>(unitOfMeasureId),
+      'supplier': serializer.toJson<String?>(supplier),
+      'status': serializer.toJson<String>(status),
+      'notes': serializer.toJson<String?>(notes),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'orderedAt': serializer.toJson<DateTime?>(orderedAt),
+      'receivedAt': serializer.toJson<DateTime?>(receivedAt),
+      'createdByUserId': serializer.toJson<String?>(createdByUserId),
+    };
+  }
+
+  ReorderRequestRecord copyWith({
+    String? id,
+    String? itemId,
+    double? requestedQuantity,
+    String? unitOfMeasureId,
+    Value<String?> supplier = const Value.absent(),
+    String? status,
+    Value<String?> notes = const Value.absent(),
+    DateTime? createdAt,
+    Value<DateTime?> orderedAt = const Value.absent(),
+    Value<DateTime?> receivedAt = const Value.absent(),
+    Value<String?> createdByUserId = const Value.absent(),
+  }) => ReorderRequestRecord(
+    id: id ?? this.id,
+    itemId: itemId ?? this.itemId,
+    requestedQuantity: requestedQuantity ?? this.requestedQuantity,
+    unitOfMeasureId: unitOfMeasureId ?? this.unitOfMeasureId,
+    supplier: supplier.present ? supplier.value : this.supplier,
+    status: status ?? this.status,
+    notes: notes.present ? notes.value : this.notes,
+    createdAt: createdAt ?? this.createdAt,
+    orderedAt: orderedAt.present ? orderedAt.value : this.orderedAt,
+    receivedAt: receivedAt.present ? receivedAt.value : this.receivedAt,
+    createdByUserId: createdByUserId.present
+        ? createdByUserId.value
+        : this.createdByUserId,
+  );
+  ReorderRequestRecord copyWithCompanion(ReorderRequestsCompanion data) {
+    return ReorderRequestRecord(
+      id: data.id.present ? data.id.value : this.id,
+      itemId: data.itemId.present ? data.itemId.value : this.itemId,
+      requestedQuantity: data.requestedQuantity.present
+          ? data.requestedQuantity.value
+          : this.requestedQuantity,
+      unitOfMeasureId: data.unitOfMeasureId.present
+          ? data.unitOfMeasureId.value
+          : this.unitOfMeasureId,
+      supplier: data.supplier.present ? data.supplier.value : this.supplier,
+      status: data.status.present ? data.status.value : this.status,
+      notes: data.notes.present ? data.notes.value : this.notes,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      orderedAt: data.orderedAt.present ? data.orderedAt.value : this.orderedAt,
+      receivedAt: data.receivedAt.present
+          ? data.receivedAt.value
+          : this.receivedAt,
+      createdByUserId: data.createdByUserId.present
+          ? data.createdByUserId.value
+          : this.createdByUserId,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ReorderRequestRecord(')
+          ..write('id: $id, ')
+          ..write('itemId: $itemId, ')
+          ..write('requestedQuantity: $requestedQuantity, ')
+          ..write('unitOfMeasureId: $unitOfMeasureId, ')
+          ..write('supplier: $supplier, ')
+          ..write('status: $status, ')
+          ..write('notes: $notes, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('orderedAt: $orderedAt, ')
+          ..write('receivedAt: $receivedAt, ')
+          ..write('createdByUserId: $createdByUserId')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    itemId,
+    requestedQuantity,
+    unitOfMeasureId,
+    supplier,
+    status,
+    notes,
+    createdAt,
+    orderedAt,
+    receivedAt,
+    createdByUserId,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ReorderRequestRecord &&
+          other.id == this.id &&
+          other.itemId == this.itemId &&
+          other.requestedQuantity == this.requestedQuantity &&
+          other.unitOfMeasureId == this.unitOfMeasureId &&
+          other.supplier == this.supplier &&
+          other.status == this.status &&
+          other.notes == this.notes &&
+          other.createdAt == this.createdAt &&
+          other.orderedAt == this.orderedAt &&
+          other.receivedAt == this.receivedAt &&
+          other.createdByUserId == this.createdByUserId);
+}
+
+class ReorderRequestsCompanion extends UpdateCompanion<ReorderRequestRecord> {
+  final Value<String> id;
+  final Value<String> itemId;
+  final Value<double> requestedQuantity;
+  final Value<String> unitOfMeasureId;
+  final Value<String?> supplier;
+  final Value<String> status;
+  final Value<String?> notes;
+  final Value<DateTime> createdAt;
+  final Value<DateTime?> orderedAt;
+  final Value<DateTime?> receivedAt;
+  final Value<String?> createdByUserId;
+  final Value<int> rowid;
+  const ReorderRequestsCompanion({
+    this.id = const Value.absent(),
+    this.itemId = const Value.absent(),
+    this.requestedQuantity = const Value.absent(),
+    this.unitOfMeasureId = const Value.absent(),
+    this.supplier = const Value.absent(),
+    this.status = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.orderedAt = const Value.absent(),
+    this.receivedAt = const Value.absent(),
+    this.createdByUserId = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ReorderRequestsCompanion.insert({
+    required String id,
+    required String itemId,
+    required double requestedQuantity,
+    required String unitOfMeasureId,
+    this.supplier = const Value.absent(),
+    required String status,
+    this.notes = const Value.absent(),
+    required DateTime createdAt,
+    this.orderedAt = const Value.absent(),
+    this.receivedAt = const Value.absent(),
+    this.createdByUserId = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       itemId = Value(itemId),
+       requestedQuantity = Value(requestedQuantity),
+       unitOfMeasureId = Value(unitOfMeasureId),
+       status = Value(status),
+       createdAt = Value(createdAt);
+  static Insertable<ReorderRequestRecord> custom({
+    Expression<String>? id,
+    Expression<String>? itemId,
+    Expression<double>? requestedQuantity,
+    Expression<String>? unitOfMeasureId,
+    Expression<String>? supplier,
+    Expression<String>? status,
+    Expression<String>? notes,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? orderedAt,
+    Expression<DateTime>? receivedAt,
+    Expression<String>? createdByUserId,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (itemId != null) 'item_id': itemId,
+      if (requestedQuantity != null) 'requested_quantity': requestedQuantity,
+      if (unitOfMeasureId != null) 'unit_of_measure_id': unitOfMeasureId,
+      if (supplier != null) 'supplier': supplier,
+      if (status != null) 'status': status,
+      if (notes != null) 'notes': notes,
+      if (createdAt != null) 'created_at': createdAt,
+      if (orderedAt != null) 'ordered_at': orderedAt,
+      if (receivedAt != null) 'received_at': receivedAt,
+      if (createdByUserId != null) 'created_by_user_id': createdByUserId,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ReorderRequestsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? itemId,
+    Value<double>? requestedQuantity,
+    Value<String>? unitOfMeasureId,
+    Value<String?>? supplier,
+    Value<String>? status,
+    Value<String?>? notes,
+    Value<DateTime>? createdAt,
+    Value<DateTime?>? orderedAt,
+    Value<DateTime?>? receivedAt,
+    Value<String?>? createdByUserId,
+    Value<int>? rowid,
+  }) {
+    return ReorderRequestsCompanion(
+      id: id ?? this.id,
+      itemId: itemId ?? this.itemId,
+      requestedQuantity: requestedQuantity ?? this.requestedQuantity,
+      unitOfMeasureId: unitOfMeasureId ?? this.unitOfMeasureId,
+      supplier: supplier ?? this.supplier,
+      status: status ?? this.status,
+      notes: notes ?? this.notes,
+      createdAt: createdAt ?? this.createdAt,
+      orderedAt: orderedAt ?? this.orderedAt,
+      receivedAt: receivedAt ?? this.receivedAt,
+      createdByUserId: createdByUserId ?? this.createdByUserId,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (itemId.present) {
+      map['item_id'] = Variable<String>(itemId.value);
+    }
+    if (requestedQuantity.present) {
+      map['requested_quantity'] = Variable<double>(requestedQuantity.value);
+    }
+    if (unitOfMeasureId.present) {
+      map['unit_of_measure_id'] = Variable<String>(unitOfMeasureId.value);
+    }
+    if (supplier.present) {
+      map['supplier'] = Variable<String>(supplier.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (orderedAt.present) {
+      map['ordered_at'] = Variable<DateTime>(orderedAt.value);
+    }
+    if (receivedAt.present) {
+      map['received_at'] = Variable<DateTime>(receivedAt.value);
+    }
+    if (createdByUserId.present) {
+      map['created_by_user_id'] = Variable<String>(createdByUserId.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ReorderRequestsCompanion(')
+          ..write('id: $id, ')
+          ..write('itemId: $itemId, ')
+          ..write('requestedQuantity: $requestedQuantity, ')
+          ..write('unitOfMeasureId: $unitOfMeasureId, ')
+          ..write('supplier: $supplier, ')
+          ..write('status: $status, ')
+          ..write('notes: $notes, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('orderedAt: $orderedAt, ')
+          ..write('receivedAt: $receivedAt, ')
+          ..write('createdByUserId: $createdByUserId, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $CycleCountSessionsTable extends CycleCountSessions
     with TableInfo<$CycleCountSessionsTable, CycleCountSessionRecord> {
   @override
@@ -6441,6 +7117,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $AppUsersTable appUsers = $AppUsersTable(this);
   late final $InventoryTransactionsTable inventoryTransactions =
       $InventoryTransactionsTable(this);
+  late final $ReorderRequestsTable reorderRequests = $ReorderRequestsTable(
+    this,
+  );
   late final $CycleCountSessionsTable cycleCountSessions =
       $CycleCountSessionsTable(this);
   late final $CycleCountLinesTable cycleCountLines = $CycleCountLinesTable(
@@ -6463,6 +7142,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     people,
     appUsers,
     inventoryTransactions,
+    reorderRequests,
     cycleCountSessions,
     cycleCountLines,
     customFieldDefinitions,
@@ -8126,6 +8806,338 @@ typedef $$InventoryTransactionsTableProcessedTableManager =
       InventoryTransactionRecord,
       PrefetchHooks Function()
     >;
+typedef $$ReorderRequestsTableCreateCompanionBuilder =
+    ReorderRequestsCompanion Function({
+      required String id,
+      required String itemId,
+      required double requestedQuantity,
+      required String unitOfMeasureId,
+      Value<String?> supplier,
+      required String status,
+      Value<String?> notes,
+      required DateTime createdAt,
+      Value<DateTime?> orderedAt,
+      Value<DateTime?> receivedAt,
+      Value<String?> createdByUserId,
+      Value<int> rowid,
+    });
+typedef $$ReorderRequestsTableUpdateCompanionBuilder =
+    ReorderRequestsCompanion Function({
+      Value<String> id,
+      Value<String> itemId,
+      Value<double> requestedQuantity,
+      Value<String> unitOfMeasureId,
+      Value<String?> supplier,
+      Value<String> status,
+      Value<String?> notes,
+      Value<DateTime> createdAt,
+      Value<DateTime?> orderedAt,
+      Value<DateTime?> receivedAt,
+      Value<String?> createdByUserId,
+      Value<int> rowid,
+    });
+
+class $$ReorderRequestsTableFilterComposer
+    extends Composer<_$AppDatabase, $ReorderRequestsTable> {
+  $$ReorderRequestsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get itemId => $composableBuilder(
+    column: $table.itemId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get requestedQuantity => $composableBuilder(
+    column: $table.requestedQuantity,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get unitOfMeasureId => $composableBuilder(
+    column: $table.unitOfMeasureId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get supplier => $composableBuilder(
+    column: $table.supplier,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get orderedAt => $composableBuilder(
+    column: $table.orderedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get receivedAt => $composableBuilder(
+    column: $table.receivedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get createdByUserId => $composableBuilder(
+    column: $table.createdByUserId,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ReorderRequestsTableOrderingComposer
+    extends Composer<_$AppDatabase, $ReorderRequestsTable> {
+  $$ReorderRequestsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get itemId => $composableBuilder(
+    column: $table.itemId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get requestedQuantity => $composableBuilder(
+    column: $table.requestedQuantity,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get unitOfMeasureId => $composableBuilder(
+    column: $table.unitOfMeasureId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get supplier => $composableBuilder(
+    column: $table.supplier,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get orderedAt => $composableBuilder(
+    column: $table.orderedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get receivedAt => $composableBuilder(
+    column: $table.receivedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get createdByUserId => $composableBuilder(
+    column: $table.createdByUserId,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ReorderRequestsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ReorderRequestsTable> {
+  $$ReorderRequestsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get itemId =>
+      $composableBuilder(column: $table.itemId, builder: (column) => column);
+
+  GeneratedColumn<double> get requestedQuantity => $composableBuilder(
+    column: $table.requestedQuantity,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get unitOfMeasureId => $composableBuilder(
+    column: $table.unitOfMeasureId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get supplier =>
+      $composableBuilder(column: $table.supplier, builder: (column) => column);
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get orderedAt =>
+      $composableBuilder(column: $table.orderedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get receivedAt => $composableBuilder(
+    column: $table.receivedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get createdByUserId => $composableBuilder(
+    column: $table.createdByUserId,
+    builder: (column) => column,
+  );
+}
+
+class $$ReorderRequestsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ReorderRequestsTable,
+          ReorderRequestRecord,
+          $$ReorderRequestsTableFilterComposer,
+          $$ReorderRequestsTableOrderingComposer,
+          $$ReorderRequestsTableAnnotationComposer,
+          $$ReorderRequestsTableCreateCompanionBuilder,
+          $$ReorderRequestsTableUpdateCompanionBuilder,
+          (
+            ReorderRequestRecord,
+            BaseReferences<
+              _$AppDatabase,
+              $ReorderRequestsTable,
+              ReorderRequestRecord
+            >,
+          ),
+          ReorderRequestRecord,
+          PrefetchHooks Function()
+        > {
+  $$ReorderRequestsTableTableManager(
+    _$AppDatabase db,
+    $ReorderRequestsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ReorderRequestsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ReorderRequestsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ReorderRequestsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> itemId = const Value.absent(),
+                Value<double> requestedQuantity = const Value.absent(),
+                Value<String> unitOfMeasureId = const Value.absent(),
+                Value<String?> supplier = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime?> orderedAt = const Value.absent(),
+                Value<DateTime?> receivedAt = const Value.absent(),
+                Value<String?> createdByUserId = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ReorderRequestsCompanion(
+                id: id,
+                itemId: itemId,
+                requestedQuantity: requestedQuantity,
+                unitOfMeasureId: unitOfMeasureId,
+                supplier: supplier,
+                status: status,
+                notes: notes,
+                createdAt: createdAt,
+                orderedAt: orderedAt,
+                receivedAt: receivedAt,
+                createdByUserId: createdByUserId,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String itemId,
+                required double requestedQuantity,
+                required String unitOfMeasureId,
+                Value<String?> supplier = const Value.absent(),
+                required String status,
+                Value<String?> notes = const Value.absent(),
+                required DateTime createdAt,
+                Value<DateTime?> orderedAt = const Value.absent(),
+                Value<DateTime?> receivedAt = const Value.absent(),
+                Value<String?> createdByUserId = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ReorderRequestsCompanion.insert(
+                id: id,
+                itemId: itemId,
+                requestedQuantity: requestedQuantity,
+                unitOfMeasureId: unitOfMeasureId,
+                supplier: supplier,
+                status: status,
+                notes: notes,
+                createdAt: createdAt,
+                orderedAt: orderedAt,
+                receivedAt: receivedAt,
+                createdByUserId: createdByUserId,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ReorderRequestsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ReorderRequestsTable,
+      ReorderRequestRecord,
+      $$ReorderRequestsTableFilterComposer,
+      $$ReorderRequestsTableOrderingComposer,
+      $$ReorderRequestsTableAnnotationComposer,
+      $$ReorderRequestsTableCreateCompanionBuilder,
+      $$ReorderRequestsTableUpdateCompanionBuilder,
+      (
+        ReorderRequestRecord,
+        BaseReferences<
+          _$AppDatabase,
+          $ReorderRequestsTable,
+          ReorderRequestRecord
+        >,
+      ),
+      ReorderRequestRecord,
+      PrefetchHooks Function()
+    >;
 typedef $$CycleCountSessionsTableCreateCompanionBuilder =
     CycleCountSessionsCompanion Function({
       required String id,
@@ -9744,6 +10756,8 @@ class $AppDatabaseManager {
       $$AppUsersTableTableManager(_db, _db.appUsers);
   $$InventoryTransactionsTableTableManager get inventoryTransactions =>
       $$InventoryTransactionsTableTableManager(_db, _db.inventoryTransactions);
+  $$ReorderRequestsTableTableManager get reorderRequests =>
+      $$ReorderRequestsTableTableManager(_db, _db.reorderRequests);
   $$CycleCountSessionsTableTableManager get cycleCountSessions =>
       $$CycleCountSessionsTableTableManager(_db, _db.cycleCountSessions);
   $$CycleCountLinesTableTableManager get cycleCountLines =>

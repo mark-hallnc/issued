@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/app_store.dart';
 import '../core/models/models.dart';
+import 'low_stock_screen.dart';
 import 'plan_screens.dart';
 import 'settings_detail_screens.dart';
 
@@ -12,12 +13,7 @@ class DashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final store = AppStoreScope.of(context);
     final textTheme = Theme.of(context).textTheme;
-    final lowStockCount = store.items
-        .where(
-          (item) =>
-              item.isActive && item.quantityOnHand <= item.minimumQuantity,
-        )
-        .length;
+    final lowStockCount = store.getLowStockItems().length;
     final checkedOutCount = store.transactions.where((transaction) {
       final item = _itemById(store, transaction.itemId);
 
@@ -66,6 +62,13 @@ class DashboardScreen extends StatelessWidget {
               title: 'Low Stock',
               count: lowStockCount.toString(),
               icon: Icons.warning_amber_outlined,
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (context) => const LowStockScreen(),
+                  ),
+                );
+              },
             ),
             _DashboardCard(
               title: 'Checked Out',
@@ -165,40 +168,46 @@ class _DashboardCard extends StatelessWidget {
     required this.title,
     required this.count,
     required this.icon,
+    this.onTap,
   });
 
   final String title;
   final String count;
   final IconData icon;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: const Color(0xFF1E3A5F)),
-            const Spacer(),
-            Text(
-              count,
-              style: textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.w800,
-                color: const Color(0xFF17212F),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, color: const Color(0xFF1E3A5F)),
+              const Spacer(),
+              Text(
+                count,
+                style: textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF17212F),
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              title,
-              style: textTheme.titleSmall?.copyWith(
-                color: const Color(0xFF5C6672),
-                fontWeight: FontWeight.w600,
+              const SizedBox(height: 4),
+              Text(
+                title,
+                style: textTheme.titleSmall?.copyWith(
+                  color: const Color(0xFF5C6672),
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

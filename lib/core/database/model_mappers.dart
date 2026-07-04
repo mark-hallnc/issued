@@ -195,6 +195,42 @@ extension InventoryTransactionDomainMapper on domain.InventoryTransaction {
   }
 }
 
+extension ReorderRequestRecordMapper on ReorderRequestRecord {
+  domain.ReorderRequest toDomain() {
+    return domain.ReorderRequest(
+      id: id,
+      itemId: itemId,
+      requestedQuantity: requestedQuantity,
+      unitOfMeasureId: unitOfMeasureId,
+      supplier: supplier,
+      status: _enumByName(domain.ReorderStatus.values, status),
+      notes: notes,
+      createdAt: createdAt,
+      orderedAt: orderedAt,
+      receivedAt: receivedAt,
+      createdByUserId: createdByUserId,
+    );
+  }
+}
+
+extension ReorderRequestDomainMapper on domain.ReorderRequest {
+  ReorderRequestsCompanion toCompanion() {
+    return ReorderRequestsCompanion(
+      id: Value(id),
+      itemId: Value(itemId),
+      requestedQuantity: Value(requestedQuantity),
+      unitOfMeasureId: Value(unitOfMeasureId),
+      supplier: Value(supplier),
+      status: Value(status.name),
+      notes: Value(notes),
+      createdAt: Value(createdAt),
+      orderedAt: Value(orderedAt),
+      receivedAt: Value(receivedAt),
+      createdByUserId: Value(createdByUserId),
+    );
+  }
+}
+
 extension CycleCountSessionRecordMapper on CycleCountSessionRecord {
   domain.CycleCountSession toDomain() {
     return domain.CycleCountSession(
