@@ -13,6 +13,7 @@ part 'app_database.g.dart';
     People,
     AppUsers,
     InventoryTransactions,
+    ItemLocationBalances,
     ReorderRequests,
     CheckoutRecords,
     CycleCountSessions,
@@ -29,7 +30,7 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? openDatabaseConnection());
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration {
@@ -58,6 +59,9 @@ class AppDatabase extends _$AppDatabase {
             customFieldDefinitions.sortOrder,
           );
         }
+        if (from < 6) {
+          await migrator.createTable(itemLocationBalances);
+        }
       },
     );
   }
@@ -75,6 +79,8 @@ class AppDatabase extends _$AppDatabase {
   Future<List<AppUserRecord>> getAllAppUsers() => select(appUsers).get();
   Future<List<InventoryTransactionRecord>> getAllTransactions() =>
       select(inventoryTransactions).get();
+  Future<List<ItemLocationBalanceRecord>> getAllItemLocationBalances() =>
+      select(itemLocationBalances).get();
   Future<List<ReorderRequestRecord>> getAllReorderRequests() =>
       select(reorderRequests).get();
   Future<List<CheckoutRecordRow>> getAllCheckoutRecords() =>
@@ -114,6 +120,18 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> upsertTransaction(InventoryTransactionsCompanion transaction) {
     return into(inventoryTransactions).insertOnConflictUpdate(transaction);
+  }
+
+  Future<void> upsertItemLocationBalance(
+    ItemLocationBalancesCompanion balance,
+  ) {
+    return into(itemLocationBalances).insertOnConflictUpdate(balance);
+  }
+
+  Future<void> deleteItemLocationBalance(String id) {
+    return (delete(
+      itemLocationBalances,
+    )..where((row) => row.id.equals(id))).go();
   }
 
   Future<void> upsertReorderRequest(ReorderRequestsCompanion request) {

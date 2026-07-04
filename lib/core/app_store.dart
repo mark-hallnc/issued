@@ -19,6 +19,7 @@ class AppStore extends ChangeNotifier {
   final List<Person> _people = [];
   final List<AppUser> _users = [];
   final List<InventoryTransaction> _transactions = [];
+  final List<ItemLocationBalance> _itemLocationBalances = [];
   final List<CheckoutRecord> _checkoutRecords = [];
   final List<ReorderRequest> _reorderRequests = [];
   final List<CycleCountSession> _cycleCountSessions = [];
@@ -40,6 +41,8 @@ class AppStore extends ChangeNotifier {
   List<AppUser> get users => List.unmodifiable(_users);
   List<InventoryTransaction> get transactions =>
       List.unmodifiable(_transactions);
+  List<ItemLocationBalance> get itemLocationBalances =>
+      List.unmodifiable(_itemLocationBalances);
   List<CheckoutRecord> get checkoutRecords =>
       List.unmodifiable(_checkoutRecords);
   List<ReorderRequest> get reorderRequests =>
@@ -125,6 +128,7 @@ class AppStore extends ChangeNotifier {
     await _loadFromDatabase();
     await _ensureBasePlanData();
     await _ensureCompanyForExistingData();
+    await _backfillItemLocationBalances();
     if (isSetupComplete) {
       await _ensureLocalTestUsers();
     }
@@ -445,6 +449,13 @@ class AppStore extends ChangeNotifier {
       ..addAll(
         (await _database.getAllTransactions()).map((row) => row.toDomain()),
       );
+    _itemLocationBalances
+      ..clear()
+      ..addAll(
+        (await _database.getAllItemLocationBalances()).map(
+          (row) => row.toDomain(),
+        ),
+      );
     _checkoutRecords
       ..clear()
       ..addAll(
@@ -496,6 +507,22 @@ class AppStore extends ChangeNotifier {
   void addItem(Item item) {
     _items.add(item);
     unawaited(_database.upsertItem(item.toCompanion()));
+    notifyListeners();
+  }
+
+  void addItemWithInitialBalance(Item item, String locationId) {
+    _items.add(item);
+    unawaited(_database.upsertItem(item.toCompanion()));
+    final balance = ItemLocationBalance(
+      id: _balanceId(item.id, locationId),
+      itemId: item.id,
+      locationId: locationId,
+      quantityOnHand: item.quantityOnHand,
+      minimumQuantity: 0,
+      updatedAt: item.updatedAt,
+    );
+    _upsertBalanceInMemory(balance);
+    unawaited(_database.upsertItemLocationBalance(balance.toCompanion()));
     notifyListeners();
   }
 
@@ -699,6 +726,236 @@ class AppStore extends ChangeNotifier {
     _transactions.add(transaction);
     unawaited(_database.upsertTransaction(transaction.toCompanion()));
     notifyListeners();
+  }
+
+  List<ItemLocationBalance> itemBalancesForItem(String itemId) {
+    final balances = _itemLocationBalances
+        .where((balance) => balance.itemId == itemId)
+        .toList();
+    balances.sort((left, right) {
+      final leftQuantity = left.quantityOnHand;
+      final rightQuantity = right.quantityOnHand;
+      final quantityCompare = rightQuantity.compareTo(leftQuantity);
+      if (quantityCompare != 0) {
+        return quantityCompare;
+      }
+      return (resolveLocationName(left.locationId) ?? '').compareTo(
+        resolveLocationName(right.locationId) ?? '',
+      );
+    });
+    return balances;
+  }
+
+  double totalQuantityForItem(String itemId) {
+    return itemBalancesForItem(
+      itemId,
+    ).fold<double>(0, (sum, balance) => sum + balance.quantityOnHand);
+  }
+
+  Location? primaryLocationForItem(String itemId) {
+    final balances = itemBalancesForItem(
+      itemId,
+    ).where((balance) => balance.quantityOnHand > 0).toList();
+    if (balances.isEmpty) {
+      final item = _itemById(itemId);
+      return item == null ? null : _locationById(item.locationId);
+    }
+    return _locationById(balances.first.locationId);
+  }
+
+  void updateItemCachedQuantity(String itemId) {
+    final itemIndex = _items.indexWhere((item) => item.id == itemId);
+    if (itemIndex == -1) {
+      return;
+    }
+    final item = _items[itemIndex];
+    final updatedItem = item.copyWith(
+      quantityOnHand: totalQuantityForItem(itemId),
+      updatedAt: DateTime.now(),
+    );
+    _items[itemIndex] = updatedItem;
+    unawaited(_database.upsertItem(updatedItem.toCompanion()));
+    notifyListeners();
+  }
+
+  bool setItemLocationBalance(
+    String itemId,
+    String locationId,
+    double quantity,
+  ) {
+    if (quantity < 0 || !_isWholeQuantityAllowed(itemId, quantity)) {
+      return false;
+    }
+    final now = DateTime.now();
+    final balance =
+        _balanceFor(
+          itemId,
+          locationId,
+        )?.copyWith(quantityOnHand: quantity, updatedAt: now) ??
+        ItemLocationBalance(
+          id: _balanceId(itemId, locationId),
+          itemId: itemId,
+          locationId: locationId,
+          quantityOnHand: quantity,
+          minimumQuantity: 0,
+          updatedAt: now,
+        );
+    _upsertBalanceInMemory(balance);
+    unawaited(_database.upsertItemLocationBalance(balance.toCompanion()));
+    _syncItemCachedQuantity(itemId, now);
+    notifyListeners();
+    return true;
+  }
+
+  bool adjustItemLocationBalance(
+    String itemId,
+    String locationId,
+    double delta,
+  ) {
+    final current = _balanceFor(itemId, locationId)?.quantityOnHand ?? 0;
+    return setItemLocationBalance(itemId, locationId, current + delta);
+  }
+
+  bool receiveItemToLocation({
+    required String itemId,
+    required String locationId,
+    required double quantity,
+    String? notes,
+  }) {
+    if (!permissions.canReceiveStock ||
+        !_canMutateItemQuantity(itemId, quantity)) {
+      return false;
+    }
+    if (!adjustItemLocationBalance(itemId, locationId, quantity)) {
+      return false;
+    }
+    _appendInventoryTransaction(
+      itemId: itemId,
+      type: InventoryTransactionType.receive,
+      quantityDelta: quantity,
+      toLocationId: locationId,
+      notes: notes,
+    );
+    return true;
+  }
+
+  bool issueItemFromLocation({
+    required String itemId,
+    required String locationId,
+    required double quantity,
+    String? assignedToPersonId,
+    String? notes,
+  }) {
+    if (!permissions.canIssueItems ||
+        !_canMutateItemQuantity(itemId, quantity)) {
+      return false;
+    }
+    final current = _balanceFor(itemId, locationId)?.quantityOnHand ?? 0;
+    if (current < quantity) {
+      return false;
+    }
+    if (!adjustItemLocationBalance(itemId, locationId, -quantity)) {
+      return false;
+    }
+    _appendInventoryTransaction(
+      itemId: itemId,
+      type: InventoryTransactionType.issue,
+      quantityDelta: -quantity,
+      fromLocationId: locationId,
+      assignedToPersonId: assignedToPersonId,
+      notes: notes,
+    );
+    return true;
+  }
+
+  bool transferItemBetweenLocations({
+    required String itemId,
+    required String fromLocationId,
+    required String toLocationId,
+    required double quantity,
+    String? notes,
+  }) {
+    if (!permissions.canTransferStock ||
+        fromLocationId == toLocationId ||
+        !_canMutateItemQuantity(itemId, quantity)) {
+      return false;
+    }
+    final current = _balanceFor(itemId, fromLocationId)?.quantityOnHand ?? 0;
+    if (current < quantity) {
+      return false;
+    }
+    final now = DateTime.now();
+    _setBalanceQuantity(itemId, fromLocationId, current - quantity, now);
+    final toCurrent = _balanceFor(itemId, toLocationId)?.quantityOnHand ?? 0;
+    _setBalanceQuantity(itemId, toLocationId, toCurrent + quantity, now);
+    _syncItemCachedQuantity(itemId, now);
+    _appendInventoryTransaction(
+      itemId: itemId,
+      type: InventoryTransactionType.transfer,
+      quantityDelta: 0,
+      fromLocationId: fromLocationId,
+      toLocationId: toLocationId,
+      notes: notes,
+    );
+    notifyListeners();
+    return true;
+  }
+
+  bool adjustItemQuantityAtLocation({
+    required String itemId,
+    required String locationId,
+    required double quantity,
+    required bool setQuantity,
+    String? notes,
+  }) {
+    if (!permissions.canAdjustQuantity) {
+      return false;
+    }
+    final current = _balanceFor(itemId, locationId)?.quantityOnHand ?? 0;
+    final newQuantity = setQuantity ? quantity : current + quantity;
+    if (newQuantity < 0 || !_isWholeQuantityAllowed(itemId, newQuantity)) {
+      return false;
+    }
+    if (!setItemLocationBalance(itemId, locationId, newQuantity)) {
+      return false;
+    }
+    final delta = newQuantity - current;
+    _appendInventoryTransaction(
+      itemId: itemId,
+      type: InventoryTransactionType.adjustment,
+      quantityDelta: delta,
+      fromLocationId: delta < 0 ? locationId : null,
+      toLocationId: delta >= 0 ? locationId : null,
+      notes: notes,
+    );
+    return true;
+  }
+
+  bool markItemDamagedAtLocation({
+    required String itemId,
+    required String locationId,
+    required double quantity,
+    String? notes,
+  }) {
+    if (!permissions.canAdjustQuantity ||
+        !_canMutateItemQuantity(itemId, quantity)) {
+      return false;
+    }
+    final current = _balanceFor(itemId, locationId)?.quantityOnHand ?? 0;
+    if (current < quantity) {
+      return false;
+    }
+    if (!adjustItemLocationBalance(itemId, locationId, -quantity)) {
+      return false;
+    }
+    _appendInventoryTransaction(
+      itemId: itemId,
+      type: InventoryTransactionType.markDamaged,
+      quantityDelta: -quantity,
+      fromLocationId: locationId,
+      notes: notes,
+    );
+    return true;
   }
 
   List<InventoryTransaction> transactionsForItem(String itemId) {
@@ -1113,13 +1370,15 @@ class AppStore extends ChangeNotifier {
   bool checkOutItem({
     required String itemId,
     required double quantity,
+    required String sourceLocationId,
     String? assignedToPersonId,
     String? assignedToLocationId,
     String? assignedToText,
     DateTime? dueAt,
     String? notes,
   }) {
-    if (!permissions.canIssueItems || quantity <= 0) {
+    if (!permissions.canIssueItems ||
+        !_canMutateItemQuantity(itemId, quantity)) {
       return false;
     }
 
@@ -1130,14 +1389,20 @@ class AppStore extends ChangeNotifier {
 
     final item = _items[itemIndex];
     final now = DateTime.now();
+    final sourceBalance =
+        _balanceFor(itemId, sourceLocationId)?.quantityOnHand ?? 0;
+    if (sourceBalance < quantity) {
+      return false;
+    }
     final normalizedAssignedText = assignedToText?.trim();
     final normalizedNotes = notes?.trim();
-    final updatedItem = item.copyWith(
-      quantityOnHand: item.quantityOnHand - quantity,
-      updatedAt: now,
+    _setBalanceQuantity(
+      itemId,
+      sourceLocationId,
+      sourceBalance - quantity,
+      now,
     );
-    _items[itemIndex] = updatedItem;
-    unawaited(_database.upsertItem(updatedItem.toCompanion()));
+    _syncItemCachedQuantity(itemId, now);
 
     final record = CheckoutRecord(
       id: 'checkout-${now.microsecondsSinceEpoch}',
@@ -1169,7 +1434,7 @@ class AppStore extends ChangeNotifier {
       transactionType: InventoryTransactionType.checkout,
       quantityDelta: -quantity,
       unitOfMeasureId: item.unitOfMeasureId,
-      fromLocationId: item.locationId,
+      fromLocationId: sourceLocationId,
       toLocationId: null,
       assignedToPersonId: assignedToPersonId,
       performedByUserId: currentUser?.id,
@@ -1185,6 +1450,7 @@ class AppStore extends ChangeNotifier {
   bool returnCheckout({
     required String checkoutRecordId,
     required double returnedQuantity,
+    required String returnToLocationId,
     String? notes,
   }) {
     if (!permissions.canIssueItems || returnedQuantity <= 0) {
@@ -1211,12 +1477,15 @@ class AppStore extends ChangeNotifier {
 
     final now = DateTime.now();
     final item = _items[itemIndex];
-    final updatedItem = item.copyWith(
-      quantityOnHand: item.quantityOnHand + returnedQuantity,
-      updatedAt: now,
+    final current =
+        _balanceFor(item.id, returnToLocationId)?.quantityOnHand ?? 0;
+    _setBalanceQuantity(
+      item.id,
+      returnToLocationId,
+      current + returnedQuantity,
+      now,
     );
-    _items[itemIndex] = updatedItem;
-    unawaited(_database.upsertItem(updatedItem.toCompanion()));
+    _syncItemCachedQuantity(item.id, now);
 
     final normalizedNotes = notes?.trim();
     final updatedRecord = record.copyWith(
@@ -1237,7 +1506,7 @@ class AppStore extends ChangeNotifier {
       quantityDelta: returnedQuantity,
       unitOfMeasureId: item.unitOfMeasureId,
       fromLocationId: null,
-      toLocationId: item.locationId,
+      toLocationId: returnToLocationId,
       assignedToPersonId: record.assignedToPersonId,
       performedByUserId: currentUser?.id,
       notes: normalizedNotes == null || normalizedNotes.isEmpty
@@ -1468,19 +1737,16 @@ class AppStore extends ChangeNotifier {
       return false;
     }
 
-    final itemIndex = _items.indexWhere((item) => item.id == request.itemId);
-    if (itemIndex == -1) {
+    final item = _itemById(request.itemId);
+    if (item == null) {
       return false;
     }
 
     final now = DateTime.now();
-    final item = _items[itemIndex];
-    final updatedItem = item.copyWith(
-      quantityOnHand: item.quantityOnHand + receivedQuantity,
-      updatedAt: now,
-    );
-    _items[itemIndex] = updatedItem;
-    unawaited(_database.upsertItem(updatedItem.toCompanion()));
+    final locationId = primaryLocationForItem(item.id)?.id ?? item.locationId;
+    final current = _balanceFor(item.id, locationId)?.quantityOnHand ?? 0;
+    _setBalanceQuantity(item.id, locationId, current + receivedQuantity, now);
+    _syncItemCachedQuantity(item.id, now);
 
     final normalizedNotes = notes?.trim();
     final transaction = InventoryTransaction(
@@ -1490,7 +1756,7 @@ class AppStore extends ChangeNotifier {
       quantityDelta: receivedQuantity,
       unitOfMeasureId: item.unitOfMeasureId,
       fromLocationId: null,
-      toLocationId: item.locationId,
+      toLocationId: locationId,
       assignedToPersonId: null,
       performedByUserId: currentUser?.id,
       notes: normalizedNotes == null || normalizedNotes.isEmpty
@@ -1554,6 +1820,175 @@ class AppStore extends ChangeNotifier {
     }
 
     return null;
+  }
+
+  Location? _locationById(String locationId) {
+    for (final location in _locations) {
+      if (location.id == locationId) {
+        return location;
+      }
+    }
+
+    return null;
+  }
+
+  ItemLocationBalance? _balanceFor(String itemId, String locationId) {
+    for (final balance in _itemLocationBalances) {
+      if (balance.itemId == itemId && balance.locationId == locationId) {
+        return balance;
+      }
+    }
+    return null;
+  }
+
+  String _balanceId(String itemId, String locationId) {
+    return 'balance-$itemId-$locationId';
+  }
+
+  void _upsertBalanceInMemory(ItemLocationBalance balance) {
+    final index = _itemLocationBalances.indexWhere(
+      (storedBalance) => storedBalance.id == balance.id,
+    );
+    if (index == -1) {
+      _itemLocationBalances.add(balance);
+    } else {
+      _itemLocationBalances[index] = balance;
+    }
+  }
+
+  void _setBalanceQuantity(
+    String itemId,
+    String locationId,
+    double quantity,
+    DateTime updatedAt,
+  ) {
+    final balance =
+        _balanceFor(
+          itemId,
+          locationId,
+        )?.copyWith(quantityOnHand: quantity, updatedAt: updatedAt) ??
+        ItemLocationBalance(
+          id: _balanceId(itemId, locationId),
+          itemId: itemId,
+          locationId: locationId,
+          quantityOnHand: quantity,
+          minimumQuantity: 0,
+          updatedAt: updatedAt,
+        );
+    _upsertBalanceInMemory(balance);
+    unawaited(_database.upsertItemLocationBalance(balance.toCompanion()));
+  }
+
+  void _syncItemCachedQuantity(String itemId, DateTime updatedAt) {
+    final itemIndex = _items.indexWhere((item) => item.id == itemId);
+    if (itemIndex == -1) {
+      return;
+    }
+    final item = _items[itemIndex];
+    _items[itemIndex] = item.copyWith(
+      quantityOnHand: totalQuantityForItem(itemId),
+      updatedAt: updatedAt,
+    );
+    unawaited(_database.upsertItem(_items[itemIndex].toCompanion()));
+  }
+
+  bool _isWholeQuantityAllowed(String itemId, double quantity) {
+    final item = _itemById(itemId);
+    if (item == null || item.allowFractionalQuantity) {
+      return true;
+    }
+    final unit = _unitById(item.unitOfMeasureId);
+    if (unit?.allowsDecimal == true) {
+      return true;
+    }
+    return quantity == quantity.roundToDouble();
+  }
+
+  bool _canMutateItemQuantity(String itemId, double quantity) {
+    final item = _itemById(itemId);
+    return item != null &&
+        item.isActive &&
+        quantity > 0 &&
+        _isWholeQuantityAllowed(itemId, quantity);
+  }
+
+  void _appendInventoryTransaction({
+    required String itemId,
+    required InventoryTransactionType type,
+    required double quantityDelta,
+    String? fromLocationId,
+    String? toLocationId,
+    String? assignedToPersonId,
+    String? notes,
+  }) {
+    final item = _itemById(itemId);
+    if (item == null) {
+      return;
+    }
+    final transaction = InventoryTransaction(
+      id: 'txn-${type.name}-${DateTime.now().microsecondsSinceEpoch}',
+      itemId: itemId,
+      transactionType: type,
+      quantityDelta: quantityDelta,
+      unitOfMeasureId: item.unitOfMeasureId,
+      fromLocationId: fromLocationId,
+      toLocationId: toLocationId,
+      assignedToPersonId: assignedToPersonId,
+      performedByUserId: currentUser?.id,
+      notes: notes,
+      createdAt: DateTime.now(),
+    );
+    _transactions.add(transaction);
+    unawaited(_database.upsertTransaction(transaction.toCompanion()));
+  }
+
+  Future<void> _backfillItemLocationBalances() async {
+    var changed = false;
+    Location? firstActiveLocation;
+    for (final location in _locations) {
+      if (location.isActive) {
+        firstActiveLocation = location;
+        break;
+      }
+    }
+    for (final item in _items.where((item) => item.isActive)) {
+      if (_itemLocationBalances.any((balance) => balance.itemId == item.id)) {
+        continue;
+      }
+      final locationId =
+          _locations.any((location) => location.id == item.locationId)
+          ? item.locationId
+          : firstActiveLocation?.id;
+      if (locationId == null) {
+        continue;
+      }
+      final balance = ItemLocationBalance(
+        id: _balanceId(item.id, locationId),
+        itemId: item.id,
+        locationId: locationId,
+        quantityOnHand: item.quantityOnHand,
+        minimumQuantity: 0,
+        updatedAt: item.updatedAt,
+      );
+      _itemLocationBalances.add(balance);
+      await _database.upsertItemLocationBalance(balance.toCompanion());
+      changed = true;
+    }
+    for (final item in _items) {
+      final total = totalQuantityForItem(item.id);
+      if (item.quantityOnHand != total &&
+          _itemLocationBalances.any((balance) => balance.itemId == item.id)) {
+        final itemIndex = _items.indexWhere(
+          (storedItem) => storedItem.id == item.id,
+        );
+        _items[itemIndex] = item.copyWith(quantityOnHand: total);
+        await _database.upsertItem(_items[itemIndex].toCompanion());
+        changed = true;
+      }
+    }
+    if (changed) {
+      notifyListeners();
+    }
   }
 
   CycleCountSession? _cycleCountSessionById(String sessionId) {

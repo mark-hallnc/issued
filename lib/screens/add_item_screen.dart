@@ -347,7 +347,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
       updatedAt: now,
     );
 
-    store.addItem(item);
+    store.addItemWithInitialBalance(item, _selectedLocation!.id);
     for (final field in store.activeCustomFieldsForItem(item)) {
       final value = _customValueForField(field, item.id, now);
       if (value != null) {

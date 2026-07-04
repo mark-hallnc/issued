@@ -3325,6 +3325,437 @@ class InventoryTransactionsCompanion
   }
 }
 
+class $ItemLocationBalancesTable extends ItemLocationBalances
+    with TableInfo<$ItemLocationBalancesTable, ItemLocationBalanceRecord> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ItemLocationBalancesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _itemIdMeta = const VerificationMeta('itemId');
+  @override
+  late final GeneratedColumn<String> itemId = GeneratedColumn<String>(
+    'item_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _locationIdMeta = const VerificationMeta(
+    'locationId',
+  );
+  @override
+  late final GeneratedColumn<String> locationId = GeneratedColumn<String>(
+    'location_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _quantityOnHandMeta = const VerificationMeta(
+    'quantityOnHand',
+  );
+  @override
+  late final GeneratedColumn<double> quantityOnHand = GeneratedColumn<double>(
+    'quantity_on_hand',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _minimumQuantityMeta = const VerificationMeta(
+    'minimumQuantity',
+  );
+  @override
+  late final GeneratedColumn<double> minimumQuantity = GeneratedColumn<double>(
+    'minimum_quantity',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    itemId,
+    locationId,
+    quantityOnHand,
+    minimumQuantity,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'item_location_balances';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ItemLocationBalanceRecord> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('item_id')) {
+      context.handle(
+        _itemIdMeta,
+        itemId.isAcceptableOrUnknown(data['item_id']!, _itemIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_itemIdMeta);
+    }
+    if (data.containsKey('location_id')) {
+      context.handle(
+        _locationIdMeta,
+        locationId.isAcceptableOrUnknown(data['location_id']!, _locationIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_locationIdMeta);
+    }
+    if (data.containsKey('quantity_on_hand')) {
+      context.handle(
+        _quantityOnHandMeta,
+        quantityOnHand.isAcceptableOrUnknown(
+          data['quantity_on_hand']!,
+          _quantityOnHandMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_quantityOnHandMeta);
+    }
+    if (data.containsKey('minimum_quantity')) {
+      context.handle(
+        _minimumQuantityMeta,
+        minimumQuantity.isAcceptableOrUnknown(
+          data['minimum_quantity']!,
+          _minimumQuantityMeta,
+        ),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ItemLocationBalanceRecord map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ItemLocationBalanceRecord(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      itemId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}item_id'],
+      )!,
+      locationId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}location_id'],
+      )!,
+      quantityOnHand: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}quantity_on_hand'],
+      )!,
+      minimumQuantity: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}minimum_quantity'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $ItemLocationBalancesTable createAlias(String alias) {
+    return $ItemLocationBalancesTable(attachedDatabase, alias);
+  }
+}
+
+class ItemLocationBalanceRecord extends DataClass
+    implements Insertable<ItemLocationBalanceRecord> {
+  final String id;
+  final String itemId;
+  final String locationId;
+  final double quantityOnHand;
+  final double minimumQuantity;
+  final DateTime updatedAt;
+  const ItemLocationBalanceRecord({
+    required this.id,
+    required this.itemId,
+    required this.locationId,
+    required this.quantityOnHand,
+    required this.minimumQuantity,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['item_id'] = Variable<String>(itemId);
+    map['location_id'] = Variable<String>(locationId);
+    map['quantity_on_hand'] = Variable<double>(quantityOnHand);
+    map['minimum_quantity'] = Variable<double>(minimumQuantity);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  ItemLocationBalancesCompanion toCompanion(bool nullToAbsent) {
+    return ItemLocationBalancesCompanion(
+      id: Value(id),
+      itemId: Value(itemId),
+      locationId: Value(locationId),
+      quantityOnHand: Value(quantityOnHand),
+      minimumQuantity: Value(minimumQuantity),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory ItemLocationBalanceRecord.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ItemLocationBalanceRecord(
+      id: serializer.fromJson<String>(json['id']),
+      itemId: serializer.fromJson<String>(json['itemId']),
+      locationId: serializer.fromJson<String>(json['locationId']),
+      quantityOnHand: serializer.fromJson<double>(json['quantityOnHand']),
+      minimumQuantity: serializer.fromJson<double>(json['minimumQuantity']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'itemId': serializer.toJson<String>(itemId),
+      'locationId': serializer.toJson<String>(locationId),
+      'quantityOnHand': serializer.toJson<double>(quantityOnHand),
+      'minimumQuantity': serializer.toJson<double>(minimumQuantity),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  ItemLocationBalanceRecord copyWith({
+    String? id,
+    String? itemId,
+    String? locationId,
+    double? quantityOnHand,
+    double? minimumQuantity,
+    DateTime? updatedAt,
+  }) => ItemLocationBalanceRecord(
+    id: id ?? this.id,
+    itemId: itemId ?? this.itemId,
+    locationId: locationId ?? this.locationId,
+    quantityOnHand: quantityOnHand ?? this.quantityOnHand,
+    minimumQuantity: minimumQuantity ?? this.minimumQuantity,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  ItemLocationBalanceRecord copyWithCompanion(
+    ItemLocationBalancesCompanion data,
+  ) {
+    return ItemLocationBalanceRecord(
+      id: data.id.present ? data.id.value : this.id,
+      itemId: data.itemId.present ? data.itemId.value : this.itemId,
+      locationId: data.locationId.present
+          ? data.locationId.value
+          : this.locationId,
+      quantityOnHand: data.quantityOnHand.present
+          ? data.quantityOnHand.value
+          : this.quantityOnHand,
+      minimumQuantity: data.minimumQuantity.present
+          ? data.minimumQuantity.value
+          : this.minimumQuantity,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ItemLocationBalanceRecord(')
+          ..write('id: $id, ')
+          ..write('itemId: $itemId, ')
+          ..write('locationId: $locationId, ')
+          ..write('quantityOnHand: $quantityOnHand, ')
+          ..write('minimumQuantity: $minimumQuantity, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    itemId,
+    locationId,
+    quantityOnHand,
+    minimumQuantity,
+    updatedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ItemLocationBalanceRecord &&
+          other.id == this.id &&
+          other.itemId == this.itemId &&
+          other.locationId == this.locationId &&
+          other.quantityOnHand == this.quantityOnHand &&
+          other.minimumQuantity == this.minimumQuantity &&
+          other.updatedAt == this.updatedAt);
+}
+
+class ItemLocationBalancesCompanion
+    extends UpdateCompanion<ItemLocationBalanceRecord> {
+  final Value<String> id;
+  final Value<String> itemId;
+  final Value<String> locationId;
+  final Value<double> quantityOnHand;
+  final Value<double> minimumQuantity;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const ItemLocationBalancesCompanion({
+    this.id = const Value.absent(),
+    this.itemId = const Value.absent(),
+    this.locationId = const Value.absent(),
+    this.quantityOnHand = const Value.absent(),
+    this.minimumQuantity = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ItemLocationBalancesCompanion.insert({
+    required String id,
+    required String itemId,
+    required String locationId,
+    required double quantityOnHand,
+    this.minimumQuantity = const Value.absent(),
+    required DateTime updatedAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       itemId = Value(itemId),
+       locationId = Value(locationId),
+       quantityOnHand = Value(quantityOnHand),
+       updatedAt = Value(updatedAt);
+  static Insertable<ItemLocationBalanceRecord> custom({
+    Expression<String>? id,
+    Expression<String>? itemId,
+    Expression<String>? locationId,
+    Expression<double>? quantityOnHand,
+    Expression<double>? minimumQuantity,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (itemId != null) 'item_id': itemId,
+      if (locationId != null) 'location_id': locationId,
+      if (quantityOnHand != null) 'quantity_on_hand': quantityOnHand,
+      if (minimumQuantity != null) 'minimum_quantity': minimumQuantity,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ItemLocationBalancesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? itemId,
+    Value<String>? locationId,
+    Value<double>? quantityOnHand,
+    Value<double>? minimumQuantity,
+    Value<DateTime>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return ItemLocationBalancesCompanion(
+      id: id ?? this.id,
+      itemId: itemId ?? this.itemId,
+      locationId: locationId ?? this.locationId,
+      quantityOnHand: quantityOnHand ?? this.quantityOnHand,
+      minimumQuantity: minimumQuantity ?? this.minimumQuantity,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (itemId.present) {
+      map['item_id'] = Variable<String>(itemId.value);
+    }
+    if (locationId.present) {
+      map['location_id'] = Variable<String>(locationId.value);
+    }
+    if (quantityOnHand.present) {
+      map['quantity_on_hand'] = Variable<double>(quantityOnHand.value);
+    }
+    if (minimumQuantity.present) {
+      map['minimum_quantity'] = Variable<double>(minimumQuantity.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ItemLocationBalancesCompanion(')
+          ..write('id: $id, ')
+          ..write('itemId: $itemId, ')
+          ..write('locationId: $locationId, ')
+          ..write('quantityOnHand: $quantityOnHand, ')
+          ..write('minimumQuantity: $minimumQuantity, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $ReorderRequestsTable extends ReorderRequests
     with TableInfo<$ReorderRequestsTable, ReorderRequestRecord> {
   @override
@@ -8559,6 +8990,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $AppUsersTable appUsers = $AppUsersTable(this);
   late final $InventoryTransactionsTable inventoryTransactions =
       $InventoryTransactionsTable(this);
+  late final $ItemLocationBalancesTable itemLocationBalances =
+      $ItemLocationBalancesTable(this);
   late final $ReorderRequestsTable reorderRequests = $ReorderRequestsTable(
     this,
   );
@@ -8588,6 +9021,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     people,
     appUsers,
     inventoryTransactions,
+    itemLocationBalances,
     reorderRequests,
     checkoutRecords,
     cycleCountSessions,
@@ -10252,6 +10686,247 @@ typedef $$InventoryTransactionsTableProcessedTableManager =
         >,
       ),
       InventoryTransactionRecord,
+      PrefetchHooks Function()
+    >;
+typedef $$ItemLocationBalancesTableCreateCompanionBuilder =
+    ItemLocationBalancesCompanion Function({
+      required String id,
+      required String itemId,
+      required String locationId,
+      required double quantityOnHand,
+      Value<double> minimumQuantity,
+      required DateTime updatedAt,
+      Value<int> rowid,
+    });
+typedef $$ItemLocationBalancesTableUpdateCompanionBuilder =
+    ItemLocationBalancesCompanion Function({
+      Value<String> id,
+      Value<String> itemId,
+      Value<String> locationId,
+      Value<double> quantityOnHand,
+      Value<double> minimumQuantity,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+
+class $$ItemLocationBalancesTableFilterComposer
+    extends Composer<_$AppDatabase, $ItemLocationBalancesTable> {
+  $$ItemLocationBalancesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get itemId => $composableBuilder(
+    column: $table.itemId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get locationId => $composableBuilder(
+    column: $table.locationId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get quantityOnHand => $composableBuilder(
+    column: $table.quantityOnHand,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get minimumQuantity => $composableBuilder(
+    column: $table.minimumQuantity,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ItemLocationBalancesTableOrderingComposer
+    extends Composer<_$AppDatabase, $ItemLocationBalancesTable> {
+  $$ItemLocationBalancesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get itemId => $composableBuilder(
+    column: $table.itemId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get locationId => $composableBuilder(
+    column: $table.locationId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get quantityOnHand => $composableBuilder(
+    column: $table.quantityOnHand,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get minimumQuantity => $composableBuilder(
+    column: $table.minimumQuantity,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ItemLocationBalancesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ItemLocationBalancesTable> {
+  $$ItemLocationBalancesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get itemId =>
+      $composableBuilder(column: $table.itemId, builder: (column) => column);
+
+  GeneratedColumn<String> get locationId => $composableBuilder(
+    column: $table.locationId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get quantityOnHand => $composableBuilder(
+    column: $table.quantityOnHand,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get minimumQuantity => $composableBuilder(
+    column: $table.minimumQuantity,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$ItemLocationBalancesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ItemLocationBalancesTable,
+          ItemLocationBalanceRecord,
+          $$ItemLocationBalancesTableFilterComposer,
+          $$ItemLocationBalancesTableOrderingComposer,
+          $$ItemLocationBalancesTableAnnotationComposer,
+          $$ItemLocationBalancesTableCreateCompanionBuilder,
+          $$ItemLocationBalancesTableUpdateCompanionBuilder,
+          (
+            ItemLocationBalanceRecord,
+            BaseReferences<
+              _$AppDatabase,
+              $ItemLocationBalancesTable,
+              ItemLocationBalanceRecord
+            >,
+          ),
+          ItemLocationBalanceRecord,
+          PrefetchHooks Function()
+        > {
+  $$ItemLocationBalancesTableTableManager(
+    _$AppDatabase db,
+    $ItemLocationBalancesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ItemLocationBalancesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ItemLocationBalancesTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$ItemLocationBalancesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> itemId = const Value.absent(),
+                Value<String> locationId = const Value.absent(),
+                Value<double> quantityOnHand = const Value.absent(),
+                Value<double> minimumQuantity = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ItemLocationBalancesCompanion(
+                id: id,
+                itemId: itemId,
+                locationId: locationId,
+                quantityOnHand: quantityOnHand,
+                minimumQuantity: minimumQuantity,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String itemId,
+                required String locationId,
+                required double quantityOnHand,
+                Value<double> minimumQuantity = const Value.absent(),
+                required DateTime updatedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => ItemLocationBalancesCompanion.insert(
+                id: id,
+                itemId: itemId,
+                locationId: locationId,
+                quantityOnHand: quantityOnHand,
+                minimumQuantity: minimumQuantity,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ItemLocationBalancesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ItemLocationBalancesTable,
+      ItemLocationBalanceRecord,
+      $$ItemLocationBalancesTableFilterComposer,
+      $$ItemLocationBalancesTableOrderingComposer,
+      $$ItemLocationBalancesTableAnnotationComposer,
+      $$ItemLocationBalancesTableCreateCompanionBuilder,
+      $$ItemLocationBalancesTableUpdateCompanionBuilder,
+      (
+        ItemLocationBalanceRecord,
+        BaseReferences<
+          _$AppDatabase,
+          $ItemLocationBalancesTable,
+          ItemLocationBalanceRecord
+        >,
+      ),
+      ItemLocationBalanceRecord,
       PrefetchHooks Function()
     >;
 typedef $$ReorderRequestsTableCreateCompanionBuilder =
@@ -12879,6 +13554,8 @@ class $AppDatabaseManager {
       $$AppUsersTableTableManager(_db, _db.appUsers);
   $$InventoryTransactionsTableTableManager get inventoryTransactions =>
       $$InventoryTransactionsTableTableManager(_db, _db.inventoryTransactions);
+  $$ItemLocationBalancesTableTableManager get itemLocationBalances =>
+      $$ItemLocationBalancesTableTableManager(_db, _db.itemLocationBalances);
   $$ReorderRequestsTableTableManager get reorderRequests =>
       $$ReorderRequestsTableTableManager(_db, _db.reorderRequests);
   $$CheckoutRecordsTableTableManager get checkoutRecords =>

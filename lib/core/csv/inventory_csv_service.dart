@@ -89,6 +89,7 @@ String buildItemsCsv(AppStore store, {required bool includeArchived}) {
       'unit_of_measure',
       'unit_of_measure_abbreviation',
       'location',
+      'location_balances',
       'barcode',
       'sku',
       'supplier',
@@ -120,6 +121,7 @@ String buildItemsCsv(AppStore store, {required bool includeArchived}) {
       unit?.name ?? '',
       unit?.abbreviation ?? '',
       location?.name ?? '',
+      _locationBalancesText(store, item, unit),
       item.barcode ?? '',
       item.sku ?? '',
       item.supplier ?? '',
@@ -560,6 +562,31 @@ Location? _locationById(AppStore store, String? locationId) {
   );
 }
 
+String _locationBalancesText(AppStore store, Item item, UnitOfMeasure? unit) {
+  final unitText = unit?.abbreviation ?? '';
+  final balances = store
+      .itemBalancesForItem(item.id)
+      .where((balance) => balance.quantityOnHand != 0)
+      .toList();
+  if (balances.isEmpty) {
+    final location = _locationById(store, item.locationId);
+    if (location == null) {
+      return '';
+    }
+    return '${location.name}: ${_formatQuantity(item.quantityOnHand)} $unitText'
+        .trim();
+  }
+
+  return balances
+      .map((balance) {
+        final location = _locationById(store, balance.locationId);
+        final name = location?.name ?? 'Unknown';
+        return '$name: ${_formatQuantity(balance.quantityOnHand)} $unitText'
+            .trim();
+      })
+      .join('; ');
+}
+
 Person? _personById(AppStore store, String? personId) {
   if (personId == null) {
     return null;
@@ -588,6 +615,13 @@ String _userNameById(AppStore store, String? userId) {
 }
 
 String _normalize(String value) => value.trim().toLowerCase();
+
+String _formatQuantity(double quantity) {
+  if (quantity == quantity.roundToDouble()) {
+    return quantity.toStringAsFixed(0);
+  }
+  return quantity.toString();
+}
 
 bool _customFieldApplies(CustomFieldDefinition field, Item item) {
   final appliesToItemType = field.appliesToItemType;

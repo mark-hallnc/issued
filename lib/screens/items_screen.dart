@@ -270,7 +270,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
     if (_advancedItemType != null && item.itemType != _advancedItemType) {
       return false;
     }
-    if (_locationId != null && item.locationId != _locationId) {
+    if (_locationId != null && !_itemHasLocation(store, item, _locationId!)) {
       return false;
     }
     if (_category != null && item.category != _category) {
@@ -333,7 +333,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
       item.sku,
       item.barcode,
       item.supplier,
-      store.resolveLocationName(item.locationId),
+      _itemLocationSearchText(store, item),
       store.resolveUomAbbreviation(item.unitOfMeasureId),
       _unitName(store, item.unitOfMeasureId),
       _itemTypeLabel(item.itemType),
@@ -991,7 +991,7 @@ class _ItemCard extends StatelessWidget {
     final isCheckedOut = store.isItemCheckedOut(item.id);
     final isOnReorder = store.isItemOnActiveReorder(item.id);
     final unit = store.resolveUomAbbreviation(item.unitOfMeasureId);
-    final location = store.resolveLocationName(item.locationId);
+    final location = _itemLocationSummary(store, item);
 
     return Card(
       child: InkWell(
@@ -1034,7 +1034,7 @@ class _ItemCard extends StatelessWidget {
                     label: '${_formatQuantity(item.quantityOnHand)} $unit'
                         .trim(),
                   ),
-                  _InfoPill(label: location ?? 'Unknown location'),
+                  _InfoPill(label: location),
                   if (item.category.trim().isNotEmpty)
                     _InfoPill(label: item.category),
                   if (isCheckedOut) const _StatusBadge(label: 'Checked Out'),
@@ -1099,6 +1099,41 @@ class _InfoPill extends StatelessWidget {
       ),
     );
   }
+}
+
+bool _itemHasLocation(AppStore store, Item item, String locationId) {
+  if (item.locationId == locationId) {
+    return true;
+  }
+  return store
+      .itemBalancesForItem(item.id)
+      .any((balance) => balance.locationId == locationId);
+}
+
+String _itemLocationSearchText(AppStore store, Item item) {
+  final names = <String>{
+    if (store.resolveLocationName(item.locationId) != null)
+      store.resolveLocationName(item.locationId)!,
+    for (final balance in store.itemBalancesForItem(item.id))
+      if (store.resolveLocationName(balance.locationId) != null)
+        store.resolveLocationName(balance.locationId)!,
+  };
+  return names.join(' ');
+}
+
+String _itemLocationSummary(AppStore store, Item item) {
+  final positiveBalances = store
+      .itemBalancesForItem(item.id)
+      .where((balance) => balance.quantityOnHand > 0)
+      .toList();
+  if (positiveBalances.length == 1) {
+    return store.resolveLocationName(positiveBalances.first.locationId) ??
+        'Unknown location';
+  }
+  if (positiveBalances.length > 1) {
+    return '${positiveBalances.length} locations';
+  }
+  return store.resolveLocationName(item.locationId) ?? 'Unknown location';
 }
 
 String _sortLabel(_ItemSort sort) {

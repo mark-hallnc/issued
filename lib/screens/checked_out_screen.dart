@@ -260,9 +260,24 @@ Future<void> _showReturnDialog(
     return;
   }
 
+  Location? returnLocation = store.primaryLocationForItem(record.itemId);
+  if (returnLocation == null) {
+    for (final location in store.locations) {
+      if (location.isActive) {
+        returnLocation = location;
+        break;
+      }
+    }
+  }
+  if (returnLocation == null) {
+    _showMessage(context, 'Create a location before returning stock.');
+    return;
+  }
+
   final returned = store.returnCheckout(
     checkoutRecordId: record.id,
     returnedQuantity: result.quantity,
+    returnToLocationId: returnLocation.id,
     notes: result.notes,
   );
   _showMessage(context, returned ? 'Item returned.' : 'Could not return item.');

@@ -93,6 +93,19 @@ class InventoryTransactions extends Table {
   Set<Column<Object>> get primaryKey => {id};
 }
 
+@DataClassName('ItemLocationBalanceRecord')
+class ItemLocationBalances extends Table {
+  TextColumn get id => text()();
+  TextColumn get itemId => text()();
+  TextColumn get locationId => text()();
+  RealColumn get quantityOnHand => real()();
+  RealColumn get minimumQuantity => real().withDefault(const Constant(0))();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
 @DataClassName('ReorderRequestRecord')
 class ReorderRequests extends Table {
   TextColumn get id => text()();

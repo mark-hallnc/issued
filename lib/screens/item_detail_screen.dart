@@ -79,6 +79,8 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
             ),
           ),
           const SizedBox(height: 12),
+          _StockByLocationCard(item: _item, store: store),
+          const SizedBox(height: 12),
           _ItemPhotoCard(
             item: _item,
             canManagePhoto: permissions.canManageItems,
@@ -526,27 +528,31 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
       return;
     }
 
-    final result = await _showQuantityNotesDialog(
-      title: 'Receive Stock',
-      quantityLabel: 'Quantity received',
+    final result = await showDialog<_LocationQuantityResult>(
+      context: context,
+      builder: (context) => _LocationQuantityDialog(
+        title: 'Receive Stock',
+        quantityLabel: 'Quantity received',
+        store: store,
+        item: _item,
+      ),
     );
 
     if (result == null) {
       return;
     }
 
-    _applyItemUpdate(
-      _item.copyWith(
-        quantityOnHand: _item.quantityOnHand + result.quantity,
-        updatedAt: DateTime.now(),
-      ),
-    );
-    _appendTransaction(
-      InventoryTransactionType.receive,
-      result.quantity,
+    final received = store.receiveItemToLocation(
+      itemId: _item.id,
+      locationId: result.locationId,
+      quantity: result.quantity,
       notes: result.notes,
-      toLocationId: _item.locationId,
     );
+    if (!received) {
+      _showMessage('Could not receive stock.');
+      return;
+    }
+    _syncCurrentItem(store);
   }
 
   Future<void> _issueItem() async {
@@ -557,30 +563,35 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     }
 
     final person = _defaultPerson(store);
-    final result = await _showQuantityNotesDialog(
-      title: _item.itemType == ItemType.consumable
-          ? 'Issue Consumable'
-          : 'Issue Item',
-      quantityLabel: 'Quantity issued',
+    final result = await showDialog<_LocationQuantityResult>(
+      context: context,
+      builder: (context) => _LocationQuantityDialog(
+        title: _item.itemType == ItemType.consumable
+            ? 'Issue Consumable'
+            : 'Issue Item',
+        quantityLabel: 'Quantity issued',
+        store: store,
+        item: _item,
+        useStockLocationsOnly: true,
+      ),
     );
 
     if (result == null) {
       return;
     }
 
-    _applyItemUpdate(
-      _item.copyWith(
-        quantityOnHand: _item.quantityOnHand - result.quantity,
-        updatedAt: DateTime.now(),
-      ),
-    );
-    _appendTransaction(
-      InventoryTransactionType.issue,
-      -result.quantity,
-      notes: result.notes,
-      fromLocationId: _item.locationId,
+    final issued = store.issueItemFromLocation(
+      itemId: _item.id,
+      locationId: result.locationId,
+      quantity: result.quantity,
       assignedToPersonId: person?.id,
+      notes: result.notes,
     );
+    if (!issued) {
+      _showMessage('Not enough quantity at this location.');
+      return;
+    }
+    _syncCurrentItem(store);
   }
 
   Future<void> _checkOutItem() async {
@@ -592,8 +603,11 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
 
     final result = await showDialog<_CheckoutDialogResult>(
       context: context,
-      builder: (context) =>
-          _CheckoutDialog(store: AppStoreScope.of(context), initialQuantity: 1),
+      builder: (context) => _CheckoutDialog(
+        store: AppStoreScope.of(context),
+        item: _item,
+        initialQuantity: 1,
+      ),
     );
 
     if (result == null) {
@@ -603,6 +617,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     final checkedOut = store.checkOutItem(
       itemId: _item.id,
       quantity: result.quantity,
+      sourceLocationId: result.sourceLocationId,
       assignedToPersonId: result.assignedToPersonId,
       assignedToLocationId: result.assignedToLocationId,
       assignedToText: result.assignedToText,
@@ -658,10 +673,16 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
       return;
     }
 
-    final result = await _showQuantityNotesDialog(
-      title: 'Return Checked Out Item',
-      quantityLabel: 'Quantity returned',
-      initialQuantity: record.quantity,
+    final result = await showDialog<_LocationQuantityResult>(
+      context: context,
+      builder: (context) => _LocationQuantityDialog(
+        title: 'Return Checked Out Item',
+        quantityLabel: 'Quantity returned',
+        store: store,
+        item: _item,
+        initialQuantity: record.quantity,
+        initialLocationId: record.assignedToLocationId,
+      ),
     );
 
     if (result == null) {
@@ -676,6 +697,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     final returned = store.returnCheckout(
       checkoutRecordId: record.id,
       returnedQuantity: result.quantity,
+      returnToLocationId: result.locationId,
       notes: result.notes,
     );
 
@@ -699,6 +721,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
       context: context,
       builder: (context) => _TransferDialog(
         currentLocationId: _item.locationId,
+        item: _item,
         store: AppStoreScope.of(context),
       ),
     );
@@ -707,20 +730,18 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
       return;
     }
 
-    final fromLocationId = _item.locationId;
-    _applyItemUpdate(
-      _item.copyWith(
-        locationId: result.toLocationId,
-        updatedAt: DateTime.now(),
-      ),
-    );
-    _appendTransaction(
-      InventoryTransactionType.transfer,
-      0,
-      notes: result.notes,
-      fromLocationId: fromLocationId,
+    final transferred = store.transferItemBetweenLocations(
+      itemId: _item.id,
+      fromLocationId: result.fromLocationId,
       toLocationId: result.toLocationId,
+      quantity: result.quantity,
+      notes: result.notes,
     );
+    if (!transferred) {
+      _showMessage('Not enough quantity at this location.');
+      return;
+    }
+    _syncCurrentItem(store);
   }
 
   Future<void> _adjustQuantity() async {
@@ -730,29 +751,27 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
       return;
     }
 
-    final result = await _showQuantityNotesDialog(
-      title: 'Set Quantity On Hand',
-      quantityLabel: 'New quantity on hand',
-      initialQuantity: _item.quantityOnHand,
+    final result = await showDialog<_AdjustLocationResult>(
+      context: context,
+      builder: (context) => _AdjustLocationDialog(store: store, item: _item),
     );
 
     if (result == null) {
       return;
     }
 
-    final delta = result.quantity - _item.quantityOnHand;
-    _applyItemUpdate(
-      _item.copyWith(
-        quantityOnHand: result.quantity,
-        updatedAt: DateTime.now(),
-      ),
-    );
-    _appendTransaction(
-      InventoryTransactionType.adjustment,
-      delta,
+    final adjusted = store.adjustItemQuantityAtLocation(
+      itemId: _item.id,
+      locationId: result.locationId,
+      quantity: result.quantity,
+      setQuantity: result.setQuantity,
       notes: result.notes,
-      toLocationId: _item.locationId,
     );
+    if (!adjusted) {
+      _showMessage('Could not adjust quantity at this location.');
+      return;
+    }
+    _syncCurrentItem(store);
   }
 
   Future<void> _markLostOrDamaged() async {
@@ -768,28 +787,33 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
       return;
     }
 
-    final result = await _showQuantityNotesDialog(
-      title: 'Mark Lost/Damaged',
-      quantityLabel: 'Quantity lost/damaged',
-      initialQuantity: 1,
+    final result = await showDialog<_LocationQuantityResult>(
+      context: context,
+      builder: (context) => _LocationQuantityDialog(
+        title: 'Mark Lost/Damaged',
+        quantityLabel: 'Quantity lost/damaged',
+        store: store,
+        item: _item,
+        initialQuantity: 1,
+        useStockLocationsOnly: true,
+      ),
     );
 
     if (result == null) {
       return;
     }
 
-    _applyItemUpdate(
-      _item.copyWith(
-        quantityOnHand: _item.quantityOnHand - result.quantity,
-        updatedAt: DateTime.now(),
-      ),
-    );
-    _appendTransaction(
-      InventoryTransactionType.markDamaged,
-      -result.quantity,
+    final marked = store.markItemDamagedAtLocation(
+      itemId: _item.id,
+      locationId: result.locationId,
+      quantity: result.quantity,
       notes: result.notes,
-      fromLocationId: _item.locationId,
     );
+    if (!marked) {
+      _showMessage('Not enough quantity at this location.');
+      return;
+    }
+    _syncCurrentItem(store);
   }
 
   Future<void> _markCheckoutLost(CheckoutRecord record) async {
@@ -866,23 +890,6 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     _applyItemUpdate(_item.copyWith(isActive: true, updatedAt: DateTime.now()));
   }
 
-  Future<_QuantityNotesResult?> _showQuantityNotesDialog({
-    required String title,
-    required String quantityLabel,
-    double initialQuantity = 1,
-    String? helperText,
-  }) {
-    return showDialog<_QuantityNotesResult>(
-      context: context,
-      builder: (context) => _QuantityNotesDialog(
-        title: title,
-        quantityLabel: quantityLabel,
-        initialQuantity: initialQuantity,
-        helperText: helperText,
-      ),
-    );
-  }
-
   void _applyItemUpdate(Item updatedItem) {
     final store = AppStoreScope.of(context);
     store.updateItem(updatedItem);
@@ -901,34 +908,6 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
         return;
       }
     }
-
-    setState(() {});
-  }
-
-  void _appendTransaction(
-    InventoryTransactionType type,
-    double quantityDelta, {
-    String? notes,
-    String? fromLocationId,
-    String? toLocationId,
-    String? assignedToPersonId,
-  }) {
-    final store = AppStoreScope.of(context);
-    store.addTransaction(
-      InventoryTransaction(
-        id: 'txn-${DateTime.now().microsecondsSinceEpoch}',
-        itemId: _item.id,
-        transactionType: type,
-        quantityDelta: quantityDelta,
-        unitOfMeasureId: _item.unitOfMeasureId,
-        fromLocationId: fromLocationId,
-        toLocationId: toLocationId,
-        assignedToPersonId: assignedToPersonId,
-        performedByUserId: store.users.isEmpty ? null : store.users.first.id,
-        notes: notes,
-        createdAt: DateTime.now(),
-      ),
-    );
 
     setState(() {});
   }
@@ -1243,6 +1222,7 @@ class _CurrentCheckoutRow extends StatelessWidget {
 class _CheckoutDialogResult {
   const _CheckoutDialogResult({
     required this.quantity,
+    required this.sourceLocationId,
     required this.assignedToPersonId,
     required this.assignedToLocationId,
     required this.assignedToText,
@@ -1251,6 +1231,7 @@ class _CheckoutDialogResult {
   });
 
   final double quantity;
+  final String sourceLocationId;
   final String? assignedToPersonId;
   final String? assignedToLocationId;
   final String? assignedToText;
@@ -1259,9 +1240,14 @@ class _CheckoutDialogResult {
 }
 
 class _CheckoutDialog extends StatefulWidget {
-  const _CheckoutDialog({required this.store, required this.initialQuantity});
+  const _CheckoutDialog({
+    required this.store,
+    required this.item,
+    required this.initialQuantity,
+  });
 
   final AppStore store;
+  final Item item;
   final double initialQuantity;
 
   @override
@@ -1275,6 +1261,7 @@ class _CheckoutDialogState extends State<_CheckoutDialog> {
   late final TextEditingController _notesController;
   String? _assignedToPersonId;
   String? _assignedToLocationId;
+  String? _sourceLocationId;
   DateTime? _dueAt;
 
   @override
@@ -1301,6 +1288,13 @@ class _CheckoutDialogState extends State<_CheckoutDialog> {
     final locations = widget.store.locations.where(
       (location) => location.isActive,
     );
+    final sourceLocations = widget.store
+        .itemBalancesForItem(widget.item.id)
+        .where((balance) => balance.quantityOnHand > 0)
+        .toList();
+    _sourceLocationId ??= sourceLocations.isNotEmpty
+        ? sourceLocations.first.locationId
+        : null;
 
     return AlertDialog(
       title: const Text('Check Out Item'),
@@ -1325,6 +1319,32 @@ class _CheckoutDialogState extends State<_CheckoutDialog> {
                   return null;
                 },
               ),
+              const SizedBox(height: 12),
+              if (sourceLocations.isEmpty)
+                const Text('No stock is available to check out.')
+              else
+                DropdownButtonFormField<String>(
+                  initialValue: _sourceLocationId,
+                  decoration: const InputDecoration(
+                    labelText: 'Source location',
+                  ),
+                  items: [
+                    for (final balance in sourceLocations)
+                      DropdownMenuItem<String>(
+                        value: balance.locationId,
+                        child: Text(
+                          '${widget.store.resolveLocationName(balance.locationId) ?? 'Unknown'} (${_formatQuantity(balance.quantityOnHand)})',
+                        ),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      _sourceLocationId = value;
+                    });
+                  },
+                  validator: (value) =>
+                      value == null ? 'Choose a source location.' : null,
+                ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String?>(
                 initialValue: _assignedToPersonId,
@@ -1427,12 +1447,16 @@ class _CheckoutDialogState extends State<_CheckoutDialog> {
     if (!_formKey.currentState!.validate()) {
       return;
     }
+    if (_sourceLocationId == null) {
+      return;
+    }
 
     final assignedText = _assignedTextController.text.trim();
     final notes = _notesController.text.trim();
     Navigator.of(context).pop(
       _CheckoutDialogResult(
         quantity: double.parse(_quantityController.text.trim()),
+        sourceLocationId: _sourceLocationId!,
         assignedToPersonId: _assignedToPersonId,
         assignedToLocationId: _assignedToLocationId,
         assignedToText: assignedText.isEmpty ? null : assignedText,
@@ -1462,6 +1486,444 @@ class _SelectCheckoutDialog extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+class _StockByLocationCard extends StatelessWidget {
+  const _StockByLocationCard({required this.item, required this.store});
+
+  final Item item;
+  final AppStore store;
+
+  @override
+  Widget build(BuildContext context) {
+    final unit = _unitById(store, item.unitOfMeasureId);
+    final balances = store.itemBalancesForItem(item.id);
+    final rows = balances.isNotEmpty
+        ? balances
+        : [
+            ItemLocationBalance(
+              id: 'display-${item.id}-${item.locationId}',
+              itemId: item.id,
+              locationId: item.locationId,
+              quantityOnHand: item.quantityOnHand,
+              minimumQuantity: 0,
+              updatedAt: item.updatedAt,
+            ),
+          ];
+    final total = store.totalQuantityForItem(item.id);
+    final totalQuantity = balances.isEmpty ? item.quantityOnHand : total;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Stock by Location',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF17212F),
+                    ),
+                  ),
+                ),
+                Text(
+                  '${_formatQuantity(totalQuantity)} ${unit?.abbreviation ?? ''}'
+                      .trim(),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF17212F),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            for (final balance in rows)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        store.resolveLocationName(balance.locationId) ??
+                            'Unknown location',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ),
+                    Text(
+                      '${_formatQuantity(balance.quantityOnHand)} ${unit?.abbreviation ?? ''}'
+                          .trim(),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LocationQuantityResult {
+  const _LocationQuantityResult({
+    required this.locationId,
+    required this.quantity,
+    required this.notes,
+  });
+
+  final String locationId;
+  final double quantity;
+  final String? notes;
+}
+
+class _LocationQuantityDialog extends StatefulWidget {
+  const _LocationQuantityDialog({
+    required this.title,
+    required this.quantityLabel,
+    required this.store,
+    required this.item,
+    this.initialQuantity = 1,
+    this.initialLocationId,
+    this.useStockLocationsOnly = false,
+  });
+
+  final String title;
+  final String quantityLabel;
+  final AppStore store;
+  final Item item;
+  final double initialQuantity;
+  final String? initialLocationId;
+  final bool useStockLocationsOnly;
+
+  @override
+  State<_LocationQuantityDialog> createState() =>
+      _LocationQuantityDialogState();
+}
+
+class _LocationQuantityDialogState extends State<_LocationQuantityDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _quantityController;
+  late final TextEditingController _notesController;
+  String? _locationId;
+
+  @override
+  void initState() {
+    super.initState();
+    _quantityController = TextEditingController(
+      text: _formatQuantity(widget.initialQuantity),
+    );
+    _notesController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _quantityController.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final locations = _locationOptions();
+    if (locations.isNotEmpty &&
+        (_locationId == null ||
+            !locations.any((location) => location.id == _locationId))) {
+      _locationId =
+          widget.initialLocationId != null &&
+              locations.any(
+                (location) => location.id == widget.initialLocationId,
+              )
+          ? widget.initialLocationId
+          : locations.first.id;
+    }
+
+    return AlertDialog(
+      title: Text(widget.title),
+      content: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (locations.isEmpty)
+                const Text('Create a location before changing stock.')
+              else
+                DropdownButtonFormField<String>(
+                  initialValue: _locationId,
+                  decoration: const InputDecoration(labelText: 'Location'),
+                  items: [
+                    for (final location in locations)
+                      DropdownMenuItem<String>(
+                        value: location.id,
+                        child: Text(_locationLabel(location.id)),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      _locationId = value;
+                    });
+                  },
+                  validator: (value) =>
+                      value == null ? 'Choose a location.' : null,
+                ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _quantityController,
+                decoration: InputDecoration(labelText: widget.quantityLabel),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                validator: _quantityValidator,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _notesController,
+                decoration: const InputDecoration(labelText: 'Notes optional'),
+                maxLines: 2,
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: locations.isEmpty ? null : _submit,
+          child: const Text('Save'),
+        ),
+      ],
+    );
+  }
+
+  List<Location> _locationOptions() {
+    if (!widget.useStockLocationsOnly) {
+      return widget.store.locations
+          .where((location) => location.isActive)
+          .toList();
+    }
+
+    final ids = widget.store
+        .itemBalancesForItem(widget.item.id)
+        .where((balance) => balance.quantityOnHand > 0)
+        .map((balance) => balance.locationId)
+        .toSet();
+    return widget.store.locations
+        .where((location) => location.isActive && ids.contains(location.id))
+        .toList();
+  }
+
+  String _locationLabel(String locationId) {
+    final name =
+        widget.store.resolveLocationName(locationId) ?? 'Unknown location';
+    ItemLocationBalance? balance;
+    for (final itemBalance in widget.store.itemBalancesForItem(
+      widget.item.id,
+    )) {
+      if (itemBalance.locationId == locationId) {
+        balance = itemBalance;
+        break;
+      }
+    }
+    if (balance == null) {
+      return name;
+    }
+    final unit = widget.store.resolveUomAbbreviation(
+      widget.item.unitOfMeasureId,
+    );
+    return '$name (${_formatQuantity(balance.quantityOnHand)} $unit)'.trim();
+  }
+
+  String? _quantityValidator(String? value) {
+    final quantity = double.tryParse(value?.trim() ?? '');
+    if (quantity == null || quantity <= 0) {
+      return 'Enter a quantity greater than 0.';
+    }
+    return null;
+  }
+
+  void _submit() {
+    if (!_formKey.currentState!.validate() || _locationId == null) {
+      return;
+    }
+
+    Navigator.of(context).pop(
+      _LocationQuantityResult(
+        locationId: _locationId!,
+        quantity: double.parse(_quantityController.text.trim()),
+        notes: _emptyToNull(_notesController.text),
+      ),
+    );
+  }
+}
+
+class _AdjustLocationResult {
+  const _AdjustLocationResult({
+    required this.locationId,
+    required this.quantity,
+    required this.setQuantity,
+    required this.notes,
+  });
+
+  final String locationId;
+  final double quantity;
+  final bool setQuantity;
+  final String? notes;
+}
+
+class _AdjustLocationDialog extends StatefulWidget {
+  const _AdjustLocationDialog({required this.store, required this.item});
+
+  final AppStore store;
+  final Item item;
+
+  @override
+  State<_AdjustLocationDialog> createState() => _AdjustLocationDialogState();
+}
+
+class _AdjustLocationDialogState extends State<_AdjustLocationDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _quantityController = TextEditingController();
+  final _notesController = TextEditingController();
+  String? _locationId;
+  bool _setQuantity = true;
+
+  @override
+  void initState() {
+    super.initState();
+    final primary = widget.store.primaryLocationForItem(widget.item.id);
+    _locationId = primary?.id ?? widget.item.locationId;
+  }
+
+  @override
+  void dispose() {
+    _quantityController.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final locations = widget.store.locations
+        .where((location) => location.isActive)
+        .toList();
+    if (locations.isNotEmpty &&
+        (_locationId == null ||
+            !locations.any((location) => location.id == _locationId))) {
+      _locationId = locations.first.id;
+    }
+
+    return AlertDialog(
+      title: const Text('Adjust Quantity'),
+      content: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (locations.isEmpty)
+                const Text('Create a location before changing stock.')
+              else
+                DropdownButtonFormField<String>(
+                  initialValue: _locationId,
+                  decoration: const InputDecoration(labelText: 'Location'),
+                  items: [
+                    for (final location in locations)
+                      DropdownMenuItem<String>(
+                        value: location.id,
+                        child: Text(location.name),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      _locationId = value;
+                    });
+                  },
+                ),
+              const SizedBox(height: 12),
+              SegmentedButton<bool>(
+                segments: const [
+                  ButtonSegment(value: true, label: Text('Set')),
+                  ButtonSegment(value: false, label: Text('Add/Subtract')),
+                ],
+                selected: {_setQuantity},
+                onSelectionChanged: (selection) {
+                  setState(() {
+                    _setQuantity = selection.first;
+                  });
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _quantityController,
+                decoration: InputDecoration(
+                  labelText: _setQuantity
+                      ? 'New quantity at location'
+                      : 'Quantity change',
+                ),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                  signed: true,
+                ),
+                validator: (value) {
+                  final quantity = double.tryParse(value?.trim() ?? '');
+                  if (quantity == null) {
+                    return 'Enter a valid number.';
+                  }
+                  if (_setQuantity && quantity < 0) {
+                    return 'Enter zero or greater.';
+                  }
+                  if (!_setQuantity && quantity == 0) {
+                    return 'Enter a non-zero change.';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _notesController,
+                decoration: const InputDecoration(labelText: 'Notes optional'),
+                maxLines: 2,
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: locations.isEmpty ? null : _submit,
+          child: const Text('Save'),
+        ),
+      ],
+    );
+  }
+
+  void _submit() {
+    if (!_formKey.currentState!.validate() || _locationId == null) {
+      return;
+    }
+
+    Navigator.of(context).pop(
+      _AdjustLocationResult(
+        locationId: _locationId!,
+        quantity: double.parse(_quantityController.text.trim()),
+        setQuantity: _setQuantity,
+        notes: _emptyToNull(_notesController.text),
+      ),
     );
   }
 }
@@ -1793,34 +2255,45 @@ class _EditCustomFieldValuesDialogState
   }
 }
 
-class _QuantityNotesDialog extends StatefulWidget {
-  const _QuantityNotesDialog({
-    required this.title,
-    required this.quantityLabel,
-    required this.initialQuantity,
-    this.helperText,
+class _TransferDialog extends StatefulWidget {
+  const _TransferDialog({
+    required this.currentLocationId,
+    required this.item,
+    required this.store,
   });
 
-  final String title;
-  final String quantityLabel;
-  final double initialQuantity;
-  final String? helperText;
+  final String currentLocationId;
+  final Item item;
+  final AppStore store;
 
   @override
-  State<_QuantityNotesDialog> createState() => _QuantityNotesDialogState();
+  State<_TransferDialog> createState() => _TransferDialogState();
 }
 
-class _QuantityNotesDialogState extends State<_QuantityNotesDialog> {
+class _TransferDialogState extends State<_TransferDialog> {
   final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _quantityController;
+  final _quantityController = TextEditingController(text: '1');
   final _notesController = TextEditingController();
+  late String _fromLocationId;
+  late String _toLocationId;
 
   @override
   void initState() {
     super.initState();
-    _quantityController = TextEditingController(
-      text: _formatQuantity(widget.initialQuantity),
-    );
+    final sourceBalances = widget.store
+        .itemBalancesForItem(widget.item.id)
+        .where((balance) => balance.quantityOnHand > 0)
+        .toList();
+    _fromLocationId = sourceBalances.isNotEmpty
+        ? sourceBalances.first.locationId
+        : widget.currentLocationId;
+    _toLocationId = _fromLocationId;
+    for (final location in widget.store.locations) {
+      if (location.id != _fromLocationId) {
+        _toLocationId = location.id;
+        break;
+      }
+    }
   }
 
   @override
@@ -1832,31 +2305,106 @@ class _QuantityNotesDialogState extends State<_QuantityNotesDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final stockLocationIds = widget.store
+        .itemBalancesForItem(widget.item.id)
+        .where((balance) => balance.quantityOnHand > 0)
+        .map((balance) => balance.locationId)
+        .toSet();
+    final fromLocations = widget.store.locations
+        .where(
+          (location) =>
+              location.isActive && stockLocationIds.contains(location.id),
+        )
+        .toList();
+    final toLocations = widget.store.locations
+        .where((location) => location.isActive)
+        .toList();
+
     return AlertDialog(
-      title: Text(widget.title),
+      title: const Text('Transfer Item'),
       content: Form(
         key: _formKey,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextFormField(
-                controller: _quantityController,
-                decoration: InputDecoration(
-                  labelText: widget.quantityLabel,
-                  helperText: widget.helperText,
+              if (fromLocations.isEmpty || toLocations.length < 2)
+                const Text('Create another location before transferring stock.')
+              else ...[
+                DropdownButtonFormField<String>(
+                  initialValue: _fromLocationId,
+                  decoration: const InputDecoration(labelText: 'From location'),
+                  items: [
+                    for (final location in fromLocations)
+                      DropdownMenuItem<String>(
+                        value: location.id,
+                        child: Text(_transferLocationLabel(location.id)),
+                      ),
+                  ],
+                  onChanged: (locationId) {
+                    if (locationId == null) {
+                      return;
+                    }
+                    setState(() {
+                      _fromLocationId = locationId;
+                      if (_toLocationId == _fromLocationId) {
+                        _toLocationId = toLocations
+                            .where((location) => location.id != _fromLocationId)
+                            .map((location) => location.id)
+                            .first;
+                      }
+                    });
+                  },
                 ),
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: _toLocationId == _fromLocationId
+                      ? null
+                      : _toLocationId,
+                  decoration: const InputDecoration(labelText: 'To location'),
+                  items: [
+                    for (final location in toLocations)
+                      if (location.id != _fromLocationId)
+                        DropdownMenuItem<String>(
+                          value: location.id,
+                          child: Text(location.name),
+                        ),
+                  ],
+                  onChanged: (locationId) {
+                    if (locationId == null) {
+                      return;
+                    }
+                    setState(() {
+                      _toLocationId = locationId;
+                    });
+                  },
+                  validator: (value) =>
+                      value == null ? 'Choose a destination.' : null,
                 ),
-                validator: _quantityValidator,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _notesController,
-                decoration: const InputDecoration(labelText: 'Notes optional'),
-                maxLines: 2,
-              ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _quantityController,
+                  decoration: const InputDecoration(labelText: 'Quantity'),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  validator: (value) {
+                    final quantity = double.tryParse(value?.trim() ?? '');
+                    if (quantity == null || quantity <= 0) {
+                      return 'Enter a quantity greater than 0.';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _notesController,
+                  decoration: const InputDecoration(
+                    labelText: 'Notes optional',
+                  ),
+                  maxLines: 2,
+                ),
+              ],
             ],
           ),
         ),
@@ -1866,131 +2414,48 @@ class _QuantityNotesDialogState extends State<_QuantityNotesDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
-        FilledButton(onPressed: _submit, child: const Text('Save')),
+        FilledButton(
+          onPressed: fromLocations.isEmpty || toLocations.length < 2
+              ? null
+              : _submit,
+          child: const Text('Transfer'),
+        ),
       ],
     );
   }
 
-  String? _quantityValidator(String? value) {
-    final quantity = double.tryParse(value?.trim() ?? '');
-
-    if (quantity == null) {
-      return 'Enter a valid number';
+  String _transferLocationLabel(String locationId) {
+    final name =
+        widget.store.resolveLocationName(locationId) ?? 'Unknown location';
+    ItemLocationBalance? balance;
+    for (final itemBalance in widget.store.itemBalancesForItem(
+      widget.item.id,
+    )) {
+      if (itemBalance.locationId == locationId) {
+        balance = itemBalance;
+        break;
+      }
     }
-
-    if (quantity < 0) {
-      return 'Enter zero or greater';
+    final unit = widget.store.resolveUomAbbreviation(
+      widget.item.unitOfMeasureId,
+    );
+    if (balance == null) {
+      return name;
     }
-
-    return null;
+    return '$name (${_formatQuantity(balance.quantityOnHand)} $unit)'.trim();
   }
 
   void _submit() {
     if (!_formKey.currentState!.validate()) {
       return;
     }
-
     Navigator.of(context).pop(
-      _QuantityNotesResult(
+      _TransferResult(
+        fromLocationId: _fromLocationId,
+        toLocationId: _toLocationId,
         quantity: double.parse(_quantityController.text.trim()),
         notes: _emptyToNull(_notesController.text),
       ),
-    );
-  }
-}
-
-class _TransferDialog extends StatefulWidget {
-  const _TransferDialog({required this.currentLocationId, required this.store});
-
-  final String currentLocationId;
-  final AppStore store;
-
-  @override
-  State<_TransferDialog> createState() => _TransferDialogState();
-}
-
-class _TransferDialogState extends State<_TransferDialog> {
-  final _notesController = TextEditingController();
-  late String _toLocationId;
-
-  @override
-  void initState() {
-    super.initState();
-    _toLocationId = widget.store.locations
-        .firstWhere(
-          (location) => location.id != widget.currentLocationId,
-          orElse: () => widget.store.locations.first,
-        )
-        .id;
-  }
-
-  @override
-  void dispose() {
-    _notesController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final fromLocation = widget.store.locations.firstWhere(
-      (location) => location.id == widget.currentLocationId,
-      orElse: () => widget.store.locations.first,
-    );
-
-    return AlertDialog(
-      title: const Text('Transfer Item'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _DetailRow(label: 'From', value: fromLocation.name),
-            DropdownButtonFormField<String>(
-              initialValue: _toLocationId,
-              decoration: const InputDecoration(labelText: 'To location'),
-              items: widget.store.locations
-                  .map(
-                    (location) => DropdownMenuItem(
-                      value: location.id,
-                      child: Text(location.name),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (locationId) {
-                if (locationId == null) {
-                  return;
-                }
-
-                setState(() {
-                  _toLocationId = locationId;
-                });
-              },
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _notesController,
-              decoration: const InputDecoration(labelText: 'Notes optional'),
-              maxLines: 2,
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: () {
-            Navigator.of(context).pop(
-              _TransferResult(
-                toLocationId: _toLocationId,
-                notes: _emptyToNull(_notesController.text),
-              ),
-            );
-          },
-          child: const Text('Transfer'),
-        ),
-      ],
     );
   }
 }
@@ -2130,17 +2595,17 @@ class _InfoPill extends StatelessWidget {
   }
 }
 
-class _QuantityNotesResult {
-  const _QuantityNotesResult({required this.quantity, required this.notes});
-
-  final double quantity;
-  final String? notes;
-}
-
 class _TransferResult {
-  const _TransferResult({required this.toLocationId, required this.notes});
+  const _TransferResult({
+    required this.fromLocationId,
+    required this.toLocationId,
+    required this.quantity,
+    required this.notes,
+  });
 
+  final String fromLocationId;
   final String toLocationId;
+  final double quantity;
   final String? notes;
 }
 

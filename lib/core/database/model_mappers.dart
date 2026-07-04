@@ -195,6 +195,32 @@ extension InventoryTransactionDomainMapper on domain.InventoryTransaction {
   }
 }
 
+extension ItemLocationBalanceRecordMapper on ItemLocationBalanceRecord {
+  domain.ItemLocationBalance toDomain() {
+    return domain.ItemLocationBalance(
+      id: id,
+      itemId: itemId,
+      locationId: locationId,
+      quantityOnHand: quantityOnHand,
+      minimumQuantity: minimumQuantity,
+      updatedAt: updatedAt,
+    );
+  }
+}
+
+extension ItemLocationBalanceDomainMapper on domain.ItemLocationBalance {
+  ItemLocationBalancesCompanion toCompanion() {
+    return ItemLocationBalancesCompanion(
+      id: Value(id),
+      itemId: Value(itemId),
+      locationId: Value(locationId),
+      quantityOnHand: Value(quantityOnHand),
+      minimumQuantity: Value(minimumQuantity),
+      updatedAt: Value(updatedAt),
+    );
+  }
+}
+
 extension ReorderRequestRecordMapper on ReorderRequestRecord {
   domain.ReorderRequest toDomain() {
     return domain.ReorderRequest(
