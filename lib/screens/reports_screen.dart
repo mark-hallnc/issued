@@ -512,6 +512,7 @@ class _ReportDetailScreenState extends State<_ReportDetailScreen> {
             title: store.resolveItemName(row.itemId),
             lines: [
               row.sessionName,
+              'Location: ${store.resolveLocationName(row.locationId) ?? 'Unknown'}',
               'Expected ${_quantity(row.expectedQuantity)}, counted ${_quantity(row.countedQuantity)}',
               'Variance: ${_quantity(row.varianceQuantity)} ${store.resolveUomAbbreviation(row.unitOfMeasureId)}',
               _date(row.sessionDate),

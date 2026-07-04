@@ -102,6 +102,10 @@ class _CycleCountDetailScreenState extends State<CycleCountDetailScreen> {
             ),
           ),
           const SizedBox(height: 12),
+          if (isSubmitted || isApproved) ...[
+            _VarianceSummaryCard(lines: lines),
+            const SizedBox(height: 12),
+          ],
           for (final line in lines) ...[
             _CountLineCard(
               line: line,
@@ -133,6 +137,14 @@ class _CycleCountDetailScreenState extends State<CycleCountDetailScreen> {
 
       if (countedQuantity == null) {
         _showMessage('Enter a counted quantity for every line.');
+        return;
+      }
+      if (countedQuantity < 0) {
+        _showMessage('Counted quantity cannot be negative.');
+        return;
+      }
+      if (!_allowsCountQuantity(store, line, countedQuantity)) {
+        _showMessage('Whole quantities are required for one or more lines.');
         return;
       }
 
@@ -193,9 +205,20 @@ class _CycleCountDetailScreenState extends State<CycleCountDetailScreen> {
   }
 
   List<CycleCountLine> _lines(AppStore store) {
-    return store.cycleCountLines
+    final lines = store.cycleCountLines
         .where((line) => line.sessionId == _session.id)
         .toList();
+    lines.sort((left, right) {
+      final locationCompare = (store.resolveLocationName(left.locationId) ?? '')
+          .compareTo(store.resolveLocationName(right.locationId) ?? '');
+      if (locationCompare != 0) {
+        return locationCompare;
+      }
+      return store
+          .resolveItemName(left.itemId)
+          .compareTo(store.resolveItemName(right.itemId));
+    });
+    return lines;
   }
 
   void _replaceSession(AppStore store, CycleCountSession updatedSession) {
@@ -225,6 +248,70 @@ class _CycleCountDetailScreenState extends State<CycleCountDetailScreen> {
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
   }
+
+  bool _allowsCountQuantity(
+    AppStore store,
+    CycleCountLine line,
+    double quantity,
+  ) {
+    final item = store.items.cast<Item?>().firstWhere(
+      (item) => item!.id == line.itemId,
+      orElse: () => null,
+    );
+    if (item?.allowFractionalQuantity == true) {
+      return true;
+    }
+
+    final unit = store.unitsOfMeasure.cast<UnitOfMeasure?>().firstWhere(
+      (unit) => unit!.id == line.unitOfMeasureId,
+      orElse: () => null,
+    );
+    if (unit?.allowsDecimal == true) {
+      return true;
+    }
+    return quantity == quantity.roundToDouble();
+  }
+}
+
+class _VarianceSummaryCard extends StatelessWidget {
+  const _VarianceSummaryCard({required this.lines});
+
+  final List<CycleCountLine> lines;
+
+  @override
+  Widget build(BuildContext context) {
+    final countedLines = lines
+        .where((line) => line.countedQuantity != null)
+        .toList();
+    final varianceLines = countedLines.where((line) {
+      return (line.varianceQuantity ?? 0) != 0;
+    }).toList();
+    final positive = varianceLines.where((line) {
+      return (line.varianceQuantity ?? 0) > 0;
+    }).length;
+    final negative = varianceLines.where((line) {
+      return (line.varianceQuantity ?? 0) < 0;
+    }).length;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _InfoPill(label: '${lines.length} total lines'),
+            _InfoPill(
+              label: '${countedLines.length - varianceLines.length} matched',
+            ),
+            _InfoPill(label: '${varianceLines.length} variance'),
+            _InfoPill(label: '$positive over'),
+            _InfoPill(label: '$negative under'),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _CountLineCard extends StatelessWidget {
@@ -247,7 +334,10 @@ class _CountLineCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final item = _itemById(line.itemId);
-    final location = _locationById(line.locationId);
+    final locationName =
+        _locationById(line.locationId)?.name ??
+        store.primaryLocationForItem(line.itemId)?.name ??
+        'Unknown location';
     final unit = _unitById(line.unitOfMeasureId);
     final showReview =
         session.status == CycleCountStatus.submitted ||
@@ -271,7 +361,7 @@ class _CountLineCard extends StatelessWidget {
               spacing: 8,
               runSpacing: 8,
               children: [
-                _InfoPill(label: location?.name ?? 'Unknown location'),
+                _InfoPill(label: locationName),
                 _InfoPill(label: unit?.abbreviation ?? 'uom'),
                 if (!session.blindCount || showReview)
                   _InfoPill(

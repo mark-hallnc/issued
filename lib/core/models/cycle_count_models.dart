@@ -1,5 +1,7 @@
 enum CycleCountStatus { draft, assigned, submitted, approved }
 
+enum CycleCountScope { allItems, location, category, lowStock, itemType }
+
 class CycleCountSession {
   const CycleCountSession({
     required this.id,

@@ -4,8 +4,6 @@ import '../core/app_store.dart';
 import '../core/models/models.dart';
 import 'cycle_count_detail_screen.dart';
 
-enum CountScope { allItems, location, category, lowStock }
-
 class CreateCycleCountScreen extends StatefulWidget {
   const CreateCycleCountScreen({super.key});
 
@@ -17,9 +15,10 @@ class _CreateCycleCountScreenState extends State<CreateCycleCountScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
 
-  CountScope _scope = CountScope.allItems;
+  CycleCountScope _scope = CycleCountScope.allItems;
   Location? _selectedLocation;
   String? _selectedCategory;
+  ItemType? _selectedItemType = ItemType.consumable;
   bool _blindCount = true;
   DateTime? _dueAt;
 
@@ -43,7 +42,9 @@ class _CreateCycleCountScreenState extends State<CreateCycleCountScreen> {
   Widget build(BuildContext context) {
     final store = AppStoreScope.of(context);
     final categories = _categories(store);
-    _selectedLocation ??= store.locations.first;
+    if (_selectedLocation == null && store.locations.isNotEmpty) {
+      _selectedLocation = store.locations.first;
+    }
     _selectedCategory ??= categories.first;
 
     return Scaffold(
@@ -81,13 +82,13 @@ class _CreateCycleCountScreenState extends State<CreateCycleCountScreen> {
               },
             ),
             const SizedBox(height: 12),
-            DropdownButtonFormField<CountScope>(
+            DropdownButtonFormField<CycleCountScope>(
               initialValue: _scope,
               decoration: const InputDecoration(
                 labelText: 'Count scope',
                 border: OutlineInputBorder(),
               ),
-              items: CountScope.values
+              items: CycleCountScope.values
                   .map(
                     (scope) => DropdownMenuItem(
                       value: scope,
@@ -105,34 +106,39 @@ class _CreateCycleCountScreenState extends State<CreateCycleCountScreen> {
                 });
               },
             ),
-            if (_scope == CountScope.location) ...[
+            if (_scope == CycleCountScope.location) ...[
               const SizedBox(height: 12),
-              DropdownButtonFormField<Location>(
-                initialValue: _selectedLocation,
-                decoration: const InputDecoration(
-                  labelText: 'Location',
-                  border: OutlineInputBorder(),
-                ),
-                items: store.locations
-                    .map(
-                      (location) => DropdownMenuItem(
-                        value: location,
-                        child: Text(location.name),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (location) {
-                  if (location == null) {
-                    return;
-                  }
+              if (store.locations.isEmpty)
+                const Text(
+                  'Create a location before starting a location count.',
+                )
+              else
+                DropdownButtonFormField<Location>(
+                  initialValue: _selectedLocation,
+                  decoration: const InputDecoration(
+                    labelText: 'Location',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: store.locations
+                      .map(
+                        (location) => DropdownMenuItem(
+                          value: location,
+                          child: Text(location.name),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (location) {
+                    if (location == null) {
+                      return;
+                    }
 
-                  setState(() {
-                    _selectedLocation = location;
-                  });
-                },
-              ),
+                    setState(() {
+                      _selectedLocation = location;
+                    });
+                  },
+                ),
             ],
-            if (_scope == CountScope.category) ...[
+            if (_scope == CycleCountScope.category) ...[
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 initialValue: _selectedCategory,
@@ -155,6 +161,33 @@ class _CreateCycleCountScreenState extends State<CreateCycleCountScreen> {
 
                   setState(() {
                     _selectedCategory = category;
+                  });
+                },
+              ),
+            ],
+            if (_scope == CycleCountScope.itemType) ...[
+              const SizedBox(height: 12),
+              DropdownButtonFormField<ItemType>(
+                initialValue: _selectedItemType,
+                decoration: const InputDecoration(
+                  labelText: 'Item type',
+                  border: OutlineInputBorder(),
+                ),
+                items: ItemType.values
+                    .map(
+                      (type) => DropdownMenuItem(
+                        value: type,
+                        child: Text(_itemTypeLabel(type)),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (type) {
+                  if (type == null) {
+                    return;
+                  }
+
+                  setState(() {
+                    _selectedItemType = type;
                   });
                 },
               ),
@@ -214,34 +247,24 @@ class _CreateCycleCountScreenState extends State<CreateCycleCountScreen> {
       return;
     }
 
-    final now = DateTime.now();
-    final session = CycleCountSession(
-      id: 'count-${now.microsecondsSinceEpoch}',
+    if (_scope == CycleCountScope.location && _selectedLocation == null) {
+      _showMessage('Choose a location for this count.');
+      return;
+    }
+
+    final session = store.createCycleCountSessionFromScope(
       name: _nameController.text.trim(),
-      status: CycleCountStatus.assigned,
-      assignedToUserId: store.currentUser?.id,
+      scope: _scope,
       blindCount: _blindCount,
       dueAt: _dueAt,
-      createdAt: now,
-      submittedAt: null,
-      approvedAt: null,
+      locationId: _selectedLocation?.id,
+      category: _selectedCategory,
+      itemType: _selectedItemType,
     );
-    final lines = _matchingItems(store).map((item) {
-      return CycleCountLine(
-        id: 'line-${session.id}-${item.id}',
-        sessionId: session.id,
-        itemId: item.id,
-        locationId: item.locationId,
-        expectedQuantity: item.quantityOnHand,
-        countedQuantity: null,
-        varianceQuantity: null,
-        unitOfMeasureId: item.unitOfMeasureId,
-        notes: null,
-      );
-    }).toList();
-
-    store.addCycleCountSession(session);
-    store.addCycleCountLines(lines);
+    if (session == null) {
+      _showMessage('No count lines matched that scope.');
+      return;
+    }
 
     Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(
@@ -251,34 +274,30 @@ class _CreateCycleCountScreenState extends State<CreateCycleCountScreen> {
   }
 
   void _showPermissionDenied() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Your current role does not allow this action.'),
-      ),
-    );
+    _showMessage('Your current role does not allow this action.');
   }
 
-  Iterable<Item> _matchingItems(AppStore store) {
-    return store.items.where((item) {
-      if (!item.isActive) {
-        return false;
-      }
-
-      return switch (_scope) {
-        CountScope.allItems => true,
-        CountScope.location => item.locationId == _selectedLocation!.id,
-        CountScope.category => item.category == _selectedCategory,
-        CountScope.lowStock => item.quantityOnHand <= item.minimumQuantity,
-      };
-    });
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  String _scopeLabel(CountScope scope) {
+  String _scopeLabel(CycleCountScope scope) {
     return switch (scope) {
-      CountScope.allItems => 'All Items',
-      CountScope.location => 'Location',
-      CountScope.category => 'Category',
-      CountScope.lowStock => 'Low Stock',
+      CycleCountScope.allItems => 'All Items',
+      CycleCountScope.location => 'Location',
+      CycleCountScope.category => 'Category',
+      CycleCountScope.lowStock => 'Low Stock',
+      CycleCountScope.itemType => 'Item Type',
+    };
+  }
+
+  String _itemTypeLabel(ItemType type) {
+    return switch (type) {
+      ItemType.consumable => 'Consumable',
+      ItemType.returnable => 'Returnable',
+      ItemType.asset => 'Asset',
     };
   }
 

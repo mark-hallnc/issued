@@ -1254,6 +1254,7 @@ class AppStore extends ChangeNotifier {
           countedQuantity: counted,
           varianceQuantity: variance,
           unitOfMeasureId: line.unitOfMeasureId,
+          locationId: _cycleCountLineLocationId(line),
         ),
       );
     }
@@ -2001,6 +2002,61 @@ class AppStore extends ChangeNotifier {
     return null;
   }
 
+  bool _cycleCountItemMatchesScope(
+    Item item,
+    CycleCountScope scope, {
+    String? locationId,
+    String? category,
+    ItemType? itemType,
+  }) {
+    return switch (scope) {
+      CycleCountScope.allItems => true,
+      CycleCountScope.location =>
+        locationId != null &&
+            (_cycleCountLocationsForItem(
+              item,
+              scope,
+              locationId: locationId,
+            ).isNotEmpty),
+      CycleCountScope.category => item.category == category,
+      CycleCountScope.lowStock => isItemLowStock(item),
+      CycleCountScope.itemType => item.itemType == itemType,
+    };
+  }
+
+  List<String> _cycleCountLocationsForItem(
+    Item item,
+    CycleCountScope scope, {
+    String? locationId,
+  }) {
+    final balances = itemBalancesForItem(item.id);
+    if (scope == CycleCountScope.location) {
+      if (locationId == null) {
+        return const [];
+      }
+      if (balances.any((balance) => balance.locationId == locationId)) {
+        return [locationId];
+      }
+      if (item.locationId == locationId) {
+        return [locationId];
+      }
+      return const [];
+    }
+
+    if (balances.isNotEmpty) {
+      return balances.map((balance) => balance.locationId).toSet().toList();
+    }
+    return [item.locationId];
+  }
+
+  String _cycleCountLineLocationId(CycleCountLine line) {
+    if (line.locationId.trim().isNotEmpty) {
+      return line.locationId;
+    }
+    final item = _itemById(line.itemId);
+    return primaryLocationForItem(line.itemId)?.id ?? item?.locationId ?? '';
+  }
+
   Iterable<InventoryTransaction> _usageTransactions(DateTime? start) {
     return _transactions.where((transaction) {
       if (start != null && transaction.createdAt.isBefore(start)) {
@@ -2173,6 +2229,128 @@ class AppStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  double getExpectedQuantityForItemAtLocation(
+    String itemId,
+    String locationId,
+  ) {
+    final balance = _balanceFor(itemId, locationId);
+    if (balance != null) {
+      return balance.quantityOnHand;
+    }
+
+    final item = _itemById(itemId);
+    if (item == null) {
+      return 0;
+    }
+    if (item.locationId == locationId && itemBalancesForItem(itemId).isEmpty) {
+      return item.quantityOnHand;
+    }
+    return 0;
+  }
+
+  List<CycleCountLine> getCycleCountCandidateLines({
+    required String sessionId,
+    required CycleCountScope scope,
+    String? locationId,
+    String? category,
+    ItemType? itemType,
+  }) {
+    final lines = <CycleCountLine>[];
+    for (final item in _items.where((item) => item.isActive)) {
+      if (!_cycleCountItemMatchesScope(
+        item,
+        scope,
+        locationId: locationId,
+        category: category,
+        itemType: itemType,
+      )) {
+        continue;
+      }
+
+      final locations = _cycleCountLocationsForItem(
+        item,
+        scope,
+        locationId: locationId,
+      );
+      for (final countedLocationId in locations) {
+        lines.add(
+          CycleCountLine(
+            id: 'line-$sessionId-${item.id}-$countedLocationId',
+            sessionId: sessionId,
+            itemId: item.id,
+            locationId: countedLocationId,
+            expectedQuantity: getExpectedQuantityForItemAtLocation(
+              item.id,
+              countedLocationId,
+            ),
+            countedQuantity: null,
+            varianceQuantity: null,
+            unitOfMeasureId: item.unitOfMeasureId,
+            notes: null,
+          ),
+        );
+      }
+    }
+
+    lines.sort((left, right) {
+      final locationCompare = (resolveLocationName(left.locationId) ?? '')
+          .compareTo(resolveLocationName(right.locationId) ?? '');
+      if (locationCompare != 0) {
+        return locationCompare;
+      }
+      return resolveItemName(
+        left.itemId,
+      ).compareTo(resolveItemName(right.itemId));
+    });
+    return lines;
+  }
+
+  CycleCountSession? createCycleCountSessionFromScope({
+    required String name,
+    required CycleCountScope scope,
+    required bool blindCount,
+    DateTime? dueAt,
+    String? locationId,
+    String? category,
+    ItemType? itemType,
+  }) {
+    if (!permissions.canManageCycleCounts) {
+      return null;
+    }
+
+    final now = DateTime.now();
+    final session = CycleCountSession(
+      id: 'count-${now.microsecondsSinceEpoch}',
+      name: name,
+      status: CycleCountStatus.assigned,
+      assignedToUserId: currentUser?.id,
+      blindCount: blindCount,
+      dueAt: dueAt,
+      createdAt: now,
+      submittedAt: null,
+      approvedAt: null,
+    );
+    final lines = getCycleCountCandidateLines(
+      sessionId: session.id,
+      scope: scope,
+      locationId: locationId,
+      category: category,
+      itemType: itemType,
+    );
+    if (lines.isEmpty) {
+      return null;
+    }
+
+    _cycleCountSessions.add(session);
+    unawaited(_database.upsertCycleCountSession(session.toCompanion()));
+    _cycleCountLines.addAll(lines);
+    for (final line in lines) {
+      unawaited(_database.upsertCycleCountLine(line.toCompanion()));
+    }
+    notifyListeners();
+    return session;
+  }
+
   void approveCycleCount(String sessionId) {
     final sessionIndex = _cycleCountSessions.indexWhere(
       (session) =>
@@ -2199,25 +2377,29 @@ class AppStore extends ChangeNotifier {
       }
 
       final item = _items[itemIndex];
-      final updatedItem = item.copyWith(
-        quantityOnHand: countedQuantity,
-        updatedAt: now,
-      );
-      _items[itemIndex] = updatedItem;
-      unawaited(_database.upsertItem(updatedItem.toCompanion()));
+      final locationId = _cycleCountLineLocationId(line);
+      _setBalanceQuantity(item.id, locationId, countedQuantity, now);
+      _syncItemCachedQuantity(item.id, now);
 
       if (variance != 0) {
+        final locationName =
+            resolveLocationName(locationId) ?? 'Unknown location';
+        final noteParts = [
+          'Cycle count adjustment from ${session.name} at $locationName.',
+          if ((line.notes ?? '').trim().isNotEmpty)
+            'Count note: ${line.notes!.trim()}',
+        ];
         final transaction = InventoryTransaction(
           id: 'txn-cycle-${now.microsecondsSinceEpoch}-${line.id}',
           itemId: item.id,
           transactionType: InventoryTransactionType.cycleCountAdjustment,
           quantityDelta: variance,
           unitOfMeasureId: line.unitOfMeasureId,
-          fromLocationId: variance < 0 ? line.locationId : null,
-          toLocationId: variance > 0 ? line.locationId : null,
+          fromLocationId: variance < 0 ? locationId : null,
+          toLocationId: variance > 0 ? locationId : null,
           assignedToPersonId: null,
-          performedByUserId: _users.isEmpty ? null : _users.first.id,
-          notes: 'Cycle count adjustment: ${session.name}',
+          performedByUserId: currentUser?.id,
+          notes: noteParts.join(' '),
           createdAt: now,
         );
         _transactions.add(transaction);
@@ -2349,6 +2531,7 @@ class CycleCountVarianceRow {
     required this.countedQuantity,
     required this.varianceQuantity,
     required this.unitOfMeasureId,
+    required this.locationId,
   });
 
   final String itemId;
@@ -2358,6 +2541,7 @@ class CycleCountVarianceRow {
   final double countedQuantity;
   final double varianceQuantity;
   final String unitOfMeasureId;
+  final String locationId;
 }
 
 class ReorderStatusSummary {
