@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/app_store.dart';
 import '../core/models/models.dart';
+import 'activity_screen.dart';
 import 'checked_out_screen.dart';
 import 'low_stock_screen.dart';
 import 'plan_screens.dart';
@@ -90,6 +91,13 @@ class DashboardScreen extends StatelessWidget {
               title: 'Recent Activity',
               count: recentTransactionCount.toString(),
               icon: Icons.history_outlined,
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (context) => const ActivityScreen(),
+                  ),
+                );
+              },
             ),
           ],
         ),

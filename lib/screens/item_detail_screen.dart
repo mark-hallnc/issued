@@ -9,6 +9,7 @@ import '../core/app_store.dart';
 import '../core/labels/label_service.dart';
 import '../core/models/models.dart';
 import '../core/photos/item_photo_service.dart';
+import 'activity_screen.dart';
 import 'plan_screens.dart';
 import 'settings_detail_screens.dart';
 
@@ -301,6 +302,14 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                   else
                     for (final transaction in recentTransactions)
                       _TransactionRow(transaction: transaction),
+                  if (recentTransactions.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    OutlinedButton.icon(
+                      onPressed: _openAllActivity,
+                      icon: const Icon(Icons.history),
+                      label: const Text('View All Activity'),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -929,14 +938,15 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
   }
 
   List<InventoryTransaction> _recentTransactions(AppStore store) {
-    final transactions = store.transactions
-        .where((transaction) => transaction.itemId == _item.id)
-        .toList();
+    return store.transactionsForItem(_item.id).take(5).toList();
+  }
 
-    transactions.sort(
-      (left, right) => right.createdAt.compareTo(left.createdAt),
+  void _openAllActivity() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => ActivityScreen(itemId: _item.id),
+      ),
     );
-    return transactions.take(5).toList();
   }
 
   String? _checkedOutPerson(AppStore store) {

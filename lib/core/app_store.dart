@@ -391,6 +391,78 @@ class AppStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  List<InventoryTransaction> transactionsForItem(String itemId) {
+    final itemTransactions = _transactions
+        .where((transaction) => transaction.itemId == itemId)
+        .toList();
+
+    itemTransactions.sort(
+      (left, right) => right.createdAt.compareTo(left.createdAt),
+    );
+    return itemTransactions;
+  }
+
+  List<InventoryTransaction> recentTransactions({int limit = 10}) {
+    final recentTransactions = _transactions.toList()
+      ..sort((left, right) => right.createdAt.compareTo(left.createdAt));
+
+    return recentTransactions.take(limit).toList();
+  }
+
+  String resolveItemName(String itemId) {
+    return _itemById(itemId)?.name ?? 'Unknown item';
+  }
+
+  Item? itemById(String itemId) {
+    return _itemById(itemId);
+  }
+
+  String resolveUomAbbreviation(String uomId) {
+    return _unitById(uomId)?.abbreviation ?? '';
+  }
+
+  String? resolveLocationName(String? locationId) {
+    if (locationId == null) {
+      return null;
+    }
+
+    for (final location in _locations) {
+      if (location.id == locationId) {
+        return location.name;
+      }
+    }
+
+    return 'Unknown';
+  }
+
+  String? resolvePersonName(String? personId) {
+    if (personId == null) {
+      return null;
+    }
+
+    for (final person in _people) {
+      if (person.id == personId) {
+        return person.displayName;
+      }
+    }
+
+    return 'Unknown';
+  }
+
+  String? resolveUserName(String? userId) {
+    if (userId == null) {
+      return null;
+    }
+
+    for (final user in _users) {
+      if (user.id == userId) {
+        return resolvePersonName(user.personId) ?? user.email;
+      }
+    }
+
+    return 'Unknown';
+  }
+
   List<CheckoutRecord> get openCheckoutRecords {
     final records = _checkoutRecords
         .where((record) => record.status == CheckoutStatus.checkedOut)
