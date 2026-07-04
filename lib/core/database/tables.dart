@@ -111,6 +111,27 @@ class ReorderRequests extends Table {
   Set<Column<Object>> get primaryKey => {id};
 }
 
+@DataClassName('CheckoutRecordRow')
+class CheckoutRecords extends Table {
+  TextColumn get id => text()();
+  TextColumn get itemId => text()();
+  TextColumn get assignedToPersonId => text().nullable()();
+  TextColumn get assignedToLocationId => text().nullable()();
+  TextColumn get assignedToText => text().nullable()();
+  RealColumn get quantity => real()();
+  TextColumn get unitOfMeasureId => text()();
+  TextColumn get status => text()();
+  DateTimeColumn get checkedOutAt => dateTime()();
+  DateTimeColumn get dueAt => dateTime().nullable()();
+  DateTimeColumn get returnedAt => dateTime().nullable()();
+  TextColumn get checkedOutByUserId => text().nullable()();
+  TextColumn get returnedByUserId => text().nullable()();
+  TextColumn get notes => text().nullable()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
 @DataClassName('CycleCountSessionRecord')
 class CycleCountSessions extends Table {
   TextColumn get id => text()();

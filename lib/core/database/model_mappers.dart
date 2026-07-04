@@ -231,6 +231,48 @@ extension ReorderRequestDomainMapper on domain.ReorderRequest {
   }
 }
 
+extension CheckoutRecordRowMapper on CheckoutRecordRow {
+  domain.CheckoutRecord toDomain() {
+    return domain.CheckoutRecord(
+      id: id,
+      itemId: itemId,
+      assignedToPersonId: assignedToPersonId,
+      assignedToLocationId: assignedToLocationId,
+      assignedToText: assignedToText,
+      quantity: quantity,
+      unitOfMeasureId: unitOfMeasureId,
+      status: _enumByName(domain.CheckoutStatus.values, status),
+      checkedOutAt: checkedOutAt,
+      dueAt: dueAt,
+      returnedAt: returnedAt,
+      checkedOutByUserId: checkedOutByUserId,
+      returnedByUserId: returnedByUserId,
+      notes: notes,
+    );
+  }
+}
+
+extension CheckoutRecordDomainMapper on domain.CheckoutRecord {
+  CheckoutRecordsCompanion toCompanion() {
+    return CheckoutRecordsCompanion(
+      id: Value(id),
+      itemId: Value(itemId),
+      assignedToPersonId: Value(assignedToPersonId),
+      assignedToLocationId: Value(assignedToLocationId),
+      assignedToText: Value(assignedToText),
+      quantity: Value(quantity),
+      unitOfMeasureId: Value(unitOfMeasureId),
+      status: Value(status.name),
+      checkedOutAt: Value(checkedOutAt),
+      dueAt: Value(dueAt),
+      returnedAt: Value(returnedAt),
+      checkedOutByUserId: Value(checkedOutByUserId),
+      returnedByUserId: Value(returnedByUserId),
+      notes: Value(notes),
+    );
+  }
+}
+
 extension CycleCountSessionRecordMapper on CycleCountSessionRecord {
   domain.CycleCountSession toDomain() {
     return domain.CycleCountSession(

@@ -14,6 +14,7 @@ part 'app_database.g.dart';
     AppUsers,
     InventoryTransactions,
     ReorderRequests,
+    CheckoutRecords,
     CycleCountSessions,
     CycleCountLines,
     CustomFieldDefinitions,
@@ -27,7 +28,7 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? openDatabaseConnection());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration {
@@ -35,6 +36,9 @@ class AppDatabase extends _$AppDatabase {
       onUpgrade: (migrator, from, to) async {
         if (from < 2) {
           await migrator.createTable(reorderRequests);
+        }
+        if (from < 3) {
+          await migrator.createTable(checkoutRecords);
         }
       },
     );
@@ -55,6 +59,8 @@ class AppDatabase extends _$AppDatabase {
       select(inventoryTransactions).get();
   Future<List<ReorderRequestRecord>> getAllReorderRequests() =>
       select(reorderRequests).get();
+  Future<List<CheckoutRecordRow>> getAllCheckoutRecords() =>
+      select(checkoutRecords).get();
   Future<List<CycleCountSessionRecord>> getAllCycleCountSessions() =>
       select(cycleCountSessions).get();
   Future<List<CycleCountLineRecord>> getAllCycleCountLines() =>
@@ -93,6 +99,10 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> upsertReorderRequest(ReorderRequestsCompanion request) {
     return into(reorderRequests).insertOnConflictUpdate(request);
+  }
+
+  Future<void> upsertCheckoutRecord(CheckoutRecordsCompanion record) {
+    return into(checkoutRecords).insertOnConflictUpdate(record);
   }
 
   Future<void> upsertCycleCountSession(CycleCountSessionsCompanion session) {

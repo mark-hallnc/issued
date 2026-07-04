@@ -4001,6 +4001,867 @@ class ReorderRequestsCompanion extends UpdateCompanion<ReorderRequestRecord> {
   }
 }
 
+class $CheckoutRecordsTable extends CheckoutRecords
+    with TableInfo<$CheckoutRecordsTable, CheckoutRecordRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CheckoutRecordsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _itemIdMeta = const VerificationMeta('itemId');
+  @override
+  late final GeneratedColumn<String> itemId = GeneratedColumn<String>(
+    'item_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _assignedToPersonIdMeta =
+      const VerificationMeta('assignedToPersonId');
+  @override
+  late final GeneratedColumn<String> assignedToPersonId =
+      GeneratedColumn<String>(
+        'assigned_to_person_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _assignedToLocationIdMeta =
+      const VerificationMeta('assignedToLocationId');
+  @override
+  late final GeneratedColumn<String> assignedToLocationId =
+      GeneratedColumn<String>(
+        'assigned_to_location_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _assignedToTextMeta = const VerificationMeta(
+    'assignedToText',
+  );
+  @override
+  late final GeneratedColumn<String> assignedToText = GeneratedColumn<String>(
+    'assigned_to_text',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _quantityMeta = const VerificationMeta(
+    'quantity',
+  );
+  @override
+  late final GeneratedColumn<double> quantity = GeneratedColumn<double>(
+    'quantity',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _unitOfMeasureIdMeta = const VerificationMeta(
+    'unitOfMeasureId',
+  );
+  @override
+  late final GeneratedColumn<String> unitOfMeasureId = GeneratedColumn<String>(
+    'unit_of_measure_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _checkedOutAtMeta = const VerificationMeta(
+    'checkedOutAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> checkedOutAt = GeneratedColumn<DateTime>(
+    'checked_out_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _dueAtMeta = const VerificationMeta('dueAt');
+  @override
+  late final GeneratedColumn<DateTime> dueAt = GeneratedColumn<DateTime>(
+    'due_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _returnedAtMeta = const VerificationMeta(
+    'returnedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> returnedAt = GeneratedColumn<DateTime>(
+    'returned_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _checkedOutByUserIdMeta =
+      const VerificationMeta('checkedOutByUserId');
+  @override
+  late final GeneratedColumn<String> checkedOutByUserId =
+      GeneratedColumn<String>(
+        'checked_out_by_user_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _returnedByUserIdMeta = const VerificationMeta(
+    'returnedByUserId',
+  );
+  @override
+  late final GeneratedColumn<String> returnedByUserId = GeneratedColumn<String>(
+    'returned_by_user_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+    'notes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    itemId,
+    assignedToPersonId,
+    assignedToLocationId,
+    assignedToText,
+    quantity,
+    unitOfMeasureId,
+    status,
+    checkedOutAt,
+    dueAt,
+    returnedAt,
+    checkedOutByUserId,
+    returnedByUserId,
+    notes,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'checkout_records';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CheckoutRecordRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('item_id')) {
+      context.handle(
+        _itemIdMeta,
+        itemId.isAcceptableOrUnknown(data['item_id']!, _itemIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_itemIdMeta);
+    }
+    if (data.containsKey('assigned_to_person_id')) {
+      context.handle(
+        _assignedToPersonIdMeta,
+        assignedToPersonId.isAcceptableOrUnknown(
+          data['assigned_to_person_id']!,
+          _assignedToPersonIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('assigned_to_location_id')) {
+      context.handle(
+        _assignedToLocationIdMeta,
+        assignedToLocationId.isAcceptableOrUnknown(
+          data['assigned_to_location_id']!,
+          _assignedToLocationIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('assigned_to_text')) {
+      context.handle(
+        _assignedToTextMeta,
+        assignedToText.isAcceptableOrUnknown(
+          data['assigned_to_text']!,
+          _assignedToTextMeta,
+        ),
+      );
+    }
+    if (data.containsKey('quantity')) {
+      context.handle(
+        _quantityMeta,
+        quantity.isAcceptableOrUnknown(data['quantity']!, _quantityMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_quantityMeta);
+    }
+    if (data.containsKey('unit_of_measure_id')) {
+      context.handle(
+        _unitOfMeasureIdMeta,
+        unitOfMeasureId.isAcceptableOrUnknown(
+          data['unit_of_measure_id']!,
+          _unitOfMeasureIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_unitOfMeasureIdMeta);
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_statusMeta);
+    }
+    if (data.containsKey('checked_out_at')) {
+      context.handle(
+        _checkedOutAtMeta,
+        checkedOutAt.isAcceptableOrUnknown(
+          data['checked_out_at']!,
+          _checkedOutAtMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_checkedOutAtMeta);
+    }
+    if (data.containsKey('due_at')) {
+      context.handle(
+        _dueAtMeta,
+        dueAt.isAcceptableOrUnknown(data['due_at']!, _dueAtMeta),
+      );
+    }
+    if (data.containsKey('returned_at')) {
+      context.handle(
+        _returnedAtMeta,
+        returnedAt.isAcceptableOrUnknown(data['returned_at']!, _returnedAtMeta),
+      );
+    }
+    if (data.containsKey('checked_out_by_user_id')) {
+      context.handle(
+        _checkedOutByUserIdMeta,
+        checkedOutByUserId.isAcceptableOrUnknown(
+          data['checked_out_by_user_id']!,
+          _checkedOutByUserIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('returned_by_user_id')) {
+      context.handle(
+        _returnedByUserIdMeta,
+        returnedByUserId.isAcceptableOrUnknown(
+          data['returned_by_user_id']!,
+          _returnedByUserIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+        _notesMeta,
+        notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  CheckoutRecordRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CheckoutRecordRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      itemId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}item_id'],
+      )!,
+      assignedToPersonId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}assigned_to_person_id'],
+      ),
+      assignedToLocationId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}assigned_to_location_id'],
+      ),
+      assignedToText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}assigned_to_text'],
+      ),
+      quantity: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}quantity'],
+      )!,
+      unitOfMeasureId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}unit_of_measure_id'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      checkedOutAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}checked_out_at'],
+      )!,
+      dueAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}due_at'],
+      ),
+      returnedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}returned_at'],
+      ),
+      checkedOutByUserId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}checked_out_by_user_id'],
+      ),
+      returnedByUserId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}returned_by_user_id'],
+      ),
+      notes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notes'],
+      ),
+    );
+  }
+
+  @override
+  $CheckoutRecordsTable createAlias(String alias) {
+    return $CheckoutRecordsTable(attachedDatabase, alias);
+  }
+}
+
+class CheckoutRecordRow extends DataClass
+    implements Insertable<CheckoutRecordRow> {
+  final String id;
+  final String itemId;
+  final String? assignedToPersonId;
+  final String? assignedToLocationId;
+  final String? assignedToText;
+  final double quantity;
+  final String unitOfMeasureId;
+  final String status;
+  final DateTime checkedOutAt;
+  final DateTime? dueAt;
+  final DateTime? returnedAt;
+  final String? checkedOutByUserId;
+  final String? returnedByUserId;
+  final String? notes;
+  const CheckoutRecordRow({
+    required this.id,
+    required this.itemId,
+    this.assignedToPersonId,
+    this.assignedToLocationId,
+    this.assignedToText,
+    required this.quantity,
+    required this.unitOfMeasureId,
+    required this.status,
+    required this.checkedOutAt,
+    this.dueAt,
+    this.returnedAt,
+    this.checkedOutByUserId,
+    this.returnedByUserId,
+    this.notes,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['item_id'] = Variable<String>(itemId);
+    if (!nullToAbsent || assignedToPersonId != null) {
+      map['assigned_to_person_id'] = Variable<String>(assignedToPersonId);
+    }
+    if (!nullToAbsent || assignedToLocationId != null) {
+      map['assigned_to_location_id'] = Variable<String>(assignedToLocationId);
+    }
+    if (!nullToAbsent || assignedToText != null) {
+      map['assigned_to_text'] = Variable<String>(assignedToText);
+    }
+    map['quantity'] = Variable<double>(quantity);
+    map['unit_of_measure_id'] = Variable<String>(unitOfMeasureId);
+    map['status'] = Variable<String>(status);
+    map['checked_out_at'] = Variable<DateTime>(checkedOutAt);
+    if (!nullToAbsent || dueAt != null) {
+      map['due_at'] = Variable<DateTime>(dueAt);
+    }
+    if (!nullToAbsent || returnedAt != null) {
+      map['returned_at'] = Variable<DateTime>(returnedAt);
+    }
+    if (!nullToAbsent || checkedOutByUserId != null) {
+      map['checked_out_by_user_id'] = Variable<String>(checkedOutByUserId);
+    }
+    if (!nullToAbsent || returnedByUserId != null) {
+      map['returned_by_user_id'] = Variable<String>(returnedByUserId);
+    }
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
+    return map;
+  }
+
+  CheckoutRecordsCompanion toCompanion(bool nullToAbsent) {
+    return CheckoutRecordsCompanion(
+      id: Value(id),
+      itemId: Value(itemId),
+      assignedToPersonId: assignedToPersonId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(assignedToPersonId),
+      assignedToLocationId: assignedToLocationId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(assignedToLocationId),
+      assignedToText: assignedToText == null && nullToAbsent
+          ? const Value.absent()
+          : Value(assignedToText),
+      quantity: Value(quantity),
+      unitOfMeasureId: Value(unitOfMeasureId),
+      status: Value(status),
+      checkedOutAt: Value(checkedOutAt),
+      dueAt: dueAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(dueAt),
+      returnedAt: returnedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(returnedAt),
+      checkedOutByUserId: checkedOutByUserId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(checkedOutByUserId),
+      returnedByUserId: returnedByUserId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(returnedByUserId),
+      notes: notes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(notes),
+    );
+  }
+
+  factory CheckoutRecordRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CheckoutRecordRow(
+      id: serializer.fromJson<String>(json['id']),
+      itemId: serializer.fromJson<String>(json['itemId']),
+      assignedToPersonId: serializer.fromJson<String?>(
+        json['assignedToPersonId'],
+      ),
+      assignedToLocationId: serializer.fromJson<String?>(
+        json['assignedToLocationId'],
+      ),
+      assignedToText: serializer.fromJson<String?>(json['assignedToText']),
+      quantity: serializer.fromJson<double>(json['quantity']),
+      unitOfMeasureId: serializer.fromJson<String>(json['unitOfMeasureId']),
+      status: serializer.fromJson<String>(json['status']),
+      checkedOutAt: serializer.fromJson<DateTime>(json['checkedOutAt']),
+      dueAt: serializer.fromJson<DateTime?>(json['dueAt']),
+      returnedAt: serializer.fromJson<DateTime?>(json['returnedAt']),
+      checkedOutByUserId: serializer.fromJson<String?>(
+        json['checkedOutByUserId'],
+      ),
+      returnedByUserId: serializer.fromJson<String?>(json['returnedByUserId']),
+      notes: serializer.fromJson<String?>(json['notes']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'itemId': serializer.toJson<String>(itemId),
+      'assignedToPersonId': serializer.toJson<String?>(assignedToPersonId),
+      'assignedToLocationId': serializer.toJson<String?>(assignedToLocationId),
+      'assignedToText': serializer.toJson<String?>(assignedToText),
+      'quantity': serializer.toJson<double>(quantity),
+      'unitOfMeasureId': serializer.toJson<String>(unitOfMeasureId),
+      'status': serializer.toJson<String>(status),
+      'checkedOutAt': serializer.toJson<DateTime>(checkedOutAt),
+      'dueAt': serializer.toJson<DateTime?>(dueAt),
+      'returnedAt': serializer.toJson<DateTime?>(returnedAt),
+      'checkedOutByUserId': serializer.toJson<String?>(checkedOutByUserId),
+      'returnedByUserId': serializer.toJson<String?>(returnedByUserId),
+      'notes': serializer.toJson<String?>(notes),
+    };
+  }
+
+  CheckoutRecordRow copyWith({
+    String? id,
+    String? itemId,
+    Value<String?> assignedToPersonId = const Value.absent(),
+    Value<String?> assignedToLocationId = const Value.absent(),
+    Value<String?> assignedToText = const Value.absent(),
+    double? quantity,
+    String? unitOfMeasureId,
+    String? status,
+    DateTime? checkedOutAt,
+    Value<DateTime?> dueAt = const Value.absent(),
+    Value<DateTime?> returnedAt = const Value.absent(),
+    Value<String?> checkedOutByUserId = const Value.absent(),
+    Value<String?> returnedByUserId = const Value.absent(),
+    Value<String?> notes = const Value.absent(),
+  }) => CheckoutRecordRow(
+    id: id ?? this.id,
+    itemId: itemId ?? this.itemId,
+    assignedToPersonId: assignedToPersonId.present
+        ? assignedToPersonId.value
+        : this.assignedToPersonId,
+    assignedToLocationId: assignedToLocationId.present
+        ? assignedToLocationId.value
+        : this.assignedToLocationId,
+    assignedToText: assignedToText.present
+        ? assignedToText.value
+        : this.assignedToText,
+    quantity: quantity ?? this.quantity,
+    unitOfMeasureId: unitOfMeasureId ?? this.unitOfMeasureId,
+    status: status ?? this.status,
+    checkedOutAt: checkedOutAt ?? this.checkedOutAt,
+    dueAt: dueAt.present ? dueAt.value : this.dueAt,
+    returnedAt: returnedAt.present ? returnedAt.value : this.returnedAt,
+    checkedOutByUserId: checkedOutByUserId.present
+        ? checkedOutByUserId.value
+        : this.checkedOutByUserId,
+    returnedByUserId: returnedByUserId.present
+        ? returnedByUserId.value
+        : this.returnedByUserId,
+    notes: notes.present ? notes.value : this.notes,
+  );
+  CheckoutRecordRow copyWithCompanion(CheckoutRecordsCompanion data) {
+    return CheckoutRecordRow(
+      id: data.id.present ? data.id.value : this.id,
+      itemId: data.itemId.present ? data.itemId.value : this.itemId,
+      assignedToPersonId: data.assignedToPersonId.present
+          ? data.assignedToPersonId.value
+          : this.assignedToPersonId,
+      assignedToLocationId: data.assignedToLocationId.present
+          ? data.assignedToLocationId.value
+          : this.assignedToLocationId,
+      assignedToText: data.assignedToText.present
+          ? data.assignedToText.value
+          : this.assignedToText,
+      quantity: data.quantity.present ? data.quantity.value : this.quantity,
+      unitOfMeasureId: data.unitOfMeasureId.present
+          ? data.unitOfMeasureId.value
+          : this.unitOfMeasureId,
+      status: data.status.present ? data.status.value : this.status,
+      checkedOutAt: data.checkedOutAt.present
+          ? data.checkedOutAt.value
+          : this.checkedOutAt,
+      dueAt: data.dueAt.present ? data.dueAt.value : this.dueAt,
+      returnedAt: data.returnedAt.present
+          ? data.returnedAt.value
+          : this.returnedAt,
+      checkedOutByUserId: data.checkedOutByUserId.present
+          ? data.checkedOutByUserId.value
+          : this.checkedOutByUserId,
+      returnedByUserId: data.returnedByUserId.present
+          ? data.returnedByUserId.value
+          : this.returnedByUserId,
+      notes: data.notes.present ? data.notes.value : this.notes,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CheckoutRecordRow(')
+          ..write('id: $id, ')
+          ..write('itemId: $itemId, ')
+          ..write('assignedToPersonId: $assignedToPersonId, ')
+          ..write('assignedToLocationId: $assignedToLocationId, ')
+          ..write('assignedToText: $assignedToText, ')
+          ..write('quantity: $quantity, ')
+          ..write('unitOfMeasureId: $unitOfMeasureId, ')
+          ..write('status: $status, ')
+          ..write('checkedOutAt: $checkedOutAt, ')
+          ..write('dueAt: $dueAt, ')
+          ..write('returnedAt: $returnedAt, ')
+          ..write('checkedOutByUserId: $checkedOutByUserId, ')
+          ..write('returnedByUserId: $returnedByUserId, ')
+          ..write('notes: $notes')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    itemId,
+    assignedToPersonId,
+    assignedToLocationId,
+    assignedToText,
+    quantity,
+    unitOfMeasureId,
+    status,
+    checkedOutAt,
+    dueAt,
+    returnedAt,
+    checkedOutByUserId,
+    returnedByUserId,
+    notes,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CheckoutRecordRow &&
+          other.id == this.id &&
+          other.itemId == this.itemId &&
+          other.assignedToPersonId == this.assignedToPersonId &&
+          other.assignedToLocationId == this.assignedToLocationId &&
+          other.assignedToText == this.assignedToText &&
+          other.quantity == this.quantity &&
+          other.unitOfMeasureId == this.unitOfMeasureId &&
+          other.status == this.status &&
+          other.checkedOutAt == this.checkedOutAt &&
+          other.dueAt == this.dueAt &&
+          other.returnedAt == this.returnedAt &&
+          other.checkedOutByUserId == this.checkedOutByUserId &&
+          other.returnedByUserId == this.returnedByUserId &&
+          other.notes == this.notes);
+}
+
+class CheckoutRecordsCompanion extends UpdateCompanion<CheckoutRecordRow> {
+  final Value<String> id;
+  final Value<String> itemId;
+  final Value<String?> assignedToPersonId;
+  final Value<String?> assignedToLocationId;
+  final Value<String?> assignedToText;
+  final Value<double> quantity;
+  final Value<String> unitOfMeasureId;
+  final Value<String> status;
+  final Value<DateTime> checkedOutAt;
+  final Value<DateTime?> dueAt;
+  final Value<DateTime?> returnedAt;
+  final Value<String?> checkedOutByUserId;
+  final Value<String?> returnedByUserId;
+  final Value<String?> notes;
+  final Value<int> rowid;
+  const CheckoutRecordsCompanion({
+    this.id = const Value.absent(),
+    this.itemId = const Value.absent(),
+    this.assignedToPersonId = const Value.absent(),
+    this.assignedToLocationId = const Value.absent(),
+    this.assignedToText = const Value.absent(),
+    this.quantity = const Value.absent(),
+    this.unitOfMeasureId = const Value.absent(),
+    this.status = const Value.absent(),
+    this.checkedOutAt = const Value.absent(),
+    this.dueAt = const Value.absent(),
+    this.returnedAt = const Value.absent(),
+    this.checkedOutByUserId = const Value.absent(),
+    this.returnedByUserId = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CheckoutRecordsCompanion.insert({
+    required String id,
+    required String itemId,
+    this.assignedToPersonId = const Value.absent(),
+    this.assignedToLocationId = const Value.absent(),
+    this.assignedToText = const Value.absent(),
+    required double quantity,
+    required String unitOfMeasureId,
+    required String status,
+    required DateTime checkedOutAt,
+    this.dueAt = const Value.absent(),
+    this.returnedAt = const Value.absent(),
+    this.checkedOutByUserId = const Value.absent(),
+    this.returnedByUserId = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       itemId = Value(itemId),
+       quantity = Value(quantity),
+       unitOfMeasureId = Value(unitOfMeasureId),
+       status = Value(status),
+       checkedOutAt = Value(checkedOutAt);
+  static Insertable<CheckoutRecordRow> custom({
+    Expression<String>? id,
+    Expression<String>? itemId,
+    Expression<String>? assignedToPersonId,
+    Expression<String>? assignedToLocationId,
+    Expression<String>? assignedToText,
+    Expression<double>? quantity,
+    Expression<String>? unitOfMeasureId,
+    Expression<String>? status,
+    Expression<DateTime>? checkedOutAt,
+    Expression<DateTime>? dueAt,
+    Expression<DateTime>? returnedAt,
+    Expression<String>? checkedOutByUserId,
+    Expression<String>? returnedByUserId,
+    Expression<String>? notes,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (itemId != null) 'item_id': itemId,
+      if (assignedToPersonId != null)
+        'assigned_to_person_id': assignedToPersonId,
+      if (assignedToLocationId != null)
+        'assigned_to_location_id': assignedToLocationId,
+      if (assignedToText != null) 'assigned_to_text': assignedToText,
+      if (quantity != null) 'quantity': quantity,
+      if (unitOfMeasureId != null) 'unit_of_measure_id': unitOfMeasureId,
+      if (status != null) 'status': status,
+      if (checkedOutAt != null) 'checked_out_at': checkedOutAt,
+      if (dueAt != null) 'due_at': dueAt,
+      if (returnedAt != null) 'returned_at': returnedAt,
+      if (checkedOutByUserId != null)
+        'checked_out_by_user_id': checkedOutByUserId,
+      if (returnedByUserId != null) 'returned_by_user_id': returnedByUserId,
+      if (notes != null) 'notes': notes,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CheckoutRecordsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? itemId,
+    Value<String?>? assignedToPersonId,
+    Value<String?>? assignedToLocationId,
+    Value<String?>? assignedToText,
+    Value<double>? quantity,
+    Value<String>? unitOfMeasureId,
+    Value<String>? status,
+    Value<DateTime>? checkedOutAt,
+    Value<DateTime?>? dueAt,
+    Value<DateTime?>? returnedAt,
+    Value<String?>? checkedOutByUserId,
+    Value<String?>? returnedByUserId,
+    Value<String?>? notes,
+    Value<int>? rowid,
+  }) {
+    return CheckoutRecordsCompanion(
+      id: id ?? this.id,
+      itemId: itemId ?? this.itemId,
+      assignedToPersonId: assignedToPersonId ?? this.assignedToPersonId,
+      assignedToLocationId: assignedToLocationId ?? this.assignedToLocationId,
+      assignedToText: assignedToText ?? this.assignedToText,
+      quantity: quantity ?? this.quantity,
+      unitOfMeasureId: unitOfMeasureId ?? this.unitOfMeasureId,
+      status: status ?? this.status,
+      checkedOutAt: checkedOutAt ?? this.checkedOutAt,
+      dueAt: dueAt ?? this.dueAt,
+      returnedAt: returnedAt ?? this.returnedAt,
+      checkedOutByUserId: checkedOutByUserId ?? this.checkedOutByUserId,
+      returnedByUserId: returnedByUserId ?? this.returnedByUserId,
+      notes: notes ?? this.notes,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (itemId.present) {
+      map['item_id'] = Variable<String>(itemId.value);
+    }
+    if (assignedToPersonId.present) {
+      map['assigned_to_person_id'] = Variable<String>(assignedToPersonId.value);
+    }
+    if (assignedToLocationId.present) {
+      map['assigned_to_location_id'] = Variable<String>(
+        assignedToLocationId.value,
+      );
+    }
+    if (assignedToText.present) {
+      map['assigned_to_text'] = Variable<String>(assignedToText.value);
+    }
+    if (quantity.present) {
+      map['quantity'] = Variable<double>(quantity.value);
+    }
+    if (unitOfMeasureId.present) {
+      map['unit_of_measure_id'] = Variable<String>(unitOfMeasureId.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (checkedOutAt.present) {
+      map['checked_out_at'] = Variable<DateTime>(checkedOutAt.value);
+    }
+    if (dueAt.present) {
+      map['due_at'] = Variable<DateTime>(dueAt.value);
+    }
+    if (returnedAt.present) {
+      map['returned_at'] = Variable<DateTime>(returnedAt.value);
+    }
+    if (checkedOutByUserId.present) {
+      map['checked_out_by_user_id'] = Variable<String>(
+        checkedOutByUserId.value,
+      );
+    }
+    if (returnedByUserId.present) {
+      map['returned_by_user_id'] = Variable<String>(returnedByUserId.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CheckoutRecordsCompanion(')
+          ..write('id: $id, ')
+          ..write('itemId: $itemId, ')
+          ..write('assignedToPersonId: $assignedToPersonId, ')
+          ..write('assignedToLocationId: $assignedToLocationId, ')
+          ..write('assignedToText: $assignedToText, ')
+          ..write('quantity: $quantity, ')
+          ..write('unitOfMeasureId: $unitOfMeasureId, ')
+          ..write('status: $status, ')
+          ..write('checkedOutAt: $checkedOutAt, ')
+          ..write('dueAt: $dueAt, ')
+          ..write('returnedAt: $returnedAt, ')
+          ..write('checkedOutByUserId: $checkedOutByUserId, ')
+          ..write('returnedByUserId: $returnedByUserId, ')
+          ..write('notes: $notes, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $CycleCountSessionsTable extends CycleCountSessions
     with TableInfo<$CycleCountSessionsTable, CycleCountSessionRecord> {
   @override
@@ -7120,6 +7981,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $ReorderRequestsTable reorderRequests = $ReorderRequestsTable(
     this,
   );
+  late final $CheckoutRecordsTable checkoutRecords = $CheckoutRecordsTable(
+    this,
+  );
   late final $CycleCountSessionsTable cycleCountSessions =
       $CycleCountSessionsTable(this);
   late final $CycleCountLinesTable cycleCountLines = $CycleCountLinesTable(
@@ -7143,6 +8007,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     appUsers,
     inventoryTransactions,
     reorderRequests,
+    checkoutRecords,
     cycleCountSessions,
     cycleCountLines,
     customFieldDefinitions,
@@ -9138,6 +10003,399 @@ typedef $$ReorderRequestsTableProcessedTableManager =
       ReorderRequestRecord,
       PrefetchHooks Function()
     >;
+typedef $$CheckoutRecordsTableCreateCompanionBuilder =
+    CheckoutRecordsCompanion Function({
+      required String id,
+      required String itemId,
+      Value<String?> assignedToPersonId,
+      Value<String?> assignedToLocationId,
+      Value<String?> assignedToText,
+      required double quantity,
+      required String unitOfMeasureId,
+      required String status,
+      required DateTime checkedOutAt,
+      Value<DateTime?> dueAt,
+      Value<DateTime?> returnedAt,
+      Value<String?> checkedOutByUserId,
+      Value<String?> returnedByUserId,
+      Value<String?> notes,
+      Value<int> rowid,
+    });
+typedef $$CheckoutRecordsTableUpdateCompanionBuilder =
+    CheckoutRecordsCompanion Function({
+      Value<String> id,
+      Value<String> itemId,
+      Value<String?> assignedToPersonId,
+      Value<String?> assignedToLocationId,
+      Value<String?> assignedToText,
+      Value<double> quantity,
+      Value<String> unitOfMeasureId,
+      Value<String> status,
+      Value<DateTime> checkedOutAt,
+      Value<DateTime?> dueAt,
+      Value<DateTime?> returnedAt,
+      Value<String?> checkedOutByUserId,
+      Value<String?> returnedByUserId,
+      Value<String?> notes,
+      Value<int> rowid,
+    });
+
+class $$CheckoutRecordsTableFilterComposer
+    extends Composer<_$AppDatabase, $CheckoutRecordsTable> {
+  $$CheckoutRecordsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get itemId => $composableBuilder(
+    column: $table.itemId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get assignedToPersonId => $composableBuilder(
+    column: $table.assignedToPersonId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get assignedToLocationId => $composableBuilder(
+    column: $table.assignedToLocationId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get assignedToText => $composableBuilder(
+    column: $table.assignedToText,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get quantity => $composableBuilder(
+    column: $table.quantity,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get unitOfMeasureId => $composableBuilder(
+    column: $table.unitOfMeasureId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get checkedOutAt => $composableBuilder(
+    column: $table.checkedOutAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get dueAt => $composableBuilder(
+    column: $table.dueAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get returnedAt => $composableBuilder(
+    column: $table.returnedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get checkedOutByUserId => $composableBuilder(
+    column: $table.checkedOutByUserId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get returnedByUserId => $composableBuilder(
+    column: $table.returnedByUserId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CheckoutRecordsTableOrderingComposer
+    extends Composer<_$AppDatabase, $CheckoutRecordsTable> {
+  $$CheckoutRecordsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get itemId => $composableBuilder(
+    column: $table.itemId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get assignedToPersonId => $composableBuilder(
+    column: $table.assignedToPersonId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get assignedToLocationId => $composableBuilder(
+    column: $table.assignedToLocationId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get assignedToText => $composableBuilder(
+    column: $table.assignedToText,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get quantity => $composableBuilder(
+    column: $table.quantity,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get unitOfMeasureId => $composableBuilder(
+    column: $table.unitOfMeasureId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get checkedOutAt => $composableBuilder(
+    column: $table.checkedOutAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get dueAt => $composableBuilder(
+    column: $table.dueAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get returnedAt => $composableBuilder(
+    column: $table.returnedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get checkedOutByUserId => $composableBuilder(
+    column: $table.checkedOutByUserId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get returnedByUserId => $composableBuilder(
+    column: $table.returnedByUserId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CheckoutRecordsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CheckoutRecordsTable> {
+  $$CheckoutRecordsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get itemId =>
+      $composableBuilder(column: $table.itemId, builder: (column) => column);
+
+  GeneratedColumn<String> get assignedToPersonId => $composableBuilder(
+    column: $table.assignedToPersonId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get assignedToLocationId => $composableBuilder(
+    column: $table.assignedToLocationId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get assignedToText => $composableBuilder(
+    column: $table.assignedToText,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get quantity =>
+      $composableBuilder(column: $table.quantity, builder: (column) => column);
+
+  GeneratedColumn<String> get unitOfMeasureId => $composableBuilder(
+    column: $table.unitOfMeasureId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get checkedOutAt => $composableBuilder(
+    column: $table.checkedOutAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get dueAt =>
+      $composableBuilder(column: $table.dueAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get returnedAt => $composableBuilder(
+    column: $table.returnedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get checkedOutByUserId => $composableBuilder(
+    column: $table.checkedOutByUserId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get returnedByUserId => $composableBuilder(
+    column: $table.returnedByUserId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+}
+
+class $$CheckoutRecordsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CheckoutRecordsTable,
+          CheckoutRecordRow,
+          $$CheckoutRecordsTableFilterComposer,
+          $$CheckoutRecordsTableOrderingComposer,
+          $$CheckoutRecordsTableAnnotationComposer,
+          $$CheckoutRecordsTableCreateCompanionBuilder,
+          $$CheckoutRecordsTableUpdateCompanionBuilder,
+          (
+            CheckoutRecordRow,
+            BaseReferences<
+              _$AppDatabase,
+              $CheckoutRecordsTable,
+              CheckoutRecordRow
+            >,
+          ),
+          CheckoutRecordRow,
+          PrefetchHooks Function()
+        > {
+  $$CheckoutRecordsTableTableManager(
+    _$AppDatabase db,
+    $CheckoutRecordsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CheckoutRecordsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CheckoutRecordsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$CheckoutRecordsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> itemId = const Value.absent(),
+                Value<String?> assignedToPersonId = const Value.absent(),
+                Value<String?> assignedToLocationId = const Value.absent(),
+                Value<String?> assignedToText = const Value.absent(),
+                Value<double> quantity = const Value.absent(),
+                Value<String> unitOfMeasureId = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<DateTime> checkedOutAt = const Value.absent(),
+                Value<DateTime?> dueAt = const Value.absent(),
+                Value<DateTime?> returnedAt = const Value.absent(),
+                Value<String?> checkedOutByUserId = const Value.absent(),
+                Value<String?> returnedByUserId = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CheckoutRecordsCompanion(
+                id: id,
+                itemId: itemId,
+                assignedToPersonId: assignedToPersonId,
+                assignedToLocationId: assignedToLocationId,
+                assignedToText: assignedToText,
+                quantity: quantity,
+                unitOfMeasureId: unitOfMeasureId,
+                status: status,
+                checkedOutAt: checkedOutAt,
+                dueAt: dueAt,
+                returnedAt: returnedAt,
+                checkedOutByUserId: checkedOutByUserId,
+                returnedByUserId: returnedByUserId,
+                notes: notes,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String itemId,
+                Value<String?> assignedToPersonId = const Value.absent(),
+                Value<String?> assignedToLocationId = const Value.absent(),
+                Value<String?> assignedToText = const Value.absent(),
+                required double quantity,
+                required String unitOfMeasureId,
+                required String status,
+                required DateTime checkedOutAt,
+                Value<DateTime?> dueAt = const Value.absent(),
+                Value<DateTime?> returnedAt = const Value.absent(),
+                Value<String?> checkedOutByUserId = const Value.absent(),
+                Value<String?> returnedByUserId = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CheckoutRecordsCompanion.insert(
+                id: id,
+                itemId: itemId,
+                assignedToPersonId: assignedToPersonId,
+                assignedToLocationId: assignedToLocationId,
+                assignedToText: assignedToText,
+                quantity: quantity,
+                unitOfMeasureId: unitOfMeasureId,
+                status: status,
+                checkedOutAt: checkedOutAt,
+                dueAt: dueAt,
+                returnedAt: returnedAt,
+                checkedOutByUserId: checkedOutByUserId,
+                returnedByUserId: returnedByUserId,
+                notes: notes,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CheckoutRecordsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CheckoutRecordsTable,
+      CheckoutRecordRow,
+      $$CheckoutRecordsTableFilterComposer,
+      $$CheckoutRecordsTableOrderingComposer,
+      $$CheckoutRecordsTableAnnotationComposer,
+      $$CheckoutRecordsTableCreateCompanionBuilder,
+      $$CheckoutRecordsTableUpdateCompanionBuilder,
+      (
+        CheckoutRecordRow,
+        BaseReferences<_$AppDatabase, $CheckoutRecordsTable, CheckoutRecordRow>,
+      ),
+      CheckoutRecordRow,
+      PrefetchHooks Function()
+    >;
 typedef $$CycleCountSessionsTableCreateCompanionBuilder =
     CycleCountSessionsCompanion Function({
       required String id,
@@ -10758,6 +12016,8 @@ class $AppDatabaseManager {
       $$InventoryTransactionsTableTableManager(_db, _db.inventoryTransactions);
   $$ReorderRequestsTableTableManager get reorderRequests =>
       $$ReorderRequestsTableTableManager(_db, _db.reorderRequests);
+  $$CheckoutRecordsTableTableManager get checkoutRecords =>
+      $$CheckoutRecordsTableTableManager(_db, _db.checkoutRecords);
   $$CycleCountSessionsTableTableManager get cycleCountSessions =>
       $$CycleCountSessionsTableTableManager(_db, _db.cycleCountSessions);
   $$CycleCountLinesTableTableManager get cycleCountLines =>

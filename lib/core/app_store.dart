@@ -19,6 +19,7 @@ class AppStore extends ChangeNotifier {
   final List<Person> _people = [];
   final List<AppUser> _users = [];
   final List<InventoryTransaction> _transactions = [];
+  final List<CheckoutRecord> _checkoutRecords = [];
   final List<ReorderRequest> _reorderRequests = [];
   final List<CycleCountSession> _cycleCountSessions = [];
   final List<CycleCountLine> _cycleCountLines = [];
@@ -38,6 +39,8 @@ class AppStore extends ChangeNotifier {
   List<AppUser> get users => List.unmodifiable(_users);
   List<InventoryTransaction> get transactions =>
       List.unmodifiable(_transactions);
+  List<CheckoutRecord> get checkoutRecords =>
+      List.unmodifiable(_checkoutRecords);
   List<ReorderRequest> get reorderRequests =>
       List.unmodifiable(_reorderRequests);
   List<CycleCountSession> get cycleCountSessions =>
@@ -212,6 +215,11 @@ class AppStore extends ChangeNotifier {
       ..addAll(
         (await _database.getAllTransactions()).map((row) => row.toDomain()),
       );
+    _checkoutRecords
+      ..clear()
+      ..addAll(
+        (await _database.getAllCheckoutRecords()).map((row) => row.toDomain()),
+      );
     _reorderRequests
       ..clear()
       ..addAll(
@@ -381,6 +389,264 @@ class AppStore extends ChangeNotifier {
     _transactions.add(transaction);
     unawaited(_database.upsertTransaction(transaction.toCompanion()));
     notifyListeners();
+  }
+
+  List<CheckoutRecord> get openCheckoutRecords {
+    final records = _checkoutRecords
+        .where((record) => record.status == CheckoutStatus.checkedOut)
+        .toList();
+
+    records.sort((left, right) {
+      final leftDue = left.dueAt;
+      final rightDue = right.dueAt;
+      if (leftDue == null && rightDue == null) {
+        return right.checkedOutAt.compareTo(left.checkedOutAt);
+      }
+      if (leftDue == null) {
+        return 1;
+      }
+      if (rightDue == null) {
+        return -1;
+      }
+      return leftDue.compareTo(rightDue);
+    });
+
+    return records;
+  }
+
+  List<CheckoutRecord> get overdueCheckoutRecords {
+    final today = DateTime.now();
+    final startOfToday = DateTime(today.year, today.month, today.day);
+    return openCheckoutRecords.where((record) {
+      final dueAt = record.dueAt;
+      return dueAt != null && dueAt.isBefore(startOfToday);
+    }).toList();
+  }
+
+  List<CheckoutRecord> openCheckoutRecordsForItem(String itemId) {
+    return openCheckoutRecords
+        .where((record) => record.itemId == itemId)
+        .toList();
+  }
+
+  bool checkOutItem({
+    required String itemId,
+    required double quantity,
+    String? assignedToPersonId,
+    String? assignedToLocationId,
+    String? assignedToText,
+    DateTime? dueAt,
+    String? notes,
+  }) {
+    if (!permissions.canIssueItems || quantity <= 0) {
+      return false;
+    }
+
+    final itemIndex = _items.indexWhere((item) => item.id == itemId);
+    if (itemIndex == -1) {
+      return false;
+    }
+
+    final item = _items[itemIndex];
+    final now = DateTime.now();
+    final normalizedAssignedText = assignedToText?.trim();
+    final normalizedNotes = notes?.trim();
+    final updatedItem = item.copyWith(
+      quantityOnHand: item.quantityOnHand - quantity,
+      updatedAt: now,
+    );
+    _items[itemIndex] = updatedItem;
+    unawaited(_database.upsertItem(updatedItem.toCompanion()));
+
+    final record = CheckoutRecord(
+      id: 'checkout-${now.microsecondsSinceEpoch}',
+      itemId: item.id,
+      assignedToPersonId: assignedToPersonId,
+      assignedToLocationId: assignedToLocationId,
+      assignedToText:
+          normalizedAssignedText == null || normalizedAssignedText.isEmpty
+          ? null
+          : normalizedAssignedText,
+      quantity: quantity,
+      unitOfMeasureId: item.unitOfMeasureId,
+      status: CheckoutStatus.checkedOut,
+      checkedOutAt: now,
+      dueAt: dueAt,
+      returnedAt: null,
+      checkedOutByUserId: currentUser?.id,
+      returnedByUserId: null,
+      notes: normalizedNotes == null || normalizedNotes.isEmpty
+          ? null
+          : normalizedNotes,
+    );
+    _checkoutRecords.add(record);
+    unawaited(_database.upsertCheckoutRecord(record.toCompanion()));
+
+    final transaction = InventoryTransaction(
+      id: 'txn-checkout-${now.microsecondsSinceEpoch}',
+      itemId: item.id,
+      transactionType: InventoryTransactionType.checkout,
+      quantityDelta: -quantity,
+      unitOfMeasureId: item.unitOfMeasureId,
+      fromLocationId: item.locationId,
+      toLocationId: null,
+      assignedToPersonId: assignedToPersonId,
+      performedByUserId: currentUser?.id,
+      notes: record.notes,
+      createdAt: now,
+    );
+    _transactions.add(transaction);
+    unawaited(_database.upsertTransaction(transaction.toCompanion()));
+    notifyListeners();
+    return true;
+  }
+
+  bool returnCheckout({
+    required String checkoutRecordId,
+    required double returnedQuantity,
+    String? notes,
+  }) {
+    if (!permissions.canIssueItems || returnedQuantity <= 0) {
+      return false;
+    }
+
+    final recordIndex = _checkoutRecords.indexWhere(
+      (record) => record.id == checkoutRecordId,
+    );
+    if (recordIndex == -1) {
+      return false;
+    }
+
+    final record = _checkoutRecords[recordIndex];
+    if (record.status != CheckoutStatus.checkedOut ||
+        returnedQuantity != record.quantity) {
+      return false;
+    }
+
+    final itemIndex = _items.indexWhere((item) => item.id == record.itemId);
+    if (itemIndex == -1) {
+      return false;
+    }
+
+    final now = DateTime.now();
+    final item = _items[itemIndex];
+    final updatedItem = item.copyWith(
+      quantityOnHand: item.quantityOnHand + returnedQuantity,
+      updatedAt: now,
+    );
+    _items[itemIndex] = updatedItem;
+    unawaited(_database.upsertItem(updatedItem.toCompanion()));
+
+    final normalizedNotes = notes?.trim();
+    final updatedRecord = record.copyWith(
+      status: CheckoutStatus.returned,
+      returnedAt: now,
+      returnedByUserId: currentUser?.id,
+      notes: normalizedNotes == null || normalizedNotes.isEmpty
+          ? record.notes
+          : normalizedNotes,
+    );
+    _checkoutRecords[recordIndex] = updatedRecord;
+    unawaited(_database.upsertCheckoutRecord(updatedRecord.toCompanion()));
+
+    final transaction = InventoryTransaction(
+      id: 'txn-return-${now.microsecondsSinceEpoch}',
+      itemId: item.id,
+      transactionType: InventoryTransactionType.returnItem,
+      quantityDelta: returnedQuantity,
+      unitOfMeasureId: item.unitOfMeasureId,
+      fromLocationId: null,
+      toLocationId: item.locationId,
+      assignedToPersonId: record.assignedToPersonId,
+      performedByUserId: currentUser?.id,
+      notes: normalizedNotes == null || normalizedNotes.isEmpty
+          ? 'Returned checked out item'
+          : normalizedNotes,
+      createdAt: now,
+    );
+    _transactions.add(transaction);
+    unawaited(_database.upsertTransaction(transaction.toCompanion()));
+    notifyListeners();
+    return true;
+  }
+
+  bool markCheckoutLost(String checkoutRecordId, String? notes) {
+    return _closeCheckoutWithoutRestock(
+      checkoutRecordId,
+      CheckoutStatus.lost,
+      InventoryTransactionType.markLost,
+      notes,
+    );
+  }
+
+  bool markCheckoutDamaged(String checkoutRecordId, String? notes) {
+    return _closeCheckoutWithoutRestock(
+      checkoutRecordId,
+      CheckoutStatus.damaged,
+      InventoryTransactionType.markDamaged,
+      notes,
+    );
+  }
+
+  bool _closeCheckoutWithoutRestock(
+    String checkoutRecordId,
+    CheckoutStatus status,
+    InventoryTransactionType transactionType,
+    String? notes,
+  ) {
+    if (!permissions.canAdjustQuantity) {
+      return false;
+    }
+
+    final recordIndex = _checkoutRecords.indexWhere(
+      (record) => record.id == checkoutRecordId,
+    );
+    if (recordIndex == -1) {
+      return false;
+    }
+
+    final record = _checkoutRecords[recordIndex];
+    if (record.status != CheckoutStatus.checkedOut) {
+      return false;
+    }
+
+    final item = _itemById(record.itemId);
+    if (item == null) {
+      return false;
+    }
+
+    final now = DateTime.now();
+    final normalizedNotes = notes?.trim();
+    final updatedRecord = record.copyWith(
+      status: status,
+      returnedAt: now,
+      returnedByUserId: currentUser?.id,
+      notes: normalizedNotes == null || normalizedNotes.isEmpty
+          ? record.notes
+          : normalizedNotes,
+    );
+    _checkoutRecords[recordIndex] = updatedRecord;
+    unawaited(_database.upsertCheckoutRecord(updatedRecord.toCompanion()));
+
+    final transaction = InventoryTransaction(
+      id: 'txn-${transactionType.name}-${now.microsecondsSinceEpoch}',
+      itemId: item.id,
+      transactionType: transactionType,
+      quantityDelta: -record.quantity,
+      unitOfMeasureId: item.unitOfMeasureId,
+      fromLocationId: item.locationId,
+      toLocationId: null,
+      assignedToPersonId: record.assignedToPersonId,
+      performedByUserId: currentUser?.id,
+      notes: normalizedNotes == null || normalizedNotes.isEmpty
+          ? checkoutStatusLabel(status)
+          : normalizedNotes,
+      createdAt: now,
+    );
+    _transactions.add(transaction);
+    unawaited(_database.upsertTransaction(transaction.toCompanion()));
+    notifyListeners();
+    return true;
   }
 
   List<Item> getLowStockItems() {

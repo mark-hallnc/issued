@@ -40,6 +40,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     final showReturnableActions =
         _item.itemType == ItemType.returnable ||
         _item.itemType == ItemType.asset;
+    final openCheckouts = store.openCheckoutRecordsForItem(_item.id);
     final checkedOutPerson = _checkedOutPerson(store);
     final recentTransactions = _recentTransactions(store);
 
@@ -84,6 +85,16 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
             onRemove: _removePhoto,
           ),
           const SizedBox(height: 12),
+          if (openCheckouts.isNotEmpty) ...[
+            _CurrentCheckoutsCard(
+              records: openCheckouts,
+              store: store,
+              onReturn: _returnCheckout,
+              onMarkLost: _markCheckoutLost,
+              onMarkDamaged: _markCheckoutDamaged,
+            ),
+            const SizedBox(height: 12),
+          ],
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -564,33 +575,33 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
       return;
     }
 
-    final person = _defaultPerson(store);
-    final result = await _showQuantityNotesDialog(
-      title: 'Check Out Item',
-      quantityLabel: 'Quantity checked out',
-      initialQuantity: 1,
-      helperText: person == null
-          ? null
-          : 'Assigned to ${person.displayName} for this mock workflow.',
+    final result = await showDialog<_CheckoutDialogResult>(
+      context: context,
+      builder: (context) =>
+          _CheckoutDialog(store: AppStoreScope.of(context), initialQuantity: 1),
     );
 
     if (result == null) {
       return;
     }
 
-    _applyItemUpdate(
-      _item.copyWith(
-        quantityOnHand: _item.quantityOnHand - result.quantity,
-        updatedAt: DateTime.now(),
-      ),
-    );
-    _appendTransaction(
-      InventoryTransactionType.checkout,
-      -result.quantity,
+    final checkedOut = store.checkOutItem(
+      itemId: _item.id,
+      quantity: result.quantity,
+      assignedToPersonId: result.assignedToPersonId,
+      assignedToLocationId: result.assignedToLocationId,
+      assignedToText: result.assignedToText,
+      dueAt: result.dueAt,
       notes: result.notes,
-      fromLocationId: _item.locationId,
-      assignedToPersonId: person?.id,
     );
+
+    if (!checkedOut) {
+      _showMessage('Could not check out this item.');
+      return;
+    }
+
+    _syncCurrentItem(store);
+    _showMessage('Item checked out.');
   }
 
   Future<void> _returnItem() async {
@@ -600,28 +611,66 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
       return;
     }
 
+    final openCheckouts = store.openCheckoutRecordsForItem(_item.id);
+    if (openCheckouts.isEmpty) {
+      _showMessage('This item is not currently checked out.');
+      return;
+    }
+
+    if (openCheckouts.length == 1) {
+      await _returnCheckout(openCheckouts.first);
+      return;
+    }
+
+    final selectedRecord = await showDialog<CheckoutRecord>(
+      context: context,
+      builder: (context) => _SelectCheckoutDialog(
+        records: openCheckouts,
+        store: AppStoreScope.of(context),
+      ),
+    );
+    if (selectedRecord == null) {
+      return;
+    }
+
+    await _returnCheckout(selectedRecord);
+  }
+
+  Future<void> _returnCheckout(CheckoutRecord record) async {
+    final store = AppStoreScope.of(context);
+    if (!store.permissions.canIssueItems) {
+      _showPermissionDenied();
+      return;
+    }
+
     final result = await _showQuantityNotesDialog(
-      title: 'Return Item',
+      title: 'Return Checked Out Item',
       quantityLabel: 'Quantity returned',
-      initialQuantity: 1,
+      initialQuantity: record.quantity,
     );
 
     if (result == null) {
       return;
     }
 
-    _applyItemUpdate(
-      _item.copyWith(
-        quantityOnHand: _item.quantityOnHand + result.quantity,
-        updatedAt: DateTime.now(),
-      ),
-    );
-    _appendTransaction(
-      InventoryTransactionType.returnItem,
-      result.quantity,
+    if (result.quantity != record.quantity) {
+      _showMessage('Partial returns are not supported yet.');
+      return;
+    }
+
+    final returned = store.returnCheckout(
+      checkoutRecordId: record.id,
+      returnedQuantity: result.quantity,
       notes: result.notes,
-      toLocationId: _item.locationId,
     );
+
+    if (!returned) {
+      _showMessage('Could not return this item.');
+      return;
+    }
+
+    _syncCurrentItem(store);
+    _showMessage('Item returned.');
   }
 
   Future<void> _transferItem() async {
@@ -698,6 +747,12 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
       return;
     }
 
+    final openCheckouts = store.openCheckoutRecordsForItem(_item.id);
+    if (openCheckouts.isNotEmpty) {
+      await _markCheckoutDamaged(openCheckouts.first);
+      return;
+    }
+
     final result = await _showQuantityNotesDialog(
       title: 'Mark Lost/Damaged',
       quantityLabel: 'Quantity lost/damaged',
@@ -720,6 +775,38 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
       notes: result.notes,
       fromLocationId: _item.locationId,
     );
+  }
+
+  Future<void> _markCheckoutLost(CheckoutRecord record) async {
+    final store = AppStoreScope.of(context);
+    if (!store.permissions.canAdjustQuantity) {
+      _showPermissionDenied();
+      return;
+    }
+
+    if (!store.markCheckoutLost(record.id, null)) {
+      _showMessage('Could not mark this checkout lost.');
+      return;
+    }
+
+    setState(() {});
+    _showMessage('Marked lost.');
+  }
+
+  Future<void> _markCheckoutDamaged(CheckoutRecord record) async {
+    final store = AppStoreScope.of(context);
+    if (!store.permissions.canAdjustQuantity) {
+      _showPermissionDenied();
+      return;
+    }
+
+    if (!store.markCheckoutDamaged(record.id, null)) {
+      _showMessage('Could not mark this checkout damaged.');
+      return;
+    }
+
+    setState(() {});
+    _showMessage('Marked damaged.');
   }
 
   Future<void> _toggleArchive() async {
@@ -790,6 +877,19 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     });
   }
 
+  void _syncCurrentItem(AppStore store) {
+    for (final item in store.items) {
+      if (item.id == _item.id) {
+        setState(() {
+          _item = item;
+        });
+        return;
+      }
+    }
+
+    setState(() {});
+  }
+
   void _appendTransaction(
     InventoryTransactionType type,
     double quantityDelta, {
@@ -819,11 +919,13 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
   }
 
   void _showPermissionDenied() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Your current role does not allow this action.'),
-      ),
-    );
+    _showMessage('Your current role does not allow this action.');
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   List<InventoryTransaction> _recentTransactions(AppStore store) {
@@ -838,28 +940,17 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
   }
 
   String? _checkedOutPerson(AppStore store) {
-    for (final transaction in _recentTransactions(store)) {
-      if (transaction.transactionType == InventoryTransactionType.checkout) {
-        final personId = transaction.assignedToPersonId;
-        if (personId == null) {
-          return 'assigned person';
-        }
-
-        return _personById(store, personId)?.displayName ?? 'assigned person';
-      }
-
-      if (transaction.transactionType == InventoryTransactionType.returnItem ||
-          transaction.transactionType == InventoryTransactionType.markLost ||
-          transaction.transactionType == InventoryTransactionType.markDamaged) {
-        return null;
-      }
+    final openCheckouts = store.openCheckoutRecordsForItem(_item.id);
+    if (openCheckouts.isEmpty) {
+      return null;
     }
 
-    return null;
-  }
+    final personId = openCheckouts.first.assignedToPersonId;
+    if (personId == null) {
+      return 'assigned person';
+    }
 
-  Person? _defaultPerson(AppStore store) {
-    return store.people.isEmpty ? null : store.people.last;
+    return _personById(store, personId)?.displayName ?? 'assigned person';
   }
 
   Person? _personById(AppStore store, String personId) {
@@ -870,6 +961,10 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     }
 
     return null;
+  }
+
+  Person? _defaultPerson(AppStore store) {
+    return store.people.isEmpty ? null : store.people.last;
   }
 
   UnitOfMeasure? _unitById(AppStore store, String unitId) {
@@ -1002,6 +1097,355 @@ class _ItemPhotoCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _CurrentCheckoutsCard extends StatelessWidget {
+  const _CurrentCheckoutsCard({
+    required this.records,
+    required this.store,
+    required this.onReturn,
+    required this.onMarkLost,
+    required this.onMarkDamaged,
+  });
+
+  final List<CheckoutRecord> records;
+  final AppStore store;
+  final Future<void> Function(CheckoutRecord record) onReturn;
+  final Future<void> Function(CheckoutRecord record) onMarkLost;
+  final Future<void> Function(CheckoutRecord record) onMarkDamaged;
+
+  @override
+  Widget build(BuildContext context) {
+    final permissions = store.permissions;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Currently checked out',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF17212F),
+              ),
+            ),
+            const SizedBox(height: 10),
+            for (final record in records) ...[
+              _CurrentCheckoutRow(
+                record: record,
+                store: store,
+                canReturn: permissions.canIssueItems,
+                canMarkLostDamaged: permissions.canAdjustQuantity,
+                onReturn: () => onReturn(record),
+                onMarkLost: () => onMarkLost(record),
+                onMarkDamaged: () => onMarkDamaged(record),
+              ),
+              if (record != records.last) const Divider(height: 20),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CurrentCheckoutRow extends StatelessWidget {
+  const _CurrentCheckoutRow({
+    required this.record,
+    required this.store,
+    required this.canReturn,
+    required this.canMarkLostDamaged,
+    required this.onReturn,
+    required this.onMarkLost,
+    required this.onMarkDamaged,
+  });
+
+  final CheckoutRecord record;
+  final AppStore store;
+  final bool canReturn;
+  final bool canMarkLostDamaged;
+  final VoidCallback onReturn;
+  final VoidCallback onMarkLost;
+  final VoidCallback onMarkDamaged;
+
+  @override
+  Widget build(BuildContext context) {
+    final unit = _unitById(store, record.unitOfMeasureId);
+    final overdue = _isOverdue(record);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text(
+              '${_formatQuantity(record.quantity)} ${unit?.abbreviation ?? ''}',
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            if (overdue) const Chip(label: Text('Overdue')),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text('Assigned to: ${_assignedToText(store, record)}'),
+        Text('Checked out: ${_formatDate(record.checkedOutAt)}'),
+        if (record.dueAt != null) Text('Due: ${_formatDate(record.dueAt!)}'),
+        if ((record.notes ?? '').trim().isNotEmpty)
+          Text('Notes: ${record.notes}'),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            OutlinedButton(
+              onPressed: canReturn ? onReturn : null,
+              child: const Text('Return'),
+            ),
+            OutlinedButton(
+              onPressed: canMarkLostDamaged ? onMarkLost : null,
+              child: const Text('Mark Lost'),
+            ),
+            OutlinedButton(
+              onPressed: canMarkLostDamaged ? onMarkDamaged : null,
+              child: const Text('Mark Damaged'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _CheckoutDialogResult {
+  const _CheckoutDialogResult({
+    required this.quantity,
+    required this.assignedToPersonId,
+    required this.assignedToLocationId,
+    required this.assignedToText,
+    required this.dueAt,
+    required this.notes,
+  });
+
+  final double quantity;
+  final String? assignedToPersonId;
+  final String? assignedToLocationId;
+  final String? assignedToText;
+  final DateTime? dueAt;
+  final String? notes;
+}
+
+class _CheckoutDialog extends StatefulWidget {
+  const _CheckoutDialog({required this.store, required this.initialQuantity});
+
+  final AppStore store;
+  final double initialQuantity;
+
+  @override
+  State<_CheckoutDialog> createState() => _CheckoutDialogState();
+}
+
+class _CheckoutDialogState extends State<_CheckoutDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _quantityController;
+  late final TextEditingController _assignedTextController;
+  late final TextEditingController _notesController;
+  String? _assignedToPersonId;
+  String? _assignedToLocationId;
+  DateTime? _dueAt;
+
+  @override
+  void initState() {
+    super.initState();
+    _quantityController = TextEditingController(
+      text: _formatQuantity(widget.initialQuantity),
+    );
+    _assignedTextController = TextEditingController();
+    _notesController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _quantityController.dispose();
+    _assignedTextController.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final people = widget.store.people.where((person) => person.isActive);
+    final locations = widget.store.locations.where(
+      (location) => location.isActive,
+    );
+
+    return AlertDialog(
+      title: const Text('Check Out Item'),
+      content: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: _quantityController,
+                decoration: const InputDecoration(labelText: 'Quantity'),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                validator: (value) {
+                  final quantity = double.tryParse(value?.trim() ?? '');
+                  if (quantity == null || quantity <= 0) {
+                    return 'Enter a quantity greater than 0.';
+                  }
+
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String?>(
+                initialValue: _assignedToPersonId,
+                decoration: const InputDecoration(labelText: 'Assigned person'),
+                items: [
+                  const DropdownMenuItem<String?>(
+                    value: null,
+                    child: Text('No person'),
+                  ),
+                  for (final person in people)
+                    DropdownMenuItem<String?>(
+                      value: person.id,
+                      child: Text(person.displayName),
+                    ),
+                ],
+                onChanged: (value) {
+                  setState(() {
+                    _assignedToPersonId = value;
+                  });
+                },
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String?>(
+                initialValue: _assignedToLocationId,
+                decoration: const InputDecoration(
+                  labelText: 'Assigned location',
+                ),
+                items: [
+                  const DropdownMenuItem<String?>(
+                    value: null,
+                    child: Text('No location'),
+                  ),
+                  for (final location in locations)
+                    DropdownMenuItem<String?>(
+                      value: location.id,
+                      child: Text(location.name),
+                    ),
+                ],
+                onChanged: (value) {
+                  setState(() {
+                    _assignedToLocationId = value;
+                  });
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _assignedTextController,
+                decoration: const InputDecoration(
+                  labelText: 'Job, truck, or other assignment',
+                ),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: _pickDueDate,
+                icon: const Icon(Icons.event),
+                label: Text(
+                  _dueAt == null
+                      ? 'Add Due Date'
+                      : 'Due ${_formatDate(_dueAt!)}',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _notesController,
+                decoration: const InputDecoration(labelText: 'Notes'),
+                maxLines: 2,
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(onPressed: _save, child: const Text('Check Out')),
+      ],
+    );
+  }
+
+  Future<void> _pickDueDate() async {
+    final now = DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      firstDate: DateTime(now.year, now.month, now.day),
+      lastDate: now.add(const Duration(days: 3650)),
+      initialDate: _dueAt ?? DateTime(now.year, now.month, now.day),
+    );
+    if (date == null) {
+      return;
+    }
+
+    setState(() {
+      _dueAt = date;
+    });
+  }
+
+  void _save() {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    final assignedText = _assignedTextController.text.trim();
+    final notes = _notesController.text.trim();
+    Navigator.of(context).pop(
+      _CheckoutDialogResult(
+        quantity: double.parse(_quantityController.text.trim()),
+        assignedToPersonId: _assignedToPersonId,
+        assignedToLocationId: _assignedToLocationId,
+        assignedToText: assignedText.isEmpty ? null : assignedText,
+        dueAt: _dueAt,
+        notes: notes.isEmpty ? null : notes,
+      ),
+    );
+  }
+}
+
+class _SelectCheckoutDialog extends StatelessWidget {
+  const _SelectCheckoutDialog({required this.records, required this.store});
+
+  final List<CheckoutRecord> records;
+  final AppStore store;
+
+  @override
+  Widget build(BuildContext context) {
+    return SimpleDialog(
+      title: const Text('Choose Checkout'),
+      children: [
+        for (final record in records)
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(context).pop(record),
+            child: Text(
+              '${_assignedToText(store, record)} - ${_formatQuantity(record.quantity)}',
+            ),
+          ),
+      ],
     );
   }
 }
@@ -1357,6 +1801,67 @@ class _TransferResult {
 
   final String toLocationId;
   final String? notes;
+}
+
+String _assignedToText(AppStore store, CheckoutRecord record) {
+  final parts = <String>[];
+  final personId = record.assignedToPersonId;
+  if (personId != null) {
+    parts.add(_personNameById(store, personId) ?? 'Unknown person');
+  }
+
+  final locationId = record.assignedToLocationId;
+  if (locationId != null) {
+    parts.add(_locationNameById(store, locationId) ?? 'Unknown location');
+  }
+
+  final assignedText = record.assignedToText?.trim();
+  if (assignedText != null && assignedText.isNotEmpty) {
+    parts.add(assignedText);
+  }
+
+  return parts.isEmpty ? 'Unassigned' : parts.join(' / ');
+}
+
+bool _isOverdue(CheckoutRecord record) {
+  final dueAt = record.dueAt;
+  if (dueAt == null) {
+    return false;
+  }
+
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  return dueAt.isBefore(today);
+}
+
+String? _personNameById(AppStore store, String personId) {
+  for (final person in store.people) {
+    if (person.id == personId) {
+      return person.displayName;
+    }
+  }
+
+  return null;
+}
+
+UnitOfMeasure? _unitById(AppStore store, String unitId) {
+  for (final unit in store.unitsOfMeasure) {
+    if (unit.id == unitId) {
+      return unit;
+    }
+  }
+
+  return null;
+}
+
+String? _locationNameById(AppStore store, String locationId) {
+  for (final location in store.locations) {
+    if (location.id == locationId) {
+      return location.name;
+    }
+  }
+
+  return null;
 }
 
 String? _emptyToNull(String value) {

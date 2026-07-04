@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/app_store.dart';
 import '../core/models/models.dart';
+import 'checked_out_screen.dart';
 import 'low_stock_screen.dart';
 import 'plan_screens.dart';
 import 'settings_detail_screens.dart';
@@ -14,13 +15,8 @@ class DashboardScreen extends StatelessWidget {
     final store = AppStoreScope.of(context);
     final textTheme = Theme.of(context).textTheme;
     final lowStockCount = store.getLowStockItems().length;
-    final checkedOutCount = store.transactions.where((transaction) {
-      final item = _itemById(store, transaction.itemId);
-
-      return item?.itemType == ItemType.returnable &&
-          transaction.transactionType == InventoryTransactionType.checkout &&
-          transaction.assignedToPersonId != null;
-    }).length;
+    final checkedOutCount = store.openCheckoutRecords.length;
+    final overdueCheckoutCount = store.overdueCheckoutRecords.length;
     final activeCycleCountCount = store.cycleCountSessions
         .where((session) => session.status != CycleCountStatus.approved)
         .length;
@@ -74,6 +70,16 @@ class DashboardScreen extends StatelessWidget {
               title: 'Checked Out',
               count: checkedOutCount.toString(),
               icon: Icons.assignment_return_outlined,
+              subtitle: overdueCheckoutCount == 0
+                  ? null
+                  : '$overdueCheckoutCount overdue',
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (context) => const CheckedOutScreen(),
+                  ),
+                );
+              },
             ),
             _DashboardCard(
               title: 'Cycle Counts',
@@ -89,16 +95,6 @@ class DashboardScreen extends StatelessWidget {
         ),
       ],
     );
-  }
-
-  Item? _itemById(AppStore store, String itemId) {
-    for (final item in store.items) {
-      if (item.id == itemId) {
-        return item;
-      }
-    }
-
-    return null;
   }
 }
 
@@ -168,12 +164,14 @@ class _DashboardCard extends StatelessWidget {
     required this.title,
     required this.count,
     required this.icon,
+    this.subtitle,
     this.onTap,
   });
 
   final String title;
   final String count;
   final IconData icon;
+  final String? subtitle;
   final VoidCallback? onTap;
 
   @override
@@ -206,6 +204,16 @@ class _DashboardCard extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                 ),
               ),
+              if (subtitle != null) ...[
+                const SizedBox(height: 2),
+                Text(
+                  subtitle!,
+                  style: textTheme.bodySmall?.copyWith(
+                    color: const Color(0xFFB54708),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
             ],
           ),
         ),
