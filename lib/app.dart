@@ -4,6 +4,7 @@ import 'core/app_store.dart';
 import 'screens/counts_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/items_screen.dart';
+import 'screens/quick_issue_screen.dart';
 import 'screens/scan_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/setup_screen.dart';
@@ -160,6 +161,7 @@ class _IssuedShellState extends State<IssuedShell> {
 
   static const _screens = <Widget>[
     DashboardScreen(),
+    QuickIssueScreen(),
     ScanScreen(),
     ItemsScreen(),
     CountsScreen(),
@@ -210,6 +212,11 @@ class _IssuedShellState extends State<IssuedShell> {
             icon: Icon(Icons.dashboard_outlined),
             selectedIcon: Icon(Icons.dashboard),
             label: 'Dashboard',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.flash_on_outlined),
+            selectedIcon: Icon(Icons.flash_on),
+            label: 'Quick Issue',
           ),
           NavigationDestination(
             icon: Icon(Icons.qr_code_scanner_outlined),
