@@ -176,6 +176,8 @@ extension InventoryTransactionRecordMapper on InventoryTransactionRecord {
       fromLocationId: fromLocationId,
       toLocationId: toLocationId,
       assignedToPersonId: assignedToPersonId,
+      assignedToTargetId: assignedToTargetId,
+      assignedToText: assignedToText,
       performedByUserId: performedByUserId,
       notes: notes,
       createdAt: createdAt,
@@ -194,6 +196,8 @@ extension InventoryTransactionDomainMapper on domain.InventoryTransaction {
       fromLocationId: Value(fromLocationId),
       toLocationId: Value(toLocationId),
       assignedToPersonId: Value(assignedToPersonId),
+      assignedToTargetId: Value(assignedToTargetId),
+      assignedToText: Value(assignedToText),
       performedByUserId: Value(performedByUserId),
       notes: Value(notes),
       createdAt: Value(createdAt),
@@ -270,6 +274,7 @@ extension CheckoutRecordRowMapper on CheckoutRecordRow {
       itemId: itemId,
       assignedToPersonId: assignedToPersonId,
       assignedToLocationId: assignedToLocationId,
+      assignedToTargetId: assignedToTargetId,
       assignedToText: assignedToText,
       quantity: quantity,
       unitOfMeasureId: unitOfMeasureId,
@@ -291,6 +296,7 @@ extension CheckoutRecordDomainMapper on domain.CheckoutRecord {
       itemId: Value(itemId),
       assignedToPersonId: Value(assignedToPersonId),
       assignedToLocationId: Value(assignedToLocationId),
+      assignedToTargetId: Value(assignedToTargetId),
       assignedToText: Value(assignedToText),
       quantity: Value(quantity),
       unitOfMeasureId: Value(unitOfMeasureId),
@@ -301,6 +307,36 @@ extension CheckoutRecordDomainMapper on domain.CheckoutRecord {
       checkedOutByUserId: Value(checkedOutByUserId),
       returnedByUserId: Value(returnedByUserId),
       notes: Value(notes),
+    );
+  }
+}
+
+extension AssignmentTargetRecordMapper on AssignmentTargetRecord {
+  domain.AssignmentTarget toDomain() {
+    return domain.AssignmentTarget(
+      id: id,
+      name: name,
+      targetType: _enumByName(domain.AssignmentTargetType.values, targetType),
+      description: description,
+      locationId: locationId,
+      isActive: isActive,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+    );
+  }
+}
+
+extension AssignmentTargetDomainMapper on domain.AssignmentTarget {
+  AssignmentTargetsCompanion toCompanion() {
+    return AssignmentTargetsCompanion(
+      id: Value(id),
+      name: Value(name),
+      targetType: Value(targetType.name),
+      description: Value(description),
+      locationId: Value(locationId),
+      isActive: Value(isActive),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
     );
   }
 }

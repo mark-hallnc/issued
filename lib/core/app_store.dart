@@ -23,6 +23,7 @@ class AppStore extends ChangeNotifier {
   final List<InventoryTransaction> _transactions = [];
   final List<ItemLocationBalance> _itemLocationBalances = [];
   final List<CheckoutRecord> _checkoutRecords = [];
+  final List<AssignmentTarget> _assignmentTargets = [];
   final List<ReorderRequest> _reorderRequests = [];
   final List<CycleCountSession> _cycleCountSessions = [];
   final List<CycleCountLine> _cycleCountLines = [];
@@ -47,6 +48,10 @@ class AppStore extends ChangeNotifier {
       List.unmodifiable(_itemLocationBalances);
   List<CheckoutRecord> get checkoutRecords =>
       List.unmodifiable(_checkoutRecords);
+  List<AssignmentTarget> get assignmentTargets =>
+      List.unmodifiable(_assignmentTargets);
+  List<AssignmentTarget> get activeAssignmentTargets =>
+      List.unmodifiable(_assignmentTargets.where((target) => target.isActive));
   List<ReorderRequest> get reorderRequests =>
       List.unmodifiable(_reorderRequests);
   List<CycleCountSession> get cycleCountSessions =>
@@ -134,6 +139,7 @@ class AppStore extends ChangeNotifier {
     if (isSetupComplete) {
       await _ensureLocalTestUsers();
     }
+    await _seedAssignmentTargetsIfNeeded();
     _isInitialized = true;
     notifyListeners();
   }
@@ -191,6 +197,97 @@ class AppStore extends ChangeNotifier {
     if (addedUsers) {
       await _loadFromDatabase();
     }
+  }
+
+  Future<void> _seedAssignmentTargetsIfNeeded() async {
+    if (_assignmentTargets.isNotEmpty) {
+      return;
+    }
+    final now = DateTime.now();
+    final targets = [
+      AssignmentTarget(
+        id: 'target-service-truck-1',
+        name: 'Service Truck 1',
+        targetType: AssignmentTargetType.truck,
+        description: null,
+        locationId: null,
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      ),
+      AssignmentTarget(
+        id: 'target-job-1001',
+        name: 'Job 1001',
+        targetType: AssignmentTargetType.job,
+        description: null,
+        locationId: null,
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      ),
+      AssignmentTarget(
+        id: 'target-maintenance-department',
+        name: 'Maintenance Department',
+        targetType: AssignmentTargetType.department,
+        description: null,
+        locationId: null,
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      ),
+      AssignmentTarget(
+        id: 'target-job-box-a',
+        name: 'Job Box A',
+        targetType: AssignmentTargetType.jobBox,
+        description: null,
+        locationId: null,
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      ),
+    ];
+    _assignmentTargets.addAll(targets);
+    for (final target in targets) {
+      await _database.upsertAssignmentTarget(target.toCompanion());
+    }
+  }
+
+  bool addAssignmentTarget(AssignmentTarget target) {
+    if (!permissions.canManageSettings) {
+      return false;
+    }
+    _assignmentTargets.add(target);
+    unawaited(_database.upsertAssignmentTarget(target.toCompanion()));
+    notifyListeners();
+    return true;
+  }
+
+  bool updateAssignmentTarget(AssignmentTarget target) {
+    if (!permissions.canManageSettings) {
+      return false;
+    }
+    final index = _assignmentTargets.indexWhere(
+      (stored) => stored.id == target.id,
+    );
+    if (index == -1) {
+      return false;
+    }
+    _assignmentTargets[index] = target.copyWith(updatedAt: DateTime.now());
+    unawaited(
+      _database.upsertAssignmentTarget(_assignmentTargets[index].toCompanion()),
+    );
+    notifyListeners();
+    return true;
+  }
+
+  bool archiveAssignmentTarget(String targetId) {
+    final target = _assignmentTargetById(targetId);
+    if (target == null) {
+      return false;
+    }
+    return updateAssignmentTarget(
+      target.copyWith(isActive: false, updatedAt: DateTime.now()),
+    );
   }
 
   Future<void> _seedSampleDataIfNeeded() async {
@@ -462,6 +559,13 @@ class AppStore extends ChangeNotifier {
       ..clear()
       ..addAll(
         (await _database.getAllCheckoutRecords()).map((row) => row.toDomain()),
+      );
+    _assignmentTargets
+      ..clear()
+      ..addAll(
+        (await _database.getAllAssignmentTargets()).map(
+          (row) => row.toDomain(),
+        ),
       );
     _reorderRequests
       ..clear()
@@ -769,6 +873,9 @@ class AppStore extends ChangeNotifier {
           .toList(),
       checkoutRows: backup.checkoutRecords
           .map((record) => record.toCompanion())
+          .toList(),
+      assignmentTargetRows: backup.assignmentTargets
+          .map((target) => target.toCompanion())
           .toList(),
       reorderRows: backup.reorderRequests
           .map((request) => request.toCompanion())
@@ -1118,6 +1225,8 @@ class AppStore extends ChangeNotifier {
         fromLocationId: null,
         toLocationId: null,
         assignedToPersonId: null,
+        assignedToTargetId: null,
+        assignedToText: null,
         performedByUserId: currentUser?.id,
         notes: note,
         createdAt: DateTime.now(),
@@ -1284,6 +1393,8 @@ class AppStore extends ChangeNotifier {
     required String locationId,
     required double quantity,
     String? assignedToPersonId,
+    String? assignedToTargetId,
+    String? assignedToText,
     String? notes,
   }) {
     if (!permissions.canIssueItems ||
@@ -1303,6 +1414,8 @@ class AppStore extends ChangeNotifier {
       quantityDelta: -quantity,
       fromLocationId: locationId,
       assignedToPersonId: assignedToPersonId,
+      assignedToTargetId: assignedToTargetId,
+      assignedToText: assignedToText,
       notes: notes,
     );
     return true;
@@ -1622,6 +1735,44 @@ class AppStore extends ChangeNotifier {
     return rows;
   }
 
+  List<UsageByAssignmentTargetRow> getUsageByAssignmentTarget(DateTime? start) {
+    final rowsByTarget = <String, UsageByAssignmentTargetRow>{};
+    final itemCountsByTarget = <String, Map<String, int>>{};
+    for (final transaction in _usageTransactions(start)) {
+      final targetId = transaction.assignedToTargetId;
+      if (targetId == null) {
+        continue;
+      }
+
+      final existing = rowsByTarget[targetId];
+      rowsByTarget[targetId] = UsageByAssignmentTargetRow(
+        targetId: targetId,
+        quantity: (existing?.quantity ?? 0) + transaction.quantityDelta.abs(),
+        transactionCount: (existing?.transactionCount ?? 0) + 1,
+        topItemIds: const [],
+      );
+      final itemCounts = itemCountsByTarget.putIfAbsent(targetId, () => {});
+      itemCounts[transaction.itemId] =
+          (itemCounts[transaction.itemId] ?? 0) + 1;
+    }
+
+    final rows = rowsByTarget.values.map((row) {
+      final itemCounts = itemCountsByTarget[row.targetId] ?? {};
+      final topItemIds = itemCounts.entries.toList()
+        ..sort((left, right) => right.value.compareTo(left.value));
+      return UsageByAssignmentTargetRow(
+        targetId: row.targetId,
+        quantity: row.quantity,
+        transactionCount: row.transactionCount,
+        topItemIds: topItemIds.take(3).map((entry) => entry.key).toList(),
+      );
+    }).toList();
+    rows.sort(
+      (left, right) => right.transactionCount.compareTo(left.transactionCount),
+    );
+    return rows;
+  }
+
   List<LostDamagedReportRow> getLostDamagedActivity() {
     final rows = <LostDamagedReportRow>[];
     for (final transaction in _transactions) {
@@ -1813,6 +1964,83 @@ class AppStore extends ChangeNotifier {
     return 'Unknown';
   }
 
+  String? resolveAssignmentTargetName(String? targetId) {
+    if (targetId == null) {
+      return null;
+    }
+
+    for (final target in _assignmentTargets) {
+      if (target.id == targetId) {
+        final archived = target.isActive ? '' : ' (archived)';
+        return '${target.name}$archived';
+      }
+    }
+
+    return 'Unknown target';
+  }
+
+  AssignmentTarget? assignmentTargetById(String targetId) {
+    return _assignmentTargetById(targetId);
+  }
+
+  String? resolveAssignedTo({
+    String? personId,
+    String? targetId,
+    String? locationId,
+    String? text,
+  }) {
+    final person = resolvePersonName(personId);
+    if (person != null) {
+      return person;
+    }
+    final target = resolveAssignmentTargetName(targetId);
+    if (target != null) {
+      return target;
+    }
+    final location = resolveLocationName(locationId);
+    if (location != null) {
+      return location;
+    }
+    final assignedText = text?.trim();
+    return assignedText == null || assignedText.isEmpty ? null : assignedText;
+  }
+
+  List<AssignableDestination> getAssignableDestinations() {
+    final destinations = <AssignableDestination>[
+      for (final person in _people.where((person) => person.isActive))
+        AssignableDestination(
+          id: person.id,
+          type: AssignableDestinationType.person,
+          displayName: person.displayName,
+          subtitle: 'Person',
+        ),
+      for (final location in _locations.where((location) => location.isActive))
+        AssignableDestination(
+          id: location.id,
+          type: AssignableDestinationType.location,
+          displayName: location.name,
+          subtitle: 'Location',
+        ),
+      for (final target in activeAssignmentTargets)
+        AssignableDestination(
+          id: target.id,
+          type: AssignableDestinationType.assignmentTarget,
+          displayName: target.name,
+          subtitle: assignmentTargetTypeLabel(target.targetType),
+        ),
+    ];
+    destinations.sort((left, right) {
+      final typeCompare = (left.subtitle ?? '').compareTo(right.subtitle ?? '');
+      if (typeCompare != 0) {
+        return typeCompare;
+      }
+      return left.displayName.toLowerCase().compareTo(
+        right.displayName.toLowerCase(),
+      );
+    });
+    return destinations;
+  }
+
   String? resolvePersonName(String? personId) {
     if (personId == null) {
       return null;
@@ -1885,6 +2113,7 @@ class AppStore extends ChangeNotifier {
     required String sourceLocationId,
     String? assignedToPersonId,
     String? assignedToLocationId,
+    String? assignedToTargetId,
     String? assignedToText,
     DateTime? dueAt,
     String? notes,
@@ -1921,6 +2150,7 @@ class AppStore extends ChangeNotifier {
       itemId: item.id,
       assignedToPersonId: assignedToPersonId,
       assignedToLocationId: assignedToLocationId,
+      assignedToTargetId: assignedToTargetId,
       assignedToText:
           normalizedAssignedText == null || normalizedAssignedText.isEmpty
           ? null
@@ -1949,6 +2179,11 @@ class AppStore extends ChangeNotifier {
       fromLocationId: sourceLocationId,
       toLocationId: null,
       assignedToPersonId: assignedToPersonId,
+      assignedToTargetId: assignedToTargetId,
+      assignedToText:
+          normalizedAssignedText == null || normalizedAssignedText.isEmpty
+          ? null
+          : normalizedAssignedText,
       performedByUserId: currentUser?.id,
       notes: record.notes,
       createdAt: now,
@@ -2020,6 +2255,8 @@ class AppStore extends ChangeNotifier {
       fromLocationId: null,
       toLocationId: returnToLocationId,
       assignedToPersonId: record.assignedToPersonId,
+      assignedToTargetId: record.assignedToTargetId,
+      assignedToText: record.assignedToText,
       performedByUserId: currentUser?.id,
       notes: normalizedNotes == null || normalizedNotes.isEmpty
           ? 'Returned checked out item'
@@ -2099,6 +2336,8 @@ class AppStore extends ChangeNotifier {
       fromLocationId: item.locationId,
       toLocationId: null,
       assignedToPersonId: record.assignedToPersonId,
+      assignedToTargetId: record.assignedToTargetId,
+      assignedToText: record.assignedToText,
       performedByUserId: currentUser?.id,
       notes: normalizedNotes == null || normalizedNotes.isEmpty
           ? checkoutStatusLabel(status)
@@ -2270,6 +2509,8 @@ class AppStore extends ChangeNotifier {
       fromLocationId: null,
       toLocationId: locationId,
       assignedToPersonId: null,
+      assignedToTargetId: null,
+      assignedToText: null,
       performedByUserId: currentUser?.id,
       notes: normalizedNotes == null || normalizedNotes.isEmpty
           ? 'Received from reorder'
@@ -2338,6 +2579,16 @@ class AppStore extends ChangeNotifier {
     for (final location in _locations) {
       if (location.id == locationId) {
         return location;
+      }
+    }
+
+    return null;
+  }
+
+  AssignmentTarget? _assignmentTargetById(String targetId) {
+    for (final target in _assignmentTargets) {
+      if (target.id == targetId) {
+        return target;
       }
     }
 
@@ -2431,6 +2682,8 @@ class AppStore extends ChangeNotifier {
     String? fromLocationId,
     String? toLocationId,
     String? assignedToPersonId,
+    String? assignedToTargetId,
+    String? assignedToText,
     String? notes,
   }) {
     final item = _itemById(itemId);
@@ -2446,6 +2699,8 @@ class AppStore extends ChangeNotifier {
       fromLocationId: fromLocationId,
       toLocationId: toLocationId,
       assignedToPersonId: assignedToPersonId,
+      assignedToTargetId: assignedToTargetId,
+      assignedToText: assignedToText,
       performedByUserId: currentUser?.id,
       notes: notes,
       createdAt: DateTime.now(),
@@ -2909,6 +3164,8 @@ class AppStore extends ChangeNotifier {
           fromLocationId: variance < 0 ? locationId : null,
           toLocationId: variance > 0 ? locationId : null,
           assignedToPersonId: null,
+          assignedToTargetId: null,
+          assignedToText: null,
           performedByUserId: currentUser?.id,
           notes: noteParts.join(' '),
           createdAt: now,
@@ -3013,6 +3270,20 @@ class UsageByPersonRow {
   });
 
   final String personId;
+  final double quantity;
+  final int transactionCount;
+  final List<String> topItemIds;
+}
+
+class UsageByAssignmentTargetRow {
+  const UsageByAssignmentTargetRow({
+    required this.targetId,
+    required this.quantity,
+    required this.transactionCount,
+    required this.topItemIds,
+  });
+
+  final String targetId;
   final double quantity;
   final int transactionCount;
   final List<String> topItemIds;

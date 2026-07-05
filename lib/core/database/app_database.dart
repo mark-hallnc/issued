@@ -16,6 +16,7 @@ part 'app_database.g.dart';
     ItemLocationBalances,
     ReorderRequests,
     CheckoutRecords,
+    AssignmentTargets,
     CycleCountSessions,
     CycleCountLines,
     CustomFieldDefinitions,
@@ -30,7 +31,7 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? openDatabaseConnection());
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration {
@@ -70,6 +71,21 @@ class AppDatabase extends _$AppDatabase {
           );
           await migrator.addColumn(items, items.purchaseUnitLabel);
         }
+        if (from < 8) {
+          await migrator.createTable(assignmentTargets);
+          await migrator.addColumn(
+            inventoryTransactions,
+            inventoryTransactions.assignedToTargetId,
+          );
+          await migrator.addColumn(
+            inventoryTransactions,
+            inventoryTransactions.assignedToText,
+          );
+          await migrator.addColumn(
+            checkoutRecords,
+            checkoutRecords.assignedToTargetId,
+          );
+        }
       },
     );
   }
@@ -93,6 +109,8 @@ class AppDatabase extends _$AppDatabase {
       select(reorderRequests).get();
   Future<List<CheckoutRecordRow>> getAllCheckoutRecords() =>
       select(checkoutRecords).get();
+  Future<List<AssignmentTargetRecord>> getAllAssignmentTargets() =>
+      select(assignmentTargets).get();
   Future<List<CycleCountSessionRecord>> getAllCycleCountSessions() =>
       select(cycleCountSessions).get();
   Future<List<CycleCountLineRecord>> getAllCycleCountLines() =>
@@ -150,6 +168,10 @@ class AppDatabase extends _$AppDatabase {
     return into(checkoutRecords).insertOnConflictUpdate(record);
   }
 
+  Future<void> upsertAssignmentTarget(AssignmentTargetsCompanion target) {
+    return into(assignmentTargets).insertOnConflictUpdate(target);
+  }
+
   Future<void> upsertCycleCountSession(CycleCountSessionsCompanion session) {
     return into(cycleCountSessions).insertOnConflictUpdate(session);
   }
@@ -195,6 +217,7 @@ class AppDatabase extends _$AppDatabase {
     required List<ItemLocationBalancesCompanion> balanceRows,
     required List<InventoryTransactionsCompanion> transactionRows,
     required List<CheckoutRecordsCompanion> checkoutRows,
+    required List<AssignmentTargetsCompanion> assignmentTargetRows,
     required List<ReorderRequestsCompanion> reorderRows,
     required List<CycleCountSessionsCompanion> cycleSessionRows,
     required List<CycleCountLinesCompanion> cycleLineRows,
@@ -211,6 +234,7 @@ class AppDatabase extends _$AppDatabase {
       await delete(cycleCountSessions).go();
       await delete(reorderRequests).go();
       await delete(checkoutRecords).go();
+      await delete(assignmentTargets).go();
       await delete(itemLocationBalances).go();
       await delete(inventoryTransactions).go();
       await delete(items).go();
@@ -248,6 +272,11 @@ class AppDatabase extends _$AppDatabase {
         batch.insertAll(
           checkoutRecords,
           checkoutRows,
+          mode: InsertMode.insertOrReplace,
+        );
+        batch.insertAll(
+          assignmentTargets,
+          assignmentTargetRows,
           mode: InsertMode.insertOrReplace,
         );
         batch.insertAll(

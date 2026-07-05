@@ -72,6 +72,9 @@ class DataHealthService {
     final customDefinitionsById = {
       for (final field in store.customFieldDefinitions) field.id: field,
     };
+    final targetsById = {
+      for (final target in store.assignmentTargets) target.id: target,
+    };
 
     _checkItemBalances(store, issues, locationsById, activeLocations);
     _checkBalanceReferences(store, issues, itemsById, locationsById);
@@ -83,8 +86,9 @@ class DataHealthService {
       locationsById,
       peopleById,
       usersById,
+      targetsById,
     );
-    _checkCheckouts(store, issues, itemsById);
+    _checkCheckouts(store, issues, itemsById, targetsById);
     _checkReorders(store, issues, itemsById);
     _checkCycleCounts(store, issues, itemsById, locationsById);
     _checkCustomFields(store, issues, customDefinitionsById);
@@ -204,6 +208,7 @@ class DataHealthService {
     Map<String, Location> locationsById,
     Map<String, Person> peopleById,
     Map<String, AppUser> usersById,
+    Map<String, AssignmentTarget> targetsById,
   ) {
     for (final transaction in store.transactions) {
       if (!itemsById.containsKey(transaction.itemId)) {
@@ -270,6 +275,18 @@ class DataHealthService {
           recordId: transaction.id,
         );
       }
+      final targetId = transaction.assignedToTargetId;
+      if (targetId != null && !targetsById.containsKey(targetId)) {
+        _missingLinkIssue(
+          issues,
+          id: 'transaction-missing-target-${transaction.id}',
+          title: 'Activity references a missing assignment target',
+          description:
+              'Activity ${transaction.id} references assignment target $targetId.',
+          type: 'inventoryTransaction',
+          recordId: transaction.id,
+        );
+      }
     }
   }
 
@@ -277,8 +294,21 @@ class DataHealthService {
     AppStore store,
     List<DataHealthIssue> issues,
     Map<String, Item> itemsById,
+    Map<String, AssignmentTarget> targetsById,
   ) {
     for (final checkout in store.openCheckoutRecords) {
+      final targetId = checkout.assignedToTargetId;
+      if (targetId != null && !targetsById.containsKey(targetId)) {
+        _missingLinkIssue(
+          issues,
+          id: 'checkout-missing-target-${checkout.id}',
+          title: 'Checkout references a missing assignment target',
+          description:
+              'Checkout ${checkout.id} references assignment target $targetId.',
+          type: 'checkoutRecord',
+          recordId: checkout.id,
+        );
+      }
       final item = itemsById[checkout.itemId];
       if (item == null) {
         issues.add(

@@ -2903,6 +2903,28 @@ class $InventoryTransactionsTable extends InventoryTransactions
         type: DriftSqlType.string,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _assignedToTargetIdMeta =
+      const VerificationMeta('assignedToTargetId');
+  @override
+  late final GeneratedColumn<String> assignedToTargetId =
+      GeneratedColumn<String>(
+        'assigned_to_target_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _assignedToTextMeta = const VerificationMeta(
+    'assignedToText',
+  );
+  @override
+  late final GeneratedColumn<String> assignedToText = GeneratedColumn<String>(
+    'assigned_to_text',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _performedByUserIdMeta = const VerificationMeta(
     'performedByUserId',
   );
@@ -2945,6 +2967,8 @@ class $InventoryTransactionsTable extends InventoryTransactions
     fromLocationId,
     toLocationId,
     assignedToPersonId,
+    assignedToTargetId,
+    assignedToText,
     performedByUserId,
     notes,
     createdAt,
@@ -3034,6 +3058,24 @@ class $InventoryTransactionsTable extends InventoryTransactions
         ),
       );
     }
+    if (data.containsKey('assigned_to_target_id')) {
+      context.handle(
+        _assignedToTargetIdMeta,
+        assignedToTargetId.isAcceptableOrUnknown(
+          data['assigned_to_target_id']!,
+          _assignedToTargetIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('assigned_to_text')) {
+      context.handle(
+        _assignedToTextMeta,
+        assignedToText.isAcceptableOrUnknown(
+          data['assigned_to_text']!,
+          _assignedToTextMeta,
+        ),
+      );
+    }
     if (data.containsKey('performed_by_user_id')) {
       context.handle(
         _performedByUserIdMeta,
@@ -3101,6 +3143,14 @@ class $InventoryTransactionsTable extends InventoryTransactions
         DriftSqlType.string,
         data['${effectivePrefix}assigned_to_person_id'],
       ),
+      assignedToTargetId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}assigned_to_target_id'],
+      ),
+      assignedToText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}assigned_to_text'],
+      ),
       performedByUserId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}performed_by_user_id'],
@@ -3132,6 +3182,8 @@ class InventoryTransactionRecord extends DataClass
   final String? fromLocationId;
   final String? toLocationId;
   final String? assignedToPersonId;
+  final String? assignedToTargetId;
+  final String? assignedToText;
   final String? performedByUserId;
   final String? notes;
   final DateTime createdAt;
@@ -3144,6 +3196,8 @@ class InventoryTransactionRecord extends DataClass
     this.fromLocationId,
     this.toLocationId,
     this.assignedToPersonId,
+    this.assignedToTargetId,
+    this.assignedToText,
     this.performedByUserId,
     this.notes,
     required this.createdAt,
@@ -3164,6 +3218,12 @@ class InventoryTransactionRecord extends DataClass
     }
     if (!nullToAbsent || assignedToPersonId != null) {
       map['assigned_to_person_id'] = Variable<String>(assignedToPersonId);
+    }
+    if (!nullToAbsent || assignedToTargetId != null) {
+      map['assigned_to_target_id'] = Variable<String>(assignedToTargetId);
+    }
+    if (!nullToAbsent || assignedToText != null) {
+      map['assigned_to_text'] = Variable<String>(assignedToText);
     }
     if (!nullToAbsent || performedByUserId != null) {
       map['performed_by_user_id'] = Variable<String>(performedByUserId);
@@ -3191,6 +3251,12 @@ class InventoryTransactionRecord extends DataClass
       assignedToPersonId: assignedToPersonId == null && nullToAbsent
           ? const Value.absent()
           : Value(assignedToPersonId),
+      assignedToTargetId: assignedToTargetId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(assignedToTargetId),
+      assignedToText: assignedToText == null && nullToAbsent
+          ? const Value.absent()
+          : Value(assignedToText),
       performedByUserId: performedByUserId == null && nullToAbsent
           ? const Value.absent()
           : Value(performedByUserId),
@@ -3217,6 +3283,10 @@ class InventoryTransactionRecord extends DataClass
       assignedToPersonId: serializer.fromJson<String?>(
         json['assignedToPersonId'],
       ),
+      assignedToTargetId: serializer.fromJson<String?>(
+        json['assignedToTargetId'],
+      ),
+      assignedToText: serializer.fromJson<String?>(json['assignedToText']),
       performedByUserId: serializer.fromJson<String?>(
         json['performedByUserId'],
       ),
@@ -3236,6 +3306,8 @@ class InventoryTransactionRecord extends DataClass
       'fromLocationId': serializer.toJson<String?>(fromLocationId),
       'toLocationId': serializer.toJson<String?>(toLocationId),
       'assignedToPersonId': serializer.toJson<String?>(assignedToPersonId),
+      'assignedToTargetId': serializer.toJson<String?>(assignedToTargetId),
+      'assignedToText': serializer.toJson<String?>(assignedToText),
       'performedByUserId': serializer.toJson<String?>(performedByUserId),
       'notes': serializer.toJson<String?>(notes),
       'createdAt': serializer.toJson<DateTime>(createdAt),
@@ -3251,6 +3323,8 @@ class InventoryTransactionRecord extends DataClass
     Value<String?> fromLocationId = const Value.absent(),
     Value<String?> toLocationId = const Value.absent(),
     Value<String?> assignedToPersonId = const Value.absent(),
+    Value<String?> assignedToTargetId = const Value.absent(),
+    Value<String?> assignedToText = const Value.absent(),
     Value<String?> performedByUserId = const Value.absent(),
     Value<String?> notes = const Value.absent(),
     DateTime? createdAt,
@@ -3267,6 +3341,12 @@ class InventoryTransactionRecord extends DataClass
     assignedToPersonId: assignedToPersonId.present
         ? assignedToPersonId.value
         : this.assignedToPersonId,
+    assignedToTargetId: assignedToTargetId.present
+        ? assignedToTargetId.value
+        : this.assignedToTargetId,
+    assignedToText: assignedToText.present
+        ? assignedToText.value
+        : this.assignedToText,
     performedByUserId: performedByUserId.present
         ? performedByUserId.value
         : this.performedByUserId,
@@ -3297,6 +3377,12 @@ class InventoryTransactionRecord extends DataClass
       assignedToPersonId: data.assignedToPersonId.present
           ? data.assignedToPersonId.value
           : this.assignedToPersonId,
+      assignedToTargetId: data.assignedToTargetId.present
+          ? data.assignedToTargetId.value
+          : this.assignedToTargetId,
+      assignedToText: data.assignedToText.present
+          ? data.assignedToText.value
+          : this.assignedToText,
       performedByUserId: data.performedByUserId.present
           ? data.performedByUserId.value
           : this.performedByUserId,
@@ -3316,6 +3402,8 @@ class InventoryTransactionRecord extends DataClass
           ..write('fromLocationId: $fromLocationId, ')
           ..write('toLocationId: $toLocationId, ')
           ..write('assignedToPersonId: $assignedToPersonId, ')
+          ..write('assignedToTargetId: $assignedToTargetId, ')
+          ..write('assignedToText: $assignedToText, ')
           ..write('performedByUserId: $performedByUserId, ')
           ..write('notes: $notes, ')
           ..write('createdAt: $createdAt')
@@ -3333,6 +3421,8 @@ class InventoryTransactionRecord extends DataClass
     fromLocationId,
     toLocationId,
     assignedToPersonId,
+    assignedToTargetId,
+    assignedToText,
     performedByUserId,
     notes,
     createdAt,
@@ -3349,6 +3439,8 @@ class InventoryTransactionRecord extends DataClass
           other.fromLocationId == this.fromLocationId &&
           other.toLocationId == this.toLocationId &&
           other.assignedToPersonId == this.assignedToPersonId &&
+          other.assignedToTargetId == this.assignedToTargetId &&
+          other.assignedToText == this.assignedToText &&
           other.performedByUserId == this.performedByUserId &&
           other.notes == this.notes &&
           other.createdAt == this.createdAt);
@@ -3364,6 +3456,8 @@ class InventoryTransactionsCompanion
   final Value<String?> fromLocationId;
   final Value<String?> toLocationId;
   final Value<String?> assignedToPersonId;
+  final Value<String?> assignedToTargetId;
+  final Value<String?> assignedToText;
   final Value<String?> performedByUserId;
   final Value<String?> notes;
   final Value<DateTime> createdAt;
@@ -3377,6 +3471,8 @@ class InventoryTransactionsCompanion
     this.fromLocationId = const Value.absent(),
     this.toLocationId = const Value.absent(),
     this.assignedToPersonId = const Value.absent(),
+    this.assignedToTargetId = const Value.absent(),
+    this.assignedToText = const Value.absent(),
     this.performedByUserId = const Value.absent(),
     this.notes = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -3391,6 +3487,8 @@ class InventoryTransactionsCompanion
     this.fromLocationId = const Value.absent(),
     this.toLocationId = const Value.absent(),
     this.assignedToPersonId = const Value.absent(),
+    this.assignedToTargetId = const Value.absent(),
+    this.assignedToText = const Value.absent(),
     this.performedByUserId = const Value.absent(),
     this.notes = const Value.absent(),
     required DateTime createdAt,
@@ -3410,6 +3508,8 @@ class InventoryTransactionsCompanion
     Expression<String>? fromLocationId,
     Expression<String>? toLocationId,
     Expression<String>? assignedToPersonId,
+    Expression<String>? assignedToTargetId,
+    Expression<String>? assignedToText,
     Expression<String>? performedByUserId,
     Expression<String>? notes,
     Expression<DateTime>? createdAt,
@@ -3425,6 +3525,9 @@ class InventoryTransactionsCompanion
       if (toLocationId != null) 'to_location_id': toLocationId,
       if (assignedToPersonId != null)
         'assigned_to_person_id': assignedToPersonId,
+      if (assignedToTargetId != null)
+        'assigned_to_target_id': assignedToTargetId,
+      if (assignedToText != null) 'assigned_to_text': assignedToText,
       if (performedByUserId != null) 'performed_by_user_id': performedByUserId,
       if (notes != null) 'notes': notes,
       if (createdAt != null) 'created_at': createdAt,
@@ -3441,6 +3544,8 @@ class InventoryTransactionsCompanion
     Value<String?>? fromLocationId,
     Value<String?>? toLocationId,
     Value<String?>? assignedToPersonId,
+    Value<String?>? assignedToTargetId,
+    Value<String?>? assignedToText,
     Value<String?>? performedByUserId,
     Value<String?>? notes,
     Value<DateTime>? createdAt,
@@ -3455,6 +3560,8 @@ class InventoryTransactionsCompanion
       fromLocationId: fromLocationId ?? this.fromLocationId,
       toLocationId: toLocationId ?? this.toLocationId,
       assignedToPersonId: assignedToPersonId ?? this.assignedToPersonId,
+      assignedToTargetId: assignedToTargetId ?? this.assignedToTargetId,
+      assignedToText: assignedToText ?? this.assignedToText,
       performedByUserId: performedByUserId ?? this.performedByUserId,
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
@@ -3489,6 +3596,12 @@ class InventoryTransactionsCompanion
     if (assignedToPersonId.present) {
       map['assigned_to_person_id'] = Variable<String>(assignedToPersonId.value);
     }
+    if (assignedToTargetId.present) {
+      map['assigned_to_target_id'] = Variable<String>(assignedToTargetId.value);
+    }
+    if (assignedToText.present) {
+      map['assigned_to_text'] = Variable<String>(assignedToText.value);
+    }
     if (performedByUserId.present) {
       map['performed_by_user_id'] = Variable<String>(performedByUserId.value);
     }
@@ -3515,6 +3628,8 @@ class InventoryTransactionsCompanion
           ..write('fromLocationId: $fromLocationId, ')
           ..write('toLocationId: $toLocationId, ')
           ..write('assignedToPersonId: $assignedToPersonId, ')
+          ..write('assignedToTargetId: $assignedToTargetId, ')
+          ..write('assignedToText: $assignedToText, ')
           ..write('performedByUserId: $performedByUserId, ')
           ..write('notes: $notes, ')
           ..write('createdAt: $createdAt, ')
@@ -4677,6 +4792,17 @@ class $CheckoutRecordsTable extends CheckoutRecords
         type: DriftSqlType.string,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _assignedToTargetIdMeta =
+      const VerificationMeta('assignedToTargetId');
+  @override
+  late final GeneratedColumn<String> assignedToTargetId =
+      GeneratedColumn<String>(
+        'assigned_to_target_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _assignedToTextMeta = const VerificationMeta(
     'assignedToText',
   );
@@ -4787,6 +4913,7 @@ class $CheckoutRecordsTable extends CheckoutRecords
     itemId,
     assignedToPersonId,
     assignedToLocationId,
+    assignedToTargetId,
     assignedToText,
     quantity,
     unitOfMeasureId,
@@ -4838,6 +4965,15 @@ class $CheckoutRecordsTable extends CheckoutRecords
         assignedToLocationId.isAcceptableOrUnknown(
           data['assigned_to_location_id']!,
           _assignedToLocationIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('assigned_to_target_id')) {
+      context.handle(
+        _assignedToTargetIdMeta,
+        assignedToTargetId.isAcceptableOrUnknown(
+          data['assigned_to_target_id']!,
+          _assignedToTargetIdMeta,
         ),
       );
     }
@@ -4949,6 +5085,10 @@ class $CheckoutRecordsTable extends CheckoutRecords
         DriftSqlType.string,
         data['${effectivePrefix}assigned_to_location_id'],
       ),
+      assignedToTargetId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}assigned_to_target_id'],
+      ),
       assignedToText: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}assigned_to_text'],
@@ -5004,6 +5144,7 @@ class CheckoutRecordRow extends DataClass
   final String itemId;
   final String? assignedToPersonId;
   final String? assignedToLocationId;
+  final String? assignedToTargetId;
   final String? assignedToText;
   final double quantity;
   final String unitOfMeasureId;
@@ -5019,6 +5160,7 @@ class CheckoutRecordRow extends DataClass
     required this.itemId,
     this.assignedToPersonId,
     this.assignedToLocationId,
+    this.assignedToTargetId,
     this.assignedToText,
     required this.quantity,
     required this.unitOfMeasureId,
@@ -5040,6 +5182,9 @@ class CheckoutRecordRow extends DataClass
     }
     if (!nullToAbsent || assignedToLocationId != null) {
       map['assigned_to_location_id'] = Variable<String>(assignedToLocationId);
+    }
+    if (!nullToAbsent || assignedToTargetId != null) {
+      map['assigned_to_target_id'] = Variable<String>(assignedToTargetId);
     }
     if (!nullToAbsent || assignedToText != null) {
       map['assigned_to_text'] = Variable<String>(assignedToText);
@@ -5076,6 +5221,9 @@ class CheckoutRecordRow extends DataClass
       assignedToLocationId: assignedToLocationId == null && nullToAbsent
           ? const Value.absent()
           : Value(assignedToLocationId),
+      assignedToTargetId: assignedToTargetId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(assignedToTargetId),
       assignedToText: assignedToText == null && nullToAbsent
           ? const Value.absent()
           : Value(assignedToText),
@@ -5115,6 +5263,9 @@ class CheckoutRecordRow extends DataClass
       assignedToLocationId: serializer.fromJson<String?>(
         json['assignedToLocationId'],
       ),
+      assignedToTargetId: serializer.fromJson<String?>(
+        json['assignedToTargetId'],
+      ),
       assignedToText: serializer.fromJson<String?>(json['assignedToText']),
       quantity: serializer.fromJson<double>(json['quantity']),
       unitOfMeasureId: serializer.fromJson<String>(json['unitOfMeasureId']),
@@ -5137,6 +5288,7 @@ class CheckoutRecordRow extends DataClass
       'itemId': serializer.toJson<String>(itemId),
       'assignedToPersonId': serializer.toJson<String?>(assignedToPersonId),
       'assignedToLocationId': serializer.toJson<String?>(assignedToLocationId),
+      'assignedToTargetId': serializer.toJson<String?>(assignedToTargetId),
       'assignedToText': serializer.toJson<String?>(assignedToText),
       'quantity': serializer.toJson<double>(quantity),
       'unitOfMeasureId': serializer.toJson<String>(unitOfMeasureId),
@@ -5155,6 +5307,7 @@ class CheckoutRecordRow extends DataClass
     String? itemId,
     Value<String?> assignedToPersonId = const Value.absent(),
     Value<String?> assignedToLocationId = const Value.absent(),
+    Value<String?> assignedToTargetId = const Value.absent(),
     Value<String?> assignedToText = const Value.absent(),
     double? quantity,
     String? unitOfMeasureId,
@@ -5174,6 +5327,9 @@ class CheckoutRecordRow extends DataClass
     assignedToLocationId: assignedToLocationId.present
         ? assignedToLocationId.value
         : this.assignedToLocationId,
+    assignedToTargetId: assignedToTargetId.present
+        ? assignedToTargetId.value
+        : this.assignedToTargetId,
     assignedToText: assignedToText.present
         ? assignedToText.value
         : this.assignedToText,
@@ -5201,6 +5357,9 @@ class CheckoutRecordRow extends DataClass
       assignedToLocationId: data.assignedToLocationId.present
           ? data.assignedToLocationId.value
           : this.assignedToLocationId,
+      assignedToTargetId: data.assignedToTargetId.present
+          ? data.assignedToTargetId.value
+          : this.assignedToTargetId,
       assignedToText: data.assignedToText.present
           ? data.assignedToText.value
           : this.assignedToText,
@@ -5233,6 +5392,7 @@ class CheckoutRecordRow extends DataClass
           ..write('itemId: $itemId, ')
           ..write('assignedToPersonId: $assignedToPersonId, ')
           ..write('assignedToLocationId: $assignedToLocationId, ')
+          ..write('assignedToTargetId: $assignedToTargetId, ')
           ..write('assignedToText: $assignedToText, ')
           ..write('quantity: $quantity, ')
           ..write('unitOfMeasureId: $unitOfMeasureId, ')
@@ -5253,6 +5413,7 @@ class CheckoutRecordRow extends DataClass
     itemId,
     assignedToPersonId,
     assignedToLocationId,
+    assignedToTargetId,
     assignedToText,
     quantity,
     unitOfMeasureId,
@@ -5272,6 +5433,7 @@ class CheckoutRecordRow extends DataClass
           other.itemId == this.itemId &&
           other.assignedToPersonId == this.assignedToPersonId &&
           other.assignedToLocationId == this.assignedToLocationId &&
+          other.assignedToTargetId == this.assignedToTargetId &&
           other.assignedToText == this.assignedToText &&
           other.quantity == this.quantity &&
           other.unitOfMeasureId == this.unitOfMeasureId &&
@@ -5289,6 +5451,7 @@ class CheckoutRecordsCompanion extends UpdateCompanion<CheckoutRecordRow> {
   final Value<String> itemId;
   final Value<String?> assignedToPersonId;
   final Value<String?> assignedToLocationId;
+  final Value<String?> assignedToTargetId;
   final Value<String?> assignedToText;
   final Value<double> quantity;
   final Value<String> unitOfMeasureId;
@@ -5305,6 +5468,7 @@ class CheckoutRecordsCompanion extends UpdateCompanion<CheckoutRecordRow> {
     this.itemId = const Value.absent(),
     this.assignedToPersonId = const Value.absent(),
     this.assignedToLocationId = const Value.absent(),
+    this.assignedToTargetId = const Value.absent(),
     this.assignedToText = const Value.absent(),
     this.quantity = const Value.absent(),
     this.unitOfMeasureId = const Value.absent(),
@@ -5322,6 +5486,7 @@ class CheckoutRecordsCompanion extends UpdateCompanion<CheckoutRecordRow> {
     required String itemId,
     this.assignedToPersonId = const Value.absent(),
     this.assignedToLocationId = const Value.absent(),
+    this.assignedToTargetId = const Value.absent(),
     this.assignedToText = const Value.absent(),
     required double quantity,
     required String unitOfMeasureId,
@@ -5344,6 +5509,7 @@ class CheckoutRecordsCompanion extends UpdateCompanion<CheckoutRecordRow> {
     Expression<String>? itemId,
     Expression<String>? assignedToPersonId,
     Expression<String>? assignedToLocationId,
+    Expression<String>? assignedToTargetId,
     Expression<String>? assignedToText,
     Expression<double>? quantity,
     Expression<String>? unitOfMeasureId,
@@ -5363,6 +5529,8 @@ class CheckoutRecordsCompanion extends UpdateCompanion<CheckoutRecordRow> {
         'assigned_to_person_id': assignedToPersonId,
       if (assignedToLocationId != null)
         'assigned_to_location_id': assignedToLocationId,
+      if (assignedToTargetId != null)
+        'assigned_to_target_id': assignedToTargetId,
       if (assignedToText != null) 'assigned_to_text': assignedToText,
       if (quantity != null) 'quantity': quantity,
       if (unitOfMeasureId != null) 'unit_of_measure_id': unitOfMeasureId,
@@ -5383,6 +5551,7 @@ class CheckoutRecordsCompanion extends UpdateCompanion<CheckoutRecordRow> {
     Value<String>? itemId,
     Value<String?>? assignedToPersonId,
     Value<String?>? assignedToLocationId,
+    Value<String?>? assignedToTargetId,
     Value<String?>? assignedToText,
     Value<double>? quantity,
     Value<String>? unitOfMeasureId,
@@ -5400,6 +5569,7 @@ class CheckoutRecordsCompanion extends UpdateCompanion<CheckoutRecordRow> {
       itemId: itemId ?? this.itemId,
       assignedToPersonId: assignedToPersonId ?? this.assignedToPersonId,
       assignedToLocationId: assignedToLocationId ?? this.assignedToLocationId,
+      assignedToTargetId: assignedToTargetId ?? this.assignedToTargetId,
       assignedToText: assignedToText ?? this.assignedToText,
       quantity: quantity ?? this.quantity,
       unitOfMeasureId: unitOfMeasureId ?? this.unitOfMeasureId,
@@ -5430,6 +5600,9 @@ class CheckoutRecordsCompanion extends UpdateCompanion<CheckoutRecordRow> {
       map['assigned_to_location_id'] = Variable<String>(
         assignedToLocationId.value,
       );
+    }
+    if (assignedToTargetId.present) {
+      map['assigned_to_target_id'] = Variable<String>(assignedToTargetId.value);
     }
     if (assignedToText.present) {
       map['assigned_to_text'] = Variable<String>(assignedToText.value);
@@ -5476,6 +5649,7 @@ class CheckoutRecordsCompanion extends UpdateCompanion<CheckoutRecordRow> {
           ..write('itemId: $itemId, ')
           ..write('assignedToPersonId: $assignedToPersonId, ')
           ..write('assignedToLocationId: $assignedToLocationId, ')
+          ..write('assignedToTargetId: $assignedToTargetId, ')
           ..write('assignedToText: $assignedToText, ')
           ..write('quantity: $quantity, ')
           ..write('unitOfMeasureId: $unitOfMeasureId, ')
@@ -5486,6 +5660,532 @@ class CheckoutRecordsCompanion extends UpdateCompanion<CheckoutRecordRow> {
           ..write('checkedOutByUserId: $checkedOutByUserId, ')
           ..write('returnedByUserId: $returnedByUserId, ')
           ..write('notes: $notes, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $AssignmentTargetsTable extends AssignmentTargets
+    with TableInfo<$AssignmentTargetsTable, AssignmentTargetRecord> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AssignmentTargetsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _targetTypeMeta = const VerificationMeta(
+    'targetType',
+  );
+  @override
+  late final GeneratedColumn<String> targetType = GeneratedColumn<String>(
+    'target_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _descriptionMeta = const VerificationMeta(
+    'description',
+  );
+  @override
+  late final GeneratedColumn<String> description = GeneratedColumn<String>(
+    'description',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _locationIdMeta = const VerificationMeta(
+    'locationId',
+  );
+  @override
+  late final GeneratedColumn<String> locationId = GeneratedColumn<String>(
+    'location_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isActiveMeta = const VerificationMeta(
+    'isActive',
+  );
+  @override
+  late final GeneratedColumn<bool> isActive = GeneratedColumn<bool>(
+    'is_active',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_active" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    targetType,
+    description,
+    locationId,
+    isActive,
+    createdAt,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'assignment_targets';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<AssignmentTargetRecord> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('target_type')) {
+      context.handle(
+        _targetTypeMeta,
+        targetType.isAcceptableOrUnknown(data['target_type']!, _targetTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_targetTypeMeta);
+    }
+    if (data.containsKey('description')) {
+      context.handle(
+        _descriptionMeta,
+        description.isAcceptableOrUnknown(
+          data['description']!,
+          _descriptionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('location_id')) {
+      context.handle(
+        _locationIdMeta,
+        locationId.isAcceptableOrUnknown(data['location_id']!, _locationIdMeta),
+      );
+    }
+    if (data.containsKey('is_active')) {
+      context.handle(
+        _isActiveMeta,
+        isActive.isAcceptableOrUnknown(data['is_active']!, _isActiveMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_isActiveMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  AssignmentTargetRecord map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AssignmentTargetRecord(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      targetType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}target_type'],
+      )!,
+      description: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}description'],
+      ),
+      locationId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}location_id'],
+      ),
+      isActive: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_active'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $AssignmentTargetsTable createAlias(String alias) {
+    return $AssignmentTargetsTable(attachedDatabase, alias);
+  }
+}
+
+class AssignmentTargetRecord extends DataClass
+    implements Insertable<AssignmentTargetRecord> {
+  final String id;
+  final String name;
+  final String targetType;
+  final String? description;
+  final String? locationId;
+  final bool isActive;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  const AssignmentTargetRecord({
+    required this.id,
+    required this.name,
+    required this.targetType,
+    this.description,
+    this.locationId,
+    required this.isActive,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
+    map['target_type'] = Variable<String>(targetType);
+    if (!nullToAbsent || description != null) {
+      map['description'] = Variable<String>(description);
+    }
+    if (!nullToAbsent || locationId != null) {
+      map['location_id'] = Variable<String>(locationId);
+    }
+    map['is_active'] = Variable<bool>(isActive);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  AssignmentTargetsCompanion toCompanion(bool nullToAbsent) {
+    return AssignmentTargetsCompanion(
+      id: Value(id),
+      name: Value(name),
+      targetType: Value(targetType),
+      description: description == null && nullToAbsent
+          ? const Value.absent()
+          : Value(description),
+      locationId: locationId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(locationId),
+      isActive: Value(isActive),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory AssignmentTargetRecord.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AssignmentTargetRecord(
+      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      targetType: serializer.fromJson<String>(json['targetType']),
+      description: serializer.fromJson<String?>(json['description']),
+      locationId: serializer.fromJson<String?>(json['locationId']),
+      isActive: serializer.fromJson<bool>(json['isActive']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
+      'targetType': serializer.toJson<String>(targetType),
+      'description': serializer.toJson<String?>(description),
+      'locationId': serializer.toJson<String?>(locationId),
+      'isActive': serializer.toJson<bool>(isActive),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  AssignmentTargetRecord copyWith({
+    String? id,
+    String? name,
+    String? targetType,
+    Value<String?> description = const Value.absent(),
+    Value<String?> locationId = const Value.absent(),
+    bool? isActive,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) => AssignmentTargetRecord(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    targetType: targetType ?? this.targetType,
+    description: description.present ? description.value : this.description,
+    locationId: locationId.present ? locationId.value : this.locationId,
+    isActive: isActive ?? this.isActive,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  AssignmentTargetRecord copyWithCompanion(AssignmentTargetsCompanion data) {
+    return AssignmentTargetRecord(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      targetType: data.targetType.present
+          ? data.targetType.value
+          : this.targetType,
+      description: data.description.present
+          ? data.description.value
+          : this.description,
+      locationId: data.locationId.present
+          ? data.locationId.value
+          : this.locationId,
+      isActive: data.isActive.present ? data.isActive.value : this.isActive,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AssignmentTargetRecord(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('targetType: $targetType, ')
+          ..write('description: $description, ')
+          ..write('locationId: $locationId, ')
+          ..write('isActive: $isActive, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    name,
+    targetType,
+    description,
+    locationId,
+    isActive,
+    createdAt,
+    updatedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AssignmentTargetRecord &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.targetType == this.targetType &&
+          other.description == this.description &&
+          other.locationId == this.locationId &&
+          other.isActive == this.isActive &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class AssignmentTargetsCompanion
+    extends UpdateCompanion<AssignmentTargetRecord> {
+  final Value<String> id;
+  final Value<String> name;
+  final Value<String> targetType;
+  final Value<String?> description;
+  final Value<String?> locationId;
+  final Value<bool> isActive;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const AssignmentTargetsCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.targetType = const Value.absent(),
+    this.description = const Value.absent(),
+    this.locationId = const Value.absent(),
+    this.isActive = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  AssignmentTargetsCompanion.insert({
+    required String id,
+    required String name,
+    required String targetType,
+    this.description = const Value.absent(),
+    this.locationId = const Value.absent(),
+    required bool isActive,
+    required DateTime createdAt,
+    required DateTime updatedAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       name = Value(name),
+       targetType = Value(targetType),
+       isActive = Value(isActive),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<AssignmentTargetRecord> custom({
+    Expression<String>? id,
+    Expression<String>? name,
+    Expression<String>? targetType,
+    Expression<String>? description,
+    Expression<String>? locationId,
+    Expression<bool>? isActive,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (targetType != null) 'target_type': targetType,
+      if (description != null) 'description': description,
+      if (locationId != null) 'location_id': locationId,
+      if (isActive != null) 'is_active': isActive,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  AssignmentTargetsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? name,
+    Value<String>? targetType,
+    Value<String?>? description,
+    Value<String?>? locationId,
+    Value<bool>? isActive,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return AssignmentTargetsCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      targetType: targetType ?? this.targetType,
+      description: description ?? this.description,
+      locationId: locationId ?? this.locationId,
+      isActive: isActive ?? this.isActive,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (targetType.present) {
+      map['target_type'] = Variable<String>(targetType.value);
+    }
+    if (description.present) {
+      map['description'] = Variable<String>(description.value);
+    }
+    if (locationId.present) {
+      map['location_id'] = Variable<String>(locationId.value);
+    }
+    if (isActive.present) {
+      map['is_active'] = Variable<bool>(isActive.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AssignmentTargetsCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('targetType: $targetType, ')
+          ..write('description: $description, ')
+          ..write('locationId: $locationId, ')
+          ..write('isActive: $isActive, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -9197,6 +9897,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $CheckoutRecordsTable checkoutRecords = $CheckoutRecordsTable(
     this,
   );
+  late final $AssignmentTargetsTable assignmentTargets =
+      $AssignmentTargetsTable(this);
   late final $CycleCountSessionsTable cycleCountSessions =
       $CycleCountSessionsTable(this);
   late final $CycleCountLinesTable cycleCountLines = $CycleCountLinesTable(
@@ -9223,6 +9925,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     itemLocationBalances,
     reorderRequests,
     checkoutRecords,
+    assignmentTargets,
     cycleCountSessions,
     cycleCountLines,
     customFieldDefinitions,
@@ -10620,6 +11323,8 @@ typedef $$InventoryTransactionsTableCreateCompanionBuilder =
       Value<String?> fromLocationId,
       Value<String?> toLocationId,
       Value<String?> assignedToPersonId,
+      Value<String?> assignedToTargetId,
+      Value<String?> assignedToText,
       Value<String?> performedByUserId,
       Value<String?> notes,
       required DateTime createdAt,
@@ -10635,6 +11340,8 @@ typedef $$InventoryTransactionsTableUpdateCompanionBuilder =
       Value<String?> fromLocationId,
       Value<String?> toLocationId,
       Value<String?> assignedToPersonId,
+      Value<String?> assignedToTargetId,
+      Value<String?> assignedToText,
       Value<String?> performedByUserId,
       Value<String?> notes,
       Value<DateTime> createdAt,
@@ -10687,6 +11394,16 @@ class $$InventoryTransactionsTableFilterComposer
 
   ColumnFilters<String> get assignedToPersonId => $composableBuilder(
     column: $table.assignedToPersonId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get assignedToTargetId => $composableBuilder(
+    column: $table.assignedToTargetId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get assignedToText => $composableBuilder(
+    column: $table.assignedToText,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -10755,6 +11472,16 @@ class $$InventoryTransactionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get assignedToTargetId => $composableBuilder(
+    column: $table.assignedToTargetId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get assignedToText => $composableBuilder(
+    column: $table.assignedToText,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get performedByUserId => $composableBuilder(
     column: $table.performedByUserId,
     builder: (column) => ColumnOrderings(column),
@@ -10813,6 +11540,16 @@ class $$InventoryTransactionsTableAnnotationComposer
 
   GeneratedColumn<String> get assignedToPersonId => $composableBuilder(
     column: $table.assignedToPersonId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get assignedToTargetId => $composableBuilder(
+    column: $table.assignedToTargetId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get assignedToText => $composableBuilder(
+    column: $table.assignedToText,
     builder: (column) => column,
   );
 
@@ -10882,6 +11619,8 @@ class $$InventoryTransactionsTableTableManager
                 Value<String?> fromLocationId = const Value.absent(),
                 Value<String?> toLocationId = const Value.absent(),
                 Value<String?> assignedToPersonId = const Value.absent(),
+                Value<String?> assignedToTargetId = const Value.absent(),
+                Value<String?> assignedToText = const Value.absent(),
                 Value<String?> performedByUserId = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
@@ -10895,6 +11634,8 @@ class $$InventoryTransactionsTableTableManager
                 fromLocationId: fromLocationId,
                 toLocationId: toLocationId,
                 assignedToPersonId: assignedToPersonId,
+                assignedToTargetId: assignedToTargetId,
+                assignedToText: assignedToText,
                 performedByUserId: performedByUserId,
                 notes: notes,
                 createdAt: createdAt,
@@ -10910,6 +11651,8 @@ class $$InventoryTransactionsTableTableManager
                 Value<String?> fromLocationId = const Value.absent(),
                 Value<String?> toLocationId = const Value.absent(),
                 Value<String?> assignedToPersonId = const Value.absent(),
+                Value<String?> assignedToTargetId = const Value.absent(),
+                Value<String?> assignedToText = const Value.absent(),
                 Value<String?> performedByUserId = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 required DateTime createdAt,
@@ -10923,6 +11666,8 @@ class $$InventoryTransactionsTableTableManager
                 fromLocationId: fromLocationId,
                 toLocationId: toLocationId,
                 assignedToPersonId: assignedToPersonId,
+                assignedToTargetId: assignedToTargetId,
+                assignedToText: assignedToText,
                 performedByUserId: performedByUserId,
                 notes: notes,
                 createdAt: createdAt,
@@ -11536,6 +12281,7 @@ typedef $$CheckoutRecordsTableCreateCompanionBuilder =
       required String itemId,
       Value<String?> assignedToPersonId,
       Value<String?> assignedToLocationId,
+      Value<String?> assignedToTargetId,
       Value<String?> assignedToText,
       required double quantity,
       required String unitOfMeasureId,
@@ -11554,6 +12300,7 @@ typedef $$CheckoutRecordsTableUpdateCompanionBuilder =
       Value<String> itemId,
       Value<String?> assignedToPersonId,
       Value<String?> assignedToLocationId,
+      Value<String?> assignedToTargetId,
       Value<String?> assignedToText,
       Value<double> quantity,
       Value<String> unitOfMeasureId,
@@ -11593,6 +12340,11 @@ class $$CheckoutRecordsTableFilterComposer
 
   ColumnFilters<String> get assignedToLocationId => $composableBuilder(
     column: $table.assignedToLocationId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get assignedToTargetId => $composableBuilder(
+    column: $table.assignedToTargetId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -11676,6 +12428,11 @@ class $$CheckoutRecordsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get assignedToTargetId => $composableBuilder(
+    column: $table.assignedToTargetId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get assignedToText => $composableBuilder(
     column: $table.assignedToText,
     builder: (column) => ColumnOrderings(column),
@@ -11749,6 +12506,11 @@ class $$CheckoutRecordsTableAnnotationComposer
 
   GeneratedColumn<String> get assignedToLocationId => $composableBuilder(
     column: $table.assignedToLocationId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get assignedToTargetId => $composableBuilder(
+    column: $table.assignedToTargetId,
     builder: (column) => column,
   );
 
@@ -11836,6 +12598,7 @@ class $$CheckoutRecordsTableTableManager
                 Value<String> itemId = const Value.absent(),
                 Value<String?> assignedToPersonId = const Value.absent(),
                 Value<String?> assignedToLocationId = const Value.absent(),
+                Value<String?> assignedToTargetId = const Value.absent(),
                 Value<String?> assignedToText = const Value.absent(),
                 Value<double> quantity = const Value.absent(),
                 Value<String> unitOfMeasureId = const Value.absent(),
@@ -11852,6 +12615,7 @@ class $$CheckoutRecordsTableTableManager
                 itemId: itemId,
                 assignedToPersonId: assignedToPersonId,
                 assignedToLocationId: assignedToLocationId,
+                assignedToTargetId: assignedToTargetId,
                 assignedToText: assignedToText,
                 quantity: quantity,
                 unitOfMeasureId: unitOfMeasureId,
@@ -11870,6 +12634,7 @@ class $$CheckoutRecordsTableTableManager
                 required String itemId,
                 Value<String?> assignedToPersonId = const Value.absent(),
                 Value<String?> assignedToLocationId = const Value.absent(),
+                Value<String?> assignedToTargetId = const Value.absent(),
                 Value<String?> assignedToText = const Value.absent(),
                 required double quantity,
                 required String unitOfMeasureId,
@@ -11886,6 +12651,7 @@ class $$CheckoutRecordsTableTableManager
                 itemId: itemId,
                 assignedToPersonId: assignedToPersonId,
                 assignedToLocationId: assignedToLocationId,
+                assignedToTargetId: assignedToTargetId,
                 assignedToText: assignedToText,
                 quantity: quantity,
                 unitOfMeasureId: unitOfMeasureId,
@@ -11921,6 +12687,282 @@ typedef $$CheckoutRecordsTableProcessedTableManager =
         BaseReferences<_$AppDatabase, $CheckoutRecordsTable, CheckoutRecordRow>,
       ),
       CheckoutRecordRow,
+      PrefetchHooks Function()
+    >;
+typedef $$AssignmentTargetsTableCreateCompanionBuilder =
+    AssignmentTargetsCompanion Function({
+      required String id,
+      required String name,
+      required String targetType,
+      Value<String?> description,
+      Value<String?> locationId,
+      required bool isActive,
+      required DateTime createdAt,
+      required DateTime updatedAt,
+      Value<int> rowid,
+    });
+typedef $$AssignmentTargetsTableUpdateCompanionBuilder =
+    AssignmentTargetsCompanion Function({
+      Value<String> id,
+      Value<String> name,
+      Value<String> targetType,
+      Value<String?> description,
+      Value<String?> locationId,
+      Value<bool> isActive,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+
+class $$AssignmentTargetsTableFilterComposer
+    extends Composer<_$AppDatabase, $AssignmentTargetsTable> {
+  $$AssignmentTargetsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get targetType => $composableBuilder(
+    column: $table.targetType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get locationId => $composableBuilder(
+    column: $table.locationId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isActive => $composableBuilder(
+    column: $table.isActive,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$AssignmentTargetsTableOrderingComposer
+    extends Composer<_$AppDatabase, $AssignmentTargetsTable> {
+  $$AssignmentTargetsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get targetType => $composableBuilder(
+    column: $table.targetType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get locationId => $composableBuilder(
+    column: $table.locationId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isActive => $composableBuilder(
+    column: $table.isActive,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$AssignmentTargetsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $AssignmentTargetsTable> {
+  $$AssignmentTargetsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get targetType => $composableBuilder(
+    column: $table.targetType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get locationId => $composableBuilder(
+    column: $table.locationId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isActive =>
+      $composableBuilder(column: $table.isActive, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$AssignmentTargetsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $AssignmentTargetsTable,
+          AssignmentTargetRecord,
+          $$AssignmentTargetsTableFilterComposer,
+          $$AssignmentTargetsTableOrderingComposer,
+          $$AssignmentTargetsTableAnnotationComposer,
+          $$AssignmentTargetsTableCreateCompanionBuilder,
+          $$AssignmentTargetsTableUpdateCompanionBuilder,
+          (
+            AssignmentTargetRecord,
+            BaseReferences<
+              _$AppDatabase,
+              $AssignmentTargetsTable,
+              AssignmentTargetRecord
+            >,
+          ),
+          AssignmentTargetRecord,
+          PrefetchHooks Function()
+        > {
+  $$AssignmentTargetsTableTableManager(
+    _$AppDatabase db,
+    $AssignmentTargetsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AssignmentTargetsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AssignmentTargetsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AssignmentTargetsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String> targetType = const Value.absent(),
+                Value<String?> description = const Value.absent(),
+                Value<String?> locationId = const Value.absent(),
+                Value<bool> isActive = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AssignmentTargetsCompanion(
+                id: id,
+                name: name,
+                targetType: targetType,
+                description: description,
+                locationId: locationId,
+                isActive: isActive,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String name,
+                required String targetType,
+                Value<String?> description = const Value.absent(),
+                Value<String?> locationId = const Value.absent(),
+                required bool isActive,
+                required DateTime createdAt,
+                required DateTime updatedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => AssignmentTargetsCompanion.insert(
+                id: id,
+                name: name,
+                targetType: targetType,
+                description: description,
+                locationId: locationId,
+                isActive: isActive,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$AssignmentTargetsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $AssignmentTargetsTable,
+      AssignmentTargetRecord,
+      $$AssignmentTargetsTableFilterComposer,
+      $$AssignmentTargetsTableOrderingComposer,
+      $$AssignmentTargetsTableAnnotationComposer,
+      $$AssignmentTargetsTableCreateCompanionBuilder,
+      $$AssignmentTargetsTableUpdateCompanionBuilder,
+      (
+        AssignmentTargetRecord,
+        BaseReferences<
+          _$AppDatabase,
+          $AssignmentTargetsTable,
+          AssignmentTargetRecord
+        >,
+      ),
+      AssignmentTargetRecord,
       PrefetchHooks Function()
     >;
 typedef $$CycleCountSessionsTableCreateCompanionBuilder =
@@ -13829,6 +14871,8 @@ class $AppDatabaseManager {
       $$ReorderRequestsTableTableManager(_db, _db.reorderRequests);
   $$CheckoutRecordsTableTableManager get checkoutRecords =>
       $$CheckoutRecordsTableTableManager(_db, _db.checkoutRecords);
+  $$AssignmentTargetsTableTableManager get assignmentTargets =>
+      $$AssignmentTargetsTableTableManager(_db, _db.assignmentTargets);
   $$CycleCountSessionsTableTableManager get cycleCountSessions =>
       $$CycleCountSessionsTableTableManager(_db, _db.cycleCountSessions);
   $$CycleCountLinesTableTableManager get cycleCountLines =>

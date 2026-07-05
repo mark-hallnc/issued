@@ -194,6 +194,8 @@ class InventoryTransaction {
     required this.fromLocationId,
     required this.toLocationId,
     required this.assignedToPersonId,
+    required this.assignedToTargetId,
+    required this.assignedToText,
     required this.performedByUserId,
     required this.notes,
     required this.createdAt,
@@ -207,6 +209,8 @@ class InventoryTransaction {
   final String? fromLocationId;
   final String? toLocationId;
   final String? assignedToPersonId;
+  final String? assignedToTargetId;
+  final String? assignedToText;
   final String? performedByUserId;
   final String? notes;
   final DateTime createdAt;
@@ -220,6 +224,8 @@ class InventoryTransaction {
     String? fromLocationId,
     String? toLocationId,
     String? assignedToPersonId,
+    String? assignedToTargetId,
+    String? assignedToText,
     String? performedByUserId,
     String? notes,
     DateTime? createdAt,
@@ -233,6 +239,8 @@ class InventoryTransaction {
       fromLocationId: fromLocationId ?? this.fromLocationId,
       toLocationId: toLocationId ?? this.toLocationId,
       assignedToPersonId: assignedToPersonId ?? this.assignedToPersonId,
+      assignedToTargetId: assignedToTargetId ?? this.assignedToTargetId,
+      assignedToText: assignedToText ?? this.assignedToText,
       performedByUserId: performedByUserId ?? this.performedByUserId,
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,

@@ -163,6 +163,9 @@ String buildActivityCsv(AppStore store) {
       'from_location',
       'to_location',
       'assigned_to_person',
+      'assigned_target',
+      'assigned_target_type',
+      'assigned_text',
       'performed_by_user',
       'notes',
       'created_at',
@@ -171,6 +174,9 @@ String buildActivityCsv(AppStore store) {
 
   for (final transaction in store.transactions) {
     final item = _itemById(store, transaction.itemId);
+    final target = transaction.assignedToTargetId == null
+        ? null
+        : store.assignmentTargetById(transaction.assignedToTargetId!);
     rows.add([
       transaction.id,
       transaction.itemId,
@@ -181,6 +187,9 @@ String buildActivityCsv(AppStore store) {
       _locationById(store, transaction.fromLocationId)?.name ?? '',
       _locationById(store, transaction.toLocationId)?.name ?? '',
       _personById(store, transaction.assignedToPersonId)?.displayName ?? '',
+      target?.name ?? '',
+      target == null ? '' : assignmentTargetTypeLabel(target.targetType),
+      transaction.assignedToText ?? '',
       _userNameById(store, transaction.performedByUserId),
       transaction.notes ?? '',
       transaction.createdAt.toIso8601String(),

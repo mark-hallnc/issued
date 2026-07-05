@@ -134,7 +134,11 @@ class _ActivityScreenState extends State<ActivityScreen> {
       final searchableText = [
         store.resolveItemName(transaction.itemId),
         transaction.notes,
-        store.resolvePersonName(transaction.assignedToPersonId),
+        store.resolveAssignedTo(
+          personId: transaction.assignedToPersonId,
+          targetId: transaction.assignedToTargetId,
+          text: transaction.assignedToText,
+        ),
         store.resolveLocationName(transaction.fromLocationId),
         store.resolveLocationName(transaction.toLocationId),
         store.resolveUserName(transaction.performedByUserId),
@@ -209,7 +213,11 @@ class _ActivityCard extends StatelessWidget {
     final quantity = _quantityText(transaction.quantityDelta, unit);
     final fromLocation = store.resolveLocationName(transaction.fromLocationId);
     final toLocation = store.resolveLocationName(transaction.toLocationId);
-    final person = store.resolvePersonName(transaction.assignedToPersonId);
+    final assignedTo = store.resolveAssignedTo(
+      personId: transaction.assignedToPersonId,
+      targetId: transaction.assignedToTargetId,
+      text: transaction.assignedToText,
+    );
     final performedBy = store.resolveUserName(transaction.performedByUserId);
 
     return Card(
@@ -252,7 +260,7 @@ class _ActivityCard extends StatelessWidget {
               Text(quantity),
               if (fromLocation != null) Text('From: $fromLocation'),
               if (toLocation != null) Text('To: $toLocation'),
-              if (person != null) Text('Assigned to: $person'),
+              if (assignedTo != null) Text('Assigned to: $assignedTo'),
               if (performedBy != null) Text('Performed by: $performedBy'),
               if ((transaction.notes ?? '').trim().isNotEmpty)
                 Text('Notes: ${transaction.notes}'),
@@ -374,8 +382,12 @@ void _showActivityDetail(
                 value: store.resolveLocationName(transaction.toLocationId),
               ),
               _DetailLine(
-                label: 'Assigned person',
-                value: store.resolvePersonName(transaction.assignedToPersonId),
+                label: 'Assigned To',
+                value: store.resolveAssignedTo(
+                  personId: transaction.assignedToPersonId,
+                  targetId: transaction.assignedToTargetId,
+                  text: transaction.assignedToText,
+                ),
               ),
               _DetailLine(
                 label: 'Performed by',

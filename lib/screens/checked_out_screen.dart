@@ -9,6 +9,7 @@ enum _CheckedOutFilter {
   overdue,
   byPerson,
   byLocation,
+  byTarget,
   assets,
   returnables,
 }
@@ -33,6 +34,7 @@ class _CheckedOutScreenState extends State<CheckedOutScreen> {
         _CheckedOutFilter.overdue => _isOverdue(record),
         _CheckedOutFilter.byPerson => record.assignedToPersonId != null,
         _CheckedOutFilter.byLocation => record.assignedToLocationId != null,
+        _CheckedOutFilter.byTarget => record.assignedToTargetId != null,
         _CheckedOutFilter.assets => item?.itemType == ItemType.asset,
         _CheckedOutFilter.returnables => item?.itemType == ItemType.returnable,
       };
@@ -66,6 +68,11 @@ class _CheckedOutScreenState extends State<CheckedOutScreen> {
                   label: 'By Location',
                   selected: _filter == _CheckedOutFilter.byLocation,
                   onSelected: () => _setFilter(_CheckedOutFilter.byLocation),
+                ),
+                _FilterChip(
+                  label: 'By Target',
+                  selected: _filter == _CheckedOutFilter.byTarget,
+                  onSelected: () => _setFilter(_CheckedOutFilter.byTarget),
                 ),
                 _FilterChip(
                   label: 'Assets',
@@ -424,6 +431,11 @@ String _assignedToText(AppStore store, CheckoutRecord record) {
   final locationId = record.assignedToLocationId;
   if (locationId != null) {
     parts.add(_locationById(store, locationId)?.name ?? 'Unknown location');
+  }
+
+  final targetId = record.assignedToTargetId;
+  if (targetId != null) {
+    parts.add(store.resolveAssignmentTargetName(targetId) ?? 'Unknown target');
   }
 
   final assignedText = record.assignedToText?.trim();

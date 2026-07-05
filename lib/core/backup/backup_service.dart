@@ -20,6 +20,9 @@ class BackupService {
       'locations': store.locations.map(_location).toList(),
       'people': store.people.map(_person).toList(),
       'users': store.users.map(_user).toList(),
+      'assignmentTargets': store.assignmentTargets
+          .map(_assignmentTarget)
+          .toList(),
       'items': store.items.map(_item).toList(),
       'itemLocationBalances': store.itemLocationBalances.map(_balance).toList(),
       'inventoryTransactions': store.transactions.map(_transaction).toList(),
@@ -90,6 +93,7 @@ class BackupService {
         'itemLocationBalances',
         'checkoutRecords',
         'reorderRequests',
+        'assignmentTargets',
       ]) {
         if (decoded[key] == null) {
           warnings.add('$key is not included in this backup.');
@@ -151,6 +155,10 @@ class BackupService {
       users: _list(
         decoded['users'],
       ).map((row) => _parseUser(row, warnings)).whereType<AppUser>().toList(),
+      assignmentTargets: _list(decoded['assignmentTargets'])
+          .map((row) => _parseAssignmentTarget(row, warnings))
+          .whereType<AssignmentTarget>()
+          .toList(),
       items: _list(
         decoded['items'],
       ).map((row) => _parseItem(row, warnings)).whereType<Item>().toList(),
@@ -267,6 +275,19 @@ class BackupService {
     };
   }
 
+  static Map<String, Object?> _assignmentTarget(AssignmentTarget target) {
+    return {
+      'id': target.id,
+      'name': target.name,
+      'targetType': target.targetType.name,
+      'description': target.description,
+      'locationId': target.locationId,
+      'isActive': target.isActive,
+      'createdAt': target.createdAt.toIso8601String(),
+      'updatedAt': target.updatedAt.toIso8601String(),
+    };
+  }
+
   static Map<String, Object?> _item(Item item) {
     return {
       'id': item.id,
@@ -314,6 +335,8 @@ class BackupService {
       'fromLocationId': transaction.fromLocationId,
       'toLocationId': transaction.toLocationId,
       'assignedToPersonId': transaction.assignedToPersonId,
+      'assignedToTargetId': transaction.assignedToTargetId,
+      'assignedToText': transaction.assignedToText,
       'performedByUserId': transaction.performedByUserId,
       'notes': transaction.notes,
       'createdAt': transaction.createdAt.toIso8601String(),
@@ -326,6 +349,7 @@ class BackupService {
       'itemId': record.itemId,
       'assignedToPersonId': record.assignedToPersonId,
       'assignedToLocationId': record.assignedToLocationId,
+      'assignedToTargetId': record.assignedToTargetId,
       'assignedToText': record.assignedToText,
       'quantity': record.quantity,
       'unitOfMeasureId': record.unitOfMeasureId,
@@ -595,6 +619,33 @@ class BackupService {
     );
   }
 
+  static AssignmentTarget? _parseAssignmentTarget(
+    Map<String, dynamic> row,
+    List<String> warnings,
+  ) {
+    final type = _enum(
+      AssignmentTargetType.values,
+      row['targetType'],
+      warnings,
+      'assignment target type',
+    );
+    final id = row['id']?.toString();
+    if (id == null || type == null) {
+      return null;
+    }
+    final now = DateTime.now();
+    return AssignmentTarget(
+      id: id,
+      name: _string(row, 'name', id),
+      targetType: type,
+      description: row['description']?.toString(),
+      locationId: row['locationId']?.toString(),
+      isActive: _bool(row, 'isActive', true),
+      createdAt: _date(row['createdAt']) ?? now,
+      updatedAt: _date(row['updatedAt']) ?? now,
+    );
+  }
+
   static Item? _parseItem(Map<String, dynamic> row, List<String> warnings) {
     final type = _enum(ItemType.values, row['itemType'], warnings, 'item type');
     final id = row['id']?.toString();
@@ -672,6 +723,8 @@ class BackupService {
       fromLocationId: row['fromLocationId']?.toString(),
       toLocationId: row['toLocationId']?.toString(),
       assignedToPersonId: row['assignedToPersonId']?.toString(),
+      assignedToTargetId: row['assignedToTargetId']?.toString(),
+      assignedToText: row['assignedToText']?.toString(),
       performedByUserId: row['performedByUserId']?.toString(),
       notes: row['notes']?.toString(),
       createdAt: _date(row['createdAt']) ?? DateTime.now(),
@@ -697,6 +750,7 @@ class BackupService {
       itemId: _string(row, 'itemId', ''),
       assignedToPersonId: row['assignedToPersonId']?.toString(),
       assignedToLocationId: row['assignedToLocationId']?.toString(),
+      assignedToTargetId: row['assignedToTargetId']?.toString(),
       assignedToText: row['assignedToText']?.toString(),
       quantity: _double(row, 'quantity'),
       unitOfMeasureId: _string(row, 'unitOfMeasureId', ''),
@@ -894,6 +948,7 @@ class BackupCounts {
     this.balances = 0,
     this.checkouts = 0,
     this.reorderRequests = 0,
+    this.assignmentTargets = 0,
     this.customFields = 0,
   });
 
@@ -909,6 +964,7 @@ class BackupCounts {
       balances: count('itemLocationBalances'),
       checkouts: count('checkoutRecords'),
       reorderRequests: count('reorderRequests'),
+      assignmentTargets: count('assignmentTargets'),
       customFields: count('customFieldDefinitions'),
     );
   }
@@ -922,6 +978,7 @@ class BackupCounts {
   final int balances;
   final int checkouts;
   final int reorderRequests;
+  final int assignmentTargets;
   final int customFields;
 }
 
@@ -934,6 +991,7 @@ class IssuedBackupData {
     required this.locations,
     required this.people,
     required this.users,
+    required this.assignmentTargets,
     required this.items,
     required this.itemLocationBalances,
     required this.transactions,
@@ -953,6 +1011,7 @@ class IssuedBackupData {
   final List<Location> locations;
   final List<Person> people;
   final List<AppUser> users;
+  final List<AssignmentTarget> assignmentTargets;
   final List<Item> items;
   final List<ItemLocationBalance> itemLocationBalances;
   final List<InventoryTransaction> transactions;

@@ -551,6 +551,8 @@ class _ImportPreviewScreenState extends State<ImportPreviewScreen> {
         fromLocationId: null,
         toLocationId: item.locationId,
         assignedToPersonId: null,
+        assignedToTargetId: null,
+        assignedToText: null,
         performedByUserId: store.users.isEmpty ? null : store.users.first.id,
         notes: 'Imported from CSV',
         createdAt: now,

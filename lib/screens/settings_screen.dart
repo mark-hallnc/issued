@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/app_store.dart';
 import '../core/models/models.dart';
 import '../core/permissions/app_permissions.dart';
+import 'assignment_targets_screen.dart';
 import 'backup_restore_screen.dart';
 import 'data_health_screen.dart';
 import 'import_export_screen.dart';
@@ -46,6 +47,12 @@ class SettingsScreen extends StatelessWidget {
           title: 'Custom Fields',
           icon: Icons.tune_outlined,
           screen: CustomFieldsSettingsScreen(),
+        ),
+      if (permissions.isAdmin || permissions.isManager)
+        const _SettingsRow(
+          title: 'Assignment Targets',
+          icon: Icons.assignment_ind_outlined,
+          screen: AssignmentTargetsScreen(),
         ),
       if (permissions.isAdmin || permissions.isManager)
         const _SettingsRow(

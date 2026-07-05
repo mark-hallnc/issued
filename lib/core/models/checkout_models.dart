@@ -6,6 +6,7 @@ class CheckoutRecord {
     required this.itemId,
     required this.assignedToPersonId,
     required this.assignedToLocationId,
+    required this.assignedToTargetId,
     required this.assignedToText,
     required this.quantity,
     required this.unitOfMeasureId,
@@ -22,6 +23,7 @@ class CheckoutRecord {
   final String itemId;
   final String? assignedToPersonId;
   final String? assignedToLocationId;
+  final String? assignedToTargetId;
   final String? assignedToText;
   final double quantity;
   final String unitOfMeasureId;
@@ -38,6 +40,7 @@ class CheckoutRecord {
     String? itemId,
     String? assignedToPersonId,
     String? assignedToLocationId,
+    String? assignedToTargetId,
     String? assignedToText,
     double? quantity,
     String? unitOfMeasureId,
@@ -54,6 +57,7 @@ class CheckoutRecord {
       itemId: itemId ?? this.itemId,
       assignedToPersonId: assignedToPersonId ?? this.assignedToPersonId,
       assignedToLocationId: assignedToLocationId ?? this.assignedToLocationId,
+      assignedToTargetId: assignedToTargetId ?? this.assignedToTargetId,
       assignedToText: assignedToText ?? this.assignedToText,
       quantity: quantity ?? this.quantity,
       unitOfMeasureId: unitOfMeasureId ?? this.unitOfMeasureId,

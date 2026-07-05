@@ -88,6 +88,8 @@ class InventoryTransactions extends Table {
   TextColumn get fromLocationId => text().nullable()();
   TextColumn get toLocationId => text().nullable()();
   TextColumn get assignedToPersonId => text().nullable()();
+  TextColumn get assignedToTargetId => text().nullable()();
+  TextColumn get assignedToText => text().nullable()();
   TextColumn get performedByUserId => text().nullable()();
   TextColumn get notes => text().nullable()();
   DateTimeColumn get createdAt => dateTime()();
@@ -133,6 +135,7 @@ class CheckoutRecords extends Table {
   TextColumn get itemId => text()();
   TextColumn get assignedToPersonId => text().nullable()();
   TextColumn get assignedToLocationId => text().nullable()();
+  TextColumn get assignedToTargetId => text().nullable()();
   TextColumn get assignedToText => text().nullable()();
   RealColumn get quantity => real()();
   TextColumn get unitOfMeasureId => text()();
@@ -143,6 +146,21 @@ class CheckoutRecords extends Table {
   TextColumn get checkedOutByUserId => text().nullable()();
   TextColumn get returnedByUserId => text().nullable()();
   TextColumn get notes => text().nullable()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
+@DataClassName('AssignmentTargetRecord')
+class AssignmentTargets extends Table {
+  TextColumn get id => text()();
+  TextColumn get name => text()();
+  TextColumn get targetType => text()();
+  TextColumn get description => text().nullable()();
+  TextColumn get locationId => text().nullable()();
+  BoolColumn get isActive => boolean()();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
 
   @override
   Set<Column<Object>> get primaryKey => {id};

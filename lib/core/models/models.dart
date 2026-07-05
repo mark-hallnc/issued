@@ -1,3 +1,4 @@
+export 'assignment_target_models.dart';
 export 'checkout_models.dart';
 export 'company_models.dart';
 export 'custom_field_models.dart';

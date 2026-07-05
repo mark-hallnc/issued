@@ -18,6 +18,7 @@ enum _ReportKind {
   checkedOut,
   usageByItem,
   usageByPerson,
+  usageByAssignmentTarget,
   lostDamaged,
   reorderStatus,
   cycleCountVariance,
@@ -82,6 +83,14 @@ class ReportsScreen extends StatelessWidget {
             icon: Icons.group_outlined,
             locked: !advancedEnabled,
             onTap: () => _openReport(context, _ReportKind.usageByPerson),
+          ),
+          _ReportCard(
+            title: 'Usage by Assignment Target',
+            subtitle: 'Jobs, trucks, departments, and job boxes',
+            icon: Icons.assignment_ind_outlined,
+            locked: !advancedEnabled,
+            onTap: () =>
+                _openReport(context, _ReportKind.usageByAssignmentTarget),
           ),
           _ReportCard(
             title: 'Lost/Damaged',
@@ -158,6 +167,7 @@ class _ReportDetailScreenState extends State<_ReportDetailScreen> {
       _ReportKind.checkedOut => _checkedOut(store),
       _ReportKind.usageByItem => _usageByItem(store),
       _ReportKind.usageByPerson => _usageByPerson(store),
+      _ReportKind.usageByAssignmentTarget => _usageByAssignmentTarget(store),
       _ReportKind.lostDamaged => _lostDamaged(store),
       _ReportKind.reorderStatus => _reorderStatus(store),
       _ReportKind.cycleCountVariance => _cycleCountVariance(store),
@@ -289,6 +299,7 @@ class _ReportDetailScreenState extends State<_ReportDetailScreen> {
     final overdue = store.overdueCheckoutRecords;
     final byPerson = <String, int>{};
     final byLocation = <String, int>{};
+    final byTarget = <String, int>{};
     for (final record in open) {
       final person = store.resolvePersonName(record.assignedToPersonId);
       if (person != null) {
@@ -297,6 +308,12 @@ class _ReportDetailScreenState extends State<_ReportDetailScreen> {
       final location = store.resolveLocationName(record.assignedToLocationId);
       if (location != null) {
         byLocation[location] = (byLocation[location] ?? 0) + 1;
+      }
+      final target = store.resolveAssignmentTargetName(
+        record.assignedToTargetId,
+      );
+      if (target != null) {
+        byTarget[target] = (byTarget[target] ?? 0) + 1;
       }
     }
 
@@ -334,6 +351,16 @@ class _ReportDetailScreenState extends State<_ReportDetailScreen> {
           _Metric('Open checkouts', '${open.length}'),
           _Metric('Overdue', '${overdue.length}'),
         ],
+      ),
+      const SizedBox(height: 12),
+      _SectionCard(
+        title: 'By Target',
+        children: byTarget.isEmpty
+            ? const [Text('No target-assigned checkouts.')]
+            : [
+                for (final entry in byTarget.entries)
+                  _SimpleRow(entry.key, '${entry.value}'),
+              ],
       ),
       const SizedBox(height: 12),
       _SectionCard(
@@ -411,6 +438,38 @@ class _ReportDetailScreenState extends State<_ReportDetailScreen> {
           _ReportListCard(
             title: store.resolvePersonName(row.personId) ?? 'Unknown',
             lines: [
+              'Transactions: ${row.transactionCount}',
+              'Total quantity: ${_quantity(row.quantity)}',
+              if (row.topItemIds.isNotEmpty)
+                'Top items: ${row.topItemIds.map(store.resolveItemName).join(', ')}',
+            ],
+          ),
+          const SizedBox(height: 10),
+        ],
+    ];
+  }
+
+  List<Widget> _usageByAssignmentTarget(AppStore store) {
+    final rows = store.getUsageByAssignmentTarget(_rangeStart());
+    return [
+      _UsageRangeChips(
+        selected: _usageRange,
+        onSelected: (range) => setState(() => _usageRange = range),
+      ),
+      const SizedBox(height: 12),
+      if (rows.isEmpty)
+        const _MessageCard(message: 'No target-assigned activity yet.')
+      else
+        for (final row in rows) ...[
+          _ReportListCard(
+            title:
+                store.resolveAssignmentTargetName(row.targetId) ??
+                'Unknown target',
+            lines: [
+              if (store.assignmentTargetById(row.targetId) != null)
+                assignmentTargetTypeLabel(
+                  store.assignmentTargetById(row.targetId)!.targetType,
+                ),
               'Transactions: ${row.transactionCount}',
               'Total quantity: ${_quantity(row.quantity)}',
               if (row.topItemIds.isNotEmpty)
@@ -839,17 +898,38 @@ String _lowStockCsv(AppStore store, List<Item> items) {
 
 String _checkedOutCsv(AppStore store, List<CheckoutRecord> records) {
   return const CsvEncoder().convert([
-    ['item', 'quantity', 'uom', 'assigned_person', 'due_at', 'notes'],
+    [
+      'item',
+      'quantity',
+      'uom',
+      'assigned_person',
+      'assigned_target',
+      'assigned_target_type',
+      'assigned_text',
+      'due_at',
+      'notes',
+    ],
     for (final record in records)
       [
         store.resolveItemName(record.itemId),
         record.quantity,
         store.resolveUomAbbreviation(record.unitOfMeasureId),
         store.resolvePersonName(record.assignedToPersonId) ?? '',
+        store.resolveAssignmentTargetName(record.assignedToTargetId) ?? '',
+        _assignmentTargetTypeLabel(store, record.assignedToTargetId),
+        record.assignedToText ?? '',
         record.dueAt?.toIso8601String() ?? '',
         record.notes ?? '',
       ],
   ]);
+}
+
+String _assignmentTargetTypeLabel(AppStore store, String? targetId) {
+  if (targetId == null) {
+    return '';
+  }
+  final target = store.assignmentTargetById(targetId);
+  return target == null ? '' : assignmentTargetTypeLabel(target.targetType);
 }
 
 String _usageByItemCsv(AppStore store, List<UsageByItemRow> rows) {
@@ -870,6 +950,7 @@ bool _isAdvanced(_ReportKind kind) {
     _ReportKind.inventoryValue ||
     _ReportKind.usageByItem ||
     _ReportKind.usageByPerson ||
+    _ReportKind.usageByAssignmentTarget ||
     _ReportKind.lostDamaged ||
     _ReportKind.cycleCountVariance => true,
     _ => false,
@@ -884,6 +965,7 @@ String _reportTitle(_ReportKind kind) {
     _ReportKind.checkedOut => 'Checked Out & Overdue',
     _ReportKind.usageByItem => 'Usage by Item',
     _ReportKind.usageByPerson => 'Usage by Person',
+    _ReportKind.usageByAssignmentTarget => 'Usage by Assignment Target',
     _ReportKind.lostDamaged => 'Lost/Damaged',
     _ReportKind.reorderStatus => 'Reorder Status',
     _ReportKind.cycleCountVariance => 'Cycle Count Variance',

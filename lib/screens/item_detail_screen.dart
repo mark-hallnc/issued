@@ -592,7 +592,6 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
       return;
     }
 
-    final person = _defaultPerson(store);
     final result = await showDialog<_LocationQuantityResult>(
       context: context,
       builder: (context) => _LocationQuantityDialog(
@@ -603,6 +602,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
         store: store,
         item: _item,
         useStockLocationsOnly: true,
+        allowAssignment: true,
       ),
     );
 
@@ -614,7 +614,9 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
       itemId: _item.id,
       locationId: result.locationId,
       quantity: result.quantity,
-      assignedToPersonId: person?.id,
+      assignedToPersonId: result.assignedToPersonId,
+      assignedToTargetId: result.assignedToTargetId,
+      assignedToText: result.assignedToText,
       notes: result.notes,
     );
     if (!issued) {
@@ -650,6 +652,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
       sourceLocationId: result.sourceLocationId,
       assignedToPersonId: result.assignedToPersonId,
       assignedToLocationId: result.assignedToLocationId,
+      assignedToTargetId: result.assignedToTargetId,
       assignedToText: result.assignedToText,
       dueAt: result.dueAt,
       notes: result.notes,
@@ -1005,10 +1008,6 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     return null;
   }
 
-  Person? _defaultPerson(AppStore store) {
-    return store.people.isEmpty ? null : store.people.last;
-  }
-
   UnitOfMeasure? _unitById(AppStore store, String unitId) {
     for (final unit in store.unitsOfMeasure) {
       if (unit.id == unitId) {
@@ -1272,6 +1271,7 @@ class _CheckoutDialogResult {
     required this.sourceLocationId,
     required this.assignedToPersonId,
     required this.assignedToLocationId,
+    required this.assignedToTargetId,
     required this.assignedToText,
     required this.dueAt,
     required this.notes,
@@ -1281,6 +1281,7 @@ class _CheckoutDialogResult {
   final String sourceLocationId;
   final String? assignedToPersonId;
   final String? assignedToLocationId;
+  final String? assignedToTargetId;
   final String? assignedToText;
   final DateTime? dueAt;
   final String? notes;
@@ -1306,8 +1307,7 @@ class _CheckoutDialogState extends State<_CheckoutDialog> {
   late final TextEditingController _quantityController;
   late final TextEditingController _assignedTextController;
   late final TextEditingController _notesController;
-  String? _assignedToPersonId;
-  String? _assignedToLocationId;
+  AssignableDestination? _assignedDestination;
   String? _sourceLocationId;
   DateTime? _dueAt;
 
@@ -1331,10 +1331,6 @@ class _CheckoutDialogState extends State<_CheckoutDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final people = widget.store.people.where((person) => person.isActive);
-    final locations = widget.store.locations.where(
-      (location) => location.isActive,
-    );
     final sourceLocations = widget.store
         .itemBalancesForItem(widget.item.id)
         .where((balance) => balance.quantityOnHand > 0)
@@ -1393,46 +1389,26 @@ class _CheckoutDialogState extends State<_CheckoutDialog> {
                       value == null ? 'Choose a source location.' : null,
                 ),
               const SizedBox(height: 12),
-              DropdownButtonFormField<String?>(
-                initialValue: _assignedToPersonId,
-                decoration: const InputDecoration(labelText: 'Assigned person'),
+              DropdownButtonFormField<AssignableDestination?>(
+                initialValue: _assignedDestination,
+                decoration: const InputDecoration(labelText: 'Assign To'),
                 items: [
-                  const DropdownMenuItem<String?>(
+                  const DropdownMenuItem<AssignableDestination?>(
                     value: null,
-                    child: Text('No person'),
+                    child: Text('No assignment'),
                   ),
-                  for (final person in people)
-                    DropdownMenuItem<String?>(
-                      value: person.id,
-                      child: Text(person.displayName),
+                  for (final destination
+                      in widget.store.getAssignableDestinations())
+                    DropdownMenuItem<AssignableDestination?>(
+                      value: destination,
+                      child: Text(
+                        '${destination.displayName} (${destination.subtitle ?? 'Target'})',
+                      ),
                     ),
                 ],
                 onChanged: (value) {
                   setState(() {
-                    _assignedToPersonId = value;
-                  });
-                },
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String?>(
-                initialValue: _assignedToLocationId,
-                decoration: const InputDecoration(
-                  labelText: 'Assigned location',
-                ),
-                items: [
-                  const DropdownMenuItem<String?>(
-                    value: null,
-                    child: Text('No location'),
-                  ),
-                  for (final location in locations)
-                    DropdownMenuItem<String?>(
-                      value: location.id,
-                      child: Text(location.name),
-                    ),
-                ],
-                onChanged: (value) {
-                  setState(() {
-                    _assignedToLocationId = value;
+                    _assignedDestination = value;
                   });
                 },
               ),
@@ -1440,7 +1416,7 @@ class _CheckoutDialogState extends State<_CheckoutDialog> {
               TextFormField(
                 controller: _assignedTextController,
                 decoration: const InputDecoration(
-                  labelText: 'Job, truck, or other assignment',
+                  labelText: 'Other assignment optional',
                 ),
               ),
               const SizedBox(height: 12),
@@ -1504,8 +1480,19 @@ class _CheckoutDialogState extends State<_CheckoutDialog> {
       _CheckoutDialogResult(
         quantity: double.parse(_quantityController.text.trim()),
         sourceLocationId: _sourceLocationId!,
-        assignedToPersonId: _assignedToPersonId,
-        assignedToLocationId: _assignedToLocationId,
+        assignedToPersonId:
+            _assignedDestination?.type == AssignableDestinationType.person
+            ? _assignedDestination?.id
+            : null,
+        assignedToLocationId:
+            _assignedDestination?.type == AssignableDestinationType.location
+            ? _assignedDestination?.id
+            : null,
+        assignedToTargetId:
+            _assignedDestination?.type ==
+                AssignableDestinationType.assignmentTarget
+            ? _assignedDestination?.id
+            : null,
         assignedToText: assignedText.isEmpty ? null : assignedText,
         dueAt: _dueAt,
         notes: notes.isEmpty ? null : notes,
@@ -1623,11 +1610,17 @@ class _LocationQuantityResult {
   const _LocationQuantityResult({
     required this.locationId,
     required this.quantity,
+    required this.assignedToPersonId,
+    required this.assignedToTargetId,
+    required this.assignedToText,
     required this.notes,
   });
 
   final String locationId;
   final double quantity;
+  final String? assignedToPersonId;
+  final String? assignedToTargetId;
+  final String? assignedToText;
   final String? notes;
 }
 
@@ -1641,6 +1634,7 @@ class _LocationQuantityDialog extends StatefulWidget {
     this.initialLocationId,
     this.useStockLocationsOnly = false,
     this.allowPurchaseMode = false,
+    this.allowAssignment = false,
   });
 
   final String title;
@@ -1651,6 +1645,7 @@ class _LocationQuantityDialog extends StatefulWidget {
   final String? initialLocationId;
   final bool useStockLocationsOnly;
   final bool allowPurchaseMode;
+  final bool allowAssignment;
 
   @override
   State<_LocationQuantityDialog> createState() =>
@@ -1660,8 +1655,10 @@ class _LocationQuantityDialog extends StatefulWidget {
 class _LocationQuantityDialogState extends State<_LocationQuantityDialog> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _quantityController;
+  late final TextEditingController _assignedTextController;
   late final TextEditingController _notesController;
   String? _locationId;
+  AssignableDestination? _assignedDestination;
   bool? _receiveByPurchase;
 
   @override
@@ -1670,12 +1667,14 @@ class _LocationQuantityDialogState extends State<_LocationQuantityDialog> {
     _quantityController = TextEditingController(
       text: _formatQuantity(widget.initialQuantity),
     );
+    _assignedTextController = TextEditingController();
     _notesController = TextEditingController();
   }
 
   @override
   void dispose() {
     _quantityController.dispose();
+    _assignedTextController.dispose();
     _notesController.dispose();
     super.dispose();
   }
@@ -1770,6 +1769,37 @@ class _LocationQuantityDialogState extends State<_LocationQuantityDialog> {
                   child: Text(_receivePreview()),
                 ),
               ],
+              if (widget.allowAssignment) ...[
+                const SizedBox(height: 12),
+                DropdownButtonFormField<AssignableDestination?>(
+                  initialValue: _assignedDestination,
+                  decoration: const InputDecoration(labelText: 'Assign To'),
+                  items: [
+                    const DropdownMenuItem<AssignableDestination?>(
+                      value: null,
+                      child: Text('No assignment'),
+                    ),
+                    for (final destination
+                        in widget.store.getAssignableDestinations())
+                      DropdownMenuItem<AssignableDestination?>(
+                        value: destination,
+                        child: Text(
+                          '${destination.displayName} (${destination.subtitle ?? 'Target'})',
+                        ),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    setState(() => _assignedDestination = value);
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _assignedTextController,
+                  decoration: const InputDecoration(
+                    labelText: 'Other assignment optional',
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
               TextFormField(
                 controller: _notesController,
@@ -1854,9 +1884,29 @@ class _LocationQuantityDialogState extends State<_LocationQuantityDialog> {
       _LocationQuantityResult(
         locationId: _locationId!,
         quantity: _stockQuantity(),
+        assignedToPersonId:
+            _assignedDestination?.type == AssignableDestinationType.person
+            ? _assignedDestination?.id
+            : null,
+        assignedToTargetId:
+            _assignedDestination?.type ==
+                AssignableDestinationType.assignmentTarget
+            ? _assignedDestination?.id
+            : null,
+        assignedToText: _assignmentText(),
         notes: _combinedNotes(),
       ),
     );
+  }
+
+  String? _assignmentText() {
+    final freeText = _emptyToNull(_assignedTextController.text);
+    final destination = _assignedDestination;
+    if (destination?.type == AssignableDestinationType.location) {
+      final locationText = 'Location: ${destination!.displayName}';
+      return freeText == null ? locationText : '$locationText / $freeText';
+    }
+    return freeText;
   }
 
   String _quantityLabel(bool canUsePurchase) {
@@ -2752,6 +2802,11 @@ String _assignedToText(AppStore store, CheckoutRecord record) {
   final locationId = record.assignedToLocationId;
   if (locationId != null) {
     parts.add(_locationNameById(store, locationId) ?? 'Unknown location');
+  }
+
+  final targetId = record.assignedToTargetId;
+  if (targetId != null) {
+    parts.add(store.resolveAssignmentTargetName(targetId) ?? 'Unknown target');
   }
 
   final assignedText = record.assignedToText?.trim();
