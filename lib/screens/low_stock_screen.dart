@@ -218,6 +218,8 @@ class _LowStockItemCard extends StatelessWidget {
             Text(
               'Suggested reorder: ${_formatQuantity(suggestedQuantity)} ${unit?.abbreviation ?? ''}',
             ),
+            if (_purchaseEquivalentText(store, item, suggestedQuantity) != null)
+              Text(_purchaseEquivalentText(store, item, suggestedQuantity)!),
             if (activeReorder != null) ...[
               const SizedBox(height: 8),
               Chip(label: Text(reorderStatusLabel(activeReorder.status))),
@@ -285,6 +287,16 @@ class _ReorderRequestCard extends StatelessWidget {
             Text(
               'Quantity: ${_formatQuantity(request.requestedQuantity)} ${unit?.abbreviation ?? ''}',
             ),
+            if (item != null &&
+                _purchaseEquivalentText(store, item, request.requestedQuantity) !=
+                    null)
+              Text(
+                _purchaseEquivalentText(
+                  store,
+                  item,
+                  request.requestedQuantity,
+                )!,
+              ),
             if ((request.supplier ?? '').trim().isNotEmpty)
               Text('Supplier: ${request.supplier}'),
             Text('Status: ${reorderStatusLabel(request.status)}'),
@@ -434,6 +446,8 @@ Future<void> _showReceiveDialog(
     title: 'Receive Reorder',
     quantityLabel: 'Received quantity',
     initialQuantity: request.requestedQuantity,
+    item: store.itemById(request.itemId),
+    allowPurchaseMode: true,
   );
   if (result == null || !context.mounted) {
     return;
@@ -455,69 +469,144 @@ Future<_QuantityNotesResult?> _showQuantityNotesDialog(
   required String title,
   required String quantityLabel,
   required double initialQuantity,
+  Item? item,
+  bool allowPurchaseMode = false,
 }) {
+  final store = AppStoreScope.of(context);
+  final canUsePurchase =
+      allowPurchaseMode && item != null && store.hasPurchaseConversion(item);
+  var receiveByPurchase = canUsePurchase;
+  final initialText = canUsePurchase && item != null
+      ? _formatQuantity(
+          initialQuantity / item.purchaseToStockConversionFactor!,
+        )
+      : _formatQuantity(initialQuantity);
   final formKey = GlobalKey<FormState>();
-  final quantityController = TextEditingController(
-    text: _formatQuantity(initialQuantity),
-  );
+  final quantityController = TextEditingController(text: initialText);
   final notesController = TextEditingController();
 
   return showDialog<_QuantityNotesResult>(
     context: context,
     builder: (context) {
-      return AlertDialog(
-        title: Text(title),
-        content: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: quantityController,
-                decoration: InputDecoration(labelText: quantityLabel),
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                validator: (value) {
-                  final quantity = double.tryParse(value?.trim() ?? '');
-                  if (quantity == null || quantity <= 0) {
-                    return 'Enter a quantity greater than 0.';
+      return StatefulBuilder(
+        builder: (context, setDialogState) {
+          double enteredQuantity() {
+            return double.tryParse(quantityController.text.trim()) ?? 0;
+          }
+
+          double stockQuantity() {
+            if (receiveByPurchase && item != null) {
+              return store.convertPurchaseToStock(item, enteredQuantity());
+            }
+            return enteredQuantity();
+          }
+
+          String? combinedNotes() {
+            final notes = notesController.text.trim();
+            if (!receiveByPurchase || item == null) {
+              return notes.isEmpty ? null : notes;
+            }
+            final conversionNote =
+                'Received ${store.formatPurchaseQuantity(item, enteredQuantity())} = ${store.formatStockQuantity(item, stockQuantity())}.';
+            return notes.isEmpty ? conversionNote : '$conversionNote $notes';
+          }
+
+          return AlertDialog(
+            title: Text(title),
+            content: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: quantityController,
+                    decoration: InputDecoration(
+                      labelText: receiveByPurchase && item != null
+                          ? 'Received quantity (${store.getPurchaseUom(item)?.abbreviation ?? 'purchase UOM'})'
+                          : quantityLabel,
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    validator: (value) {
+                      final quantity = double.tryParse(value?.trim() ?? '');
+                      if (quantity == null || quantity <= 0) {
+                        return 'Enter a quantity greater than 0.';
+                      }
+                      if (receiveByPurchase && item != null) {
+                        return store.validatePurchaseReceiveQuantity(
+                          item,
+                          quantity,
+                        );
+                      }
+                      return null;
+                    },
+                    onChanged: (_) => setDialogState(() {}),
+                  ),
+                  if (canUsePurchase && item != null) ...[
+                    const SizedBox(height: 8),
+                    SegmentedButton<bool>(
+                      segments: [
+                        ButtonSegment<bool>(
+                          value: false,
+                          label: Text(
+                            'Receive by ${store.getStockUom(item)?.abbreviation ?? 'stock'}',
+                          ),
+                        ),
+                        ButtonSegment<bool>(
+                          value: true,
+                          label: Text(
+                            'Receive by ${store.getPurchaseUom(item)?.abbreviation ?? 'purchase'}',
+                          ),
+                        ),
+                      ],
+                      selected: {receiveByPurchase},
+                      onSelectionChanged: (selection) {
+                        setDialogState(() {
+                          receiveByPurchase = selection.first;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'This will add ${store.formatStockQuantity(item, stockQuantity())}.',
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: notesController,
+                    decoration: const InputDecoration(labelText: 'Notes'),
+                    maxLines: 2,
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  if (!formKey.currentState!.validate()) {
+                    return;
                   }
 
-                  return null;
+                  Navigator.of(context).pop(
+                    _QuantityNotesResult(
+                      quantity: stockQuantity(),
+                      notes: combinedNotes(),
+                    ),
+                  );
                 },
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: notesController,
-                decoration: const InputDecoration(labelText: 'Notes'),
-                maxLines: 2,
+                child: const Text('Save'),
               ),
             ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              if (!formKey.currentState!.validate()) {
-                return;
-              }
-
-              final notes = notesController.text.trim();
-              Navigator.of(context).pop(
-                _QuantityNotesResult(
-                  quantity: double.parse(quantityController.text.trim()),
-                  notes: notes.isEmpty ? null : notes,
-                ),
-              );
-            },
-            child: const Text('Save'),
-          ),
-        ],
+          );
+        },
       );
     },
   ).whenComplete(() {
@@ -560,6 +649,15 @@ void _openReorderList(BuildContext context) {
   Navigator.of(context).push(
     MaterialPageRoute<void>(builder: (context) => const ReorderListScreen()),
   );
+}
+
+String? _purchaseEquivalentText(AppStore store, Item item, double stockQuantity) {
+  if (!store.hasPurchaseConversion(item)) {
+    return null;
+  }
+  final factor = item.purchaseToStockConversionFactor!;
+  final purchaseQuantity = stockQuantity / factor;
+  return 'Equivalent: ${store.formatPurchaseQuantity(item, purchaseQuantity)}';
 }
 
 void _openItem(BuildContext context, Item item) {

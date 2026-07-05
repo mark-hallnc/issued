@@ -23,6 +23,9 @@ class Item {
     required this.quantityOnHand,
     required this.minimumQuantity,
     required this.unitOfMeasureId,
+    required this.purchaseUnitOfMeasureId,
+    required this.purchaseToStockConversionFactor,
+    required this.purchaseUnitLabel,
     required this.barcode,
     required this.sku,
     required this.supplier,
@@ -43,6 +46,9 @@ class Item {
   final double quantityOnHand;
   final double minimumQuantity;
   final String unitOfMeasureId;
+  final String? purchaseUnitOfMeasureId;
+  final double? purchaseToStockConversionFactor;
+  final String? purchaseUnitLabel;
   final String? barcode;
   final String? sku;
   final String? supplier;
@@ -63,6 +69,12 @@ class Item {
     double? quantityOnHand,
     double? minimumQuantity,
     String? unitOfMeasureId,
+    String? purchaseUnitOfMeasureId,
+    double? purchaseToStockConversionFactor,
+    String? purchaseUnitLabel,
+    bool clearPurchaseUnitOfMeasureId = false,
+    bool clearPurchaseToStockConversionFactor = false,
+    bool clearPurchaseUnitLabel = false,
     String? barcode,
     String? sku,
     String? supplier,
@@ -84,6 +96,16 @@ class Item {
       quantityOnHand: quantityOnHand ?? this.quantityOnHand,
       minimumQuantity: minimumQuantity ?? this.minimumQuantity,
       unitOfMeasureId: unitOfMeasureId ?? this.unitOfMeasureId,
+      purchaseUnitOfMeasureId: clearPurchaseUnitOfMeasureId
+          ? null
+          : purchaseUnitOfMeasureId ?? this.purchaseUnitOfMeasureId,
+      purchaseToStockConversionFactor: clearPurchaseToStockConversionFactor
+          ? null
+          : purchaseToStockConversionFactor ??
+              this.purchaseToStockConversionFactor,
+      purchaseUnitLabel: clearPurchaseUnitLabel
+          ? null
+          : purchaseUnitLabel ?? this.purchaseUnitLabel,
       barcode: barcode ?? this.barcode,
       sku: sku ?? this.sku,
       supplier: supplier ?? this.supplier,

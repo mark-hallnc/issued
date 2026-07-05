@@ -88,6 +88,9 @@ String buildItemsCsv(AppStore store, {required bool includeArchived}) {
       'minimum_quantity',
       'unit_of_measure',
       'unit_of_measure_abbreviation',
+      'purchase_unit_of_measure',
+      'purchase_unit_of_measure_abbreviation',
+      'purchase_to_stock_conversion_factor',
       'location',
       'location_balances',
       'barcode',
@@ -109,6 +112,7 @@ String buildItemsCsv(AppStore store, {required bool includeArchived}) {
     }
 
     final unit = _unitById(store, item.unitOfMeasureId);
+    final purchaseUnit = _unitById(store, item.purchaseUnitOfMeasureId);
     final location = _locationById(store, item.locationId);
     rows.add([
       item.id,
@@ -120,6 +124,9 @@ String buildItemsCsv(AppStore store, {required bool includeArchived}) {
       item.minimumQuantity,
       unit?.name ?? '',
       unit?.abbreviation ?? '',
+      purchaseUnit?.name ?? '',
+      purchaseUnit?.abbreviation ?? '',
+      item.purchaseToStockConversionFactor ?? '',
       location?.name ?? '',
       _locationBalancesText(store, item, unit),
       item.barcode ?? '',

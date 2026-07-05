@@ -1288,6 +1288,77 @@ class AppStore extends ChangeNotifier {
     return _unitById(uomId)?.abbreviation ?? '';
   }
 
+  UnitOfMeasure? getStockUom(Item item) {
+    return _unitById(item.unitOfMeasureId);
+  }
+
+  UnitOfMeasure? getPurchaseUom(Item item) {
+    final purchaseUomId = item.purchaseUnitOfMeasureId;
+    if (purchaseUomId == null || purchaseUomId.trim().isEmpty) {
+      return null;
+    }
+    return _unitById(purchaseUomId);
+  }
+
+  bool hasPurchaseConversion(Item item) {
+    final purchaseUom = getPurchaseUom(item);
+    final factor = item.purchaseToStockConversionFactor;
+    return purchaseUom != null &&
+        purchaseUom.id != item.unitOfMeasureId &&
+        factor != null &&
+        factor > 0;
+  }
+
+  double convertPurchaseToStock(Item item, double purchaseQuantity) {
+    final factor = item.purchaseToStockConversionFactor;
+    if (!hasPurchaseConversion(item) || factor == null) {
+      return purchaseQuantity;
+    }
+    return purchaseQuantity * factor;
+  }
+
+  String formatStockQuantity(Item item, double quantity) {
+    final unit = getStockUom(item);
+    return '${_formatQuantity(quantity)} ${unit?.abbreviation ?? ''}'.trim();
+  }
+
+  String formatPurchaseQuantity(Item item, double quantity) {
+    final unit = getPurchaseUom(item);
+    return '${_formatQuantity(quantity)} ${unit?.abbreviation ?? item.purchaseUnitLabel ?? ''}'
+        .trim();
+  }
+
+  String? validatePurchaseReceiveQuantity(Item item, double purchaseQuantity) {
+    if (purchaseQuantity <= 0) {
+      return 'Enter a quantity greater than 0.';
+    }
+    final purchaseUom = getPurchaseUom(item);
+    if (purchaseUom != null &&
+        !purchaseUom.allowsDecimal &&
+        purchaseQuantity != purchaseQuantity.roundToDouble()) {
+      return 'Purchase quantity must be a whole number.';
+    }
+    final stockQuantity = convertPurchaseToStock(item, purchaseQuantity);
+    final stockUom = getStockUom(item);
+    if (!item.allowFractionalQuantity &&
+        stockUom?.allowsDecimal != true &&
+        stockQuantity != stockQuantity.roundToDouble()) {
+      return 'Converted stock quantity must be a whole number.';
+    }
+    return null;
+  }
+
+  String? purchaseConversionPreview(Item item) {
+    if (!hasPurchaseConversion(item)) {
+      return null;
+    }
+    final purchaseUom = getPurchaseUom(item);
+    final stockUom = getStockUom(item);
+    final factor = item.purchaseToStockConversionFactor!;
+    return '1 ${purchaseUom?.abbreviation ?? item.purchaseUnitLabel ?? 'purchase unit'} = ${_formatQuantity(factor)} ${stockUom?.abbreviation ?? ''}'
+        .trim();
+  }
+
   String? resolveLocationName(String? locationId) {
     if (locationId == null) {
       return null;
@@ -2430,6 +2501,13 @@ String? _emptyToNull(String? value) {
   }
 
   return trimmedValue;
+}
+
+String _formatQuantity(double quantity) {
+  if (quantity == quantity.roundToDouble()) {
+    return quantity.toStringAsFixed(0);
+  }
+  return quantity.toStringAsFixed(2);
 }
 
 class InventorySummaryReport {

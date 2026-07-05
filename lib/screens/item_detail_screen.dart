@@ -114,6 +114,24 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                         '${_formatQuantity(_item.minimumQuantity)} ${unit?.abbreviation ?? ''}',
                   ),
                   _DetailRow(
+                    label: 'Stocking UOM',
+                    value: unit == null
+                        ? 'Unknown'
+                        : '${unit.name} (${unit.abbreviation})',
+                  ),
+                  if (store.hasPurchaseConversion(_item)) ...[
+                    _DetailRow(
+                      label: 'Purchase UOM',
+                      value:
+                          '${store.getPurchaseUom(_item)?.name ?? 'Unknown'} (${store.getPurchaseUom(_item)?.abbreviation ?? _item.purchaseUnitLabel ?? ''})',
+                    ),
+                    _DetailRow(
+                      label: 'Conversion',
+                      value:
+                          store.purchaseConversionPreview(_item) ?? 'Not set',
+                    ),
+                  ],
+                  _DetailRow(
                     label: 'Location',
                     value: location?.name ?? 'Unknown location',
                   ),
@@ -535,6 +553,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
         quantityLabel: 'Quantity received',
         store: store,
         item: _item,
+        allowPurchaseMode: true,
       ),
     );
 
@@ -1593,6 +1612,7 @@ class _LocationQuantityDialog extends StatefulWidget {
     this.initialQuantity = 1,
     this.initialLocationId,
     this.useStockLocationsOnly = false,
+    this.allowPurchaseMode = false,
   });
 
   final String title;
@@ -1602,6 +1622,7 @@ class _LocationQuantityDialog extends StatefulWidget {
   final double initialQuantity;
   final String? initialLocationId;
   final bool useStockLocationsOnly;
+  final bool allowPurchaseMode;
 
   @override
   State<_LocationQuantityDialog> createState() =>
@@ -1613,6 +1634,7 @@ class _LocationQuantityDialogState extends State<_LocationQuantityDialog> {
   late final TextEditingController _quantityController;
   late final TextEditingController _notesController;
   String? _locationId;
+  bool? _receiveByPurchase;
 
   @override
   void initState() {
@@ -1633,6 +1655,9 @@ class _LocationQuantityDialogState extends State<_LocationQuantityDialog> {
   @override
   Widget build(BuildContext context) {
     final locations = _locationOptions();
+    final canUsePurchase =
+        widget.allowPurchaseMode && widget.store.hasPurchaseConversion(widget.item);
+    _receiveByPurchase ??= canUsePurchase;
     if (locations.isNotEmpty &&
         (_locationId == null ||
             !locations.any((location) => location.id == _locationId))) {
@@ -1677,12 +1702,45 @@ class _LocationQuantityDialogState extends State<_LocationQuantityDialog> {
               const SizedBox(height: 12),
               TextFormField(
                 controller: _quantityController,
-                decoration: InputDecoration(labelText: widget.quantityLabel),
+                decoration: InputDecoration(
+                  labelText: _quantityLabel(canUsePurchase),
+                ),
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
                 validator: _quantityValidator,
+                onChanged: (_) => setState(() {}),
               ),
+              if (canUsePurchase) ...[
+                const SizedBox(height: 8),
+                SegmentedButton<bool>(
+                  segments: [
+                    ButtonSegment<bool>(
+                      value: false,
+                      label: Text(
+                        'Receive by ${widget.store.getStockUom(widget.item)?.abbreviation ?? 'stock'}',
+                      ),
+                    ),
+                    ButtonSegment<bool>(
+                      value: true,
+                      label: Text(
+                        'Receive by ${widget.store.getPurchaseUom(widget.item)?.abbreviation ?? 'purchase'}',
+                      ),
+                    ),
+                  ],
+                  selected: {_receiveByPurchase ?? false},
+                  onSelectionChanged: (selection) {
+                    setState(() {
+                      _receiveByPurchase = selection.first;
+                    });
+                  },
+                ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(_receivePreview()),
+                ),
+              ],
               const SizedBox(height: 12),
               TextFormField(
                 controller: _notesController,
@@ -1749,6 +1807,12 @@ class _LocationQuantityDialogState extends State<_LocationQuantityDialog> {
     if (quantity == null || quantity <= 0) {
       return 'Enter a quantity greater than 0.';
     }
+    if (_receiveByPurchase == true) {
+      return widget.store.validatePurchaseReceiveQuantity(
+        widget.item,
+        quantity,
+      );
+    }
     return null;
   }
 
@@ -1760,10 +1824,50 @@ class _LocationQuantityDialogState extends State<_LocationQuantityDialog> {
     Navigator.of(context).pop(
       _LocationQuantityResult(
         locationId: _locationId!,
-        quantity: double.parse(_quantityController.text.trim()),
-        notes: _emptyToNull(_notesController.text),
+        quantity: _stockQuantity(),
+        notes: _combinedNotes(),
       ),
     );
+  }
+
+  String _quantityLabel(bool canUsePurchase) {
+    if (canUsePurchase && _receiveByPurchase == true) {
+      final unit = widget.store.getPurchaseUom(widget.item);
+      return 'Quantity received (${unit?.abbreviation ?? 'purchase UOM'})';
+    }
+    return widget.quantityLabel;
+  }
+
+  double _enteredQuantity() {
+    return double.tryParse(_quantityController.text.trim()) ?? 0;
+  }
+
+  double _stockQuantity() {
+    final quantity = _enteredQuantity();
+    if (_receiveByPurchase == true) {
+      return widget.store.convertPurchaseToStock(widget.item, quantity);
+    }
+    return quantity;
+  }
+
+  String _receivePreview() {
+    final locationName = widget.store.resolveLocationName(_locationId) ??
+        'selected location';
+    final stockQuantity = _stockQuantity();
+    return 'This will add ${widget.store.formatStockQuantity(widget.item, stockQuantity)} to $locationName.';
+  }
+
+  String? _combinedNotes() {
+    final notes = _emptyToNull(_notesController.text);
+    if (_receiveByPurchase != true) {
+      return notes;
+    }
+    final conversionNote =
+        'Received ${widget.store.formatPurchaseQuantity(widget.item, _enteredQuantity())} = ${widget.store.formatStockQuantity(widget.item, _stockQuantity())}.';
+    if (notes == null) {
+      return conversionNote;
+    }
+    return '$conversionNote $notes';
   }
 }
 

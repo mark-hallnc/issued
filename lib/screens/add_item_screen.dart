@@ -23,6 +23,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
   final _barcodeController = TextEditingController();
   final _supplierController = TextEditingController();
   final _unitCostController = TextEditingController();
+  final _purchaseConversionController = TextEditingController();
   final _notesController = TextEditingController();
   final Map<String, TextEditingController> _customTextControllers = {};
   final Map<String, bool> _customBoolValues = {};
@@ -31,6 +32,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
 
   ItemType _itemType = ItemType.consumable;
   UnitOfMeasure? _selectedUnit;
+  UnitOfMeasure? _selectedPurchaseUnit;
   Location? _selectedLocation;
   bool _allowFractionalQuantity = false;
 
@@ -50,6 +52,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
     _barcodeController.dispose();
     _supplierController.dispose();
     _unitCostController.dispose();
+    _purchaseConversionController.dispose();
     _notesController.dispose();
     for (final controller in _customTextControllers.values) {
       controller.dispose();
@@ -251,6 +254,58 @@ class _AddItemScreenState extends State<AddItemScreen> {
                 });
               },
             ),
+            const SizedBox(height: 8),
+            ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              title: const Text('Purchasing / Receiving'),
+              childrenPadding: const EdgeInsets.only(bottom: 12),
+              children: [
+                DropdownButtonFormField<UnitOfMeasure?>(
+                  initialValue: _selectedPurchaseUnit,
+                  decoration: const InputDecoration(
+                    labelText: 'Purchase UOM',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: [
+                    const DropdownMenuItem<UnitOfMeasure?>(
+                      value: null,
+                      child: Text('No purchase UOM'),
+                    ),
+                    for (final unit in store.unitsOfMeasure)
+                      DropdownMenuItem<UnitOfMeasure?>(
+                        value: unit,
+                        child: Text('${unit.name} (${unit.abbreviation})'),
+                      ),
+                  ],
+                  onChanged: (unit) {
+                    setState(() {
+                      _selectedPurchaseUnit = unit;
+                    });
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _purchaseConversionController,
+                  decoration: const InputDecoration(
+                    labelText: 'Stocking units per purchase unit',
+                    helperText: 'Example: 1 case = 12 each, enter 12.',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  validator: _purchaseConversionValidator,
+                  onChanged: (_) => setState(() {}),
+                ),
+                if (_purchasePreview().isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(_purchasePreview()),
+                  ),
+                ],
+              ],
+            ),
             const SizedBox(height: 4),
             TextFormField(
               controller: _notesController,
@@ -307,6 +362,59 @@ class _AddItemScreenState extends State<AddItemScreen> {
     return null;
   }
 
+  String? _purchaseConversionValidator(String? value) {
+    final purchaseUnit = _selectedPurchaseUnit;
+    if (purchaseUnit == null || purchaseUnit.id == _selectedUnit?.id) {
+      if (value == null || value.trim().isEmpty) {
+        return null;
+      }
+    }
+
+    if (purchaseUnit != null && purchaseUnit.id != _selectedUnit?.id) {
+      if (value == null || value.trim().isEmpty) {
+        return 'Enter a conversion factor.';
+      }
+    }
+
+    final factor = double.tryParse(value?.trim() ?? '');
+    if (factor == null) {
+      return 'Enter a valid number.';
+    }
+    if (factor <= 0) {
+      return 'Enter a number greater than 0.';
+    }
+    return null;
+  }
+
+  String? _normalizedPurchaseUnitId() {
+    if (_selectedPurchaseUnit == null ||
+        _selectedPurchaseUnit!.id == _selectedUnit?.id) {
+      return null;
+    }
+    return _selectedPurchaseUnit!.id;
+  }
+
+  double? _normalizedPurchaseFactor() {
+    if (_normalizedPurchaseUnitId() == null) {
+      return null;
+    }
+    return double.tryParse(_purchaseConversionController.text.trim());
+  }
+
+  String _purchasePreview() {
+    final purchaseUnit = _selectedPurchaseUnit;
+    final stockUnit = _selectedUnit;
+    final factor = double.tryParse(_purchaseConversionController.text.trim());
+    if (purchaseUnit == null ||
+        stockUnit == null ||
+        purchaseUnit.id == stockUnit.id ||
+        factor == null ||
+        factor <= 0) {
+      return '';
+    }
+    return '1 ${purchaseUnit.abbreviation} = ${_formatQuantity(factor)} ${stockUnit.abbreviation}';
+  }
+
   void _saveItem() {
     final store = AppStoreScope.of(context);
     if (!store.permissions.canManageItems) {
@@ -334,6 +442,9 @@ class _AddItemScreenState extends State<AddItemScreen> {
       quantityOnHand: double.parse(_quantityController.text.trim()),
       minimumQuantity: double.parse(_minimumQuantityController.text.trim()),
       unitOfMeasureId: _selectedUnit!.id,
+      purchaseUnitOfMeasureId: _normalizedPurchaseUnitId(),
+      purchaseToStockConversionFactor: _normalizedPurchaseFactor(),
+      purchaseUnitLabel: null,
       barcode: _emptyToNull(_barcodeController.text),
       sku: _emptyToNull(_skuController.text),
       supplier: _emptyToNull(_supplierController.text),
@@ -369,6 +480,9 @@ class _AddItemScreenState extends State<AddItemScreen> {
       quantityOnHand: 0,
       minimumQuantity: 0,
       unitOfMeasureId: _selectedUnit?.id ?? store.unitsOfMeasure.first.id,
+      purchaseUnitOfMeasureId: _normalizedPurchaseUnitId(),
+      purchaseToStockConversionFactor: _normalizedPurchaseFactor(),
+      purchaseUnitLabel: null,
       barcode: null,
       sku: null,
       supplier: null,
@@ -678,4 +792,11 @@ class _CustomFieldsSection extends StatelessWidget {
   String _formatDate(DateTime date) {
     return '${date.month}/${date.day}/${date.year}';
   }
+}
+
+String _formatQuantity(double quantity) {
+  if (quantity == quantity.roundToDouble()) {
+    return quantity.toStringAsFixed(0);
+  }
+  return quantity.toStringAsFixed(2);
 }

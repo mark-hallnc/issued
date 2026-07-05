@@ -103,6 +103,39 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, ItemRecord> {
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _purchaseUnitOfMeasureIdMeta =
+      const VerificationMeta('purchaseUnitOfMeasureId');
+  @override
+  late final GeneratedColumn<String> purchaseUnitOfMeasureId =
+      GeneratedColumn<String>(
+        'purchase_unit_of_measure_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _purchaseToStockConversionFactorMeta =
+      const VerificationMeta('purchaseToStockConversionFactor');
+  @override
+  late final GeneratedColumn<double> purchaseToStockConversionFactor =
+      GeneratedColumn<double>(
+        'purchase_to_stock_conversion_factor',
+        aliasedName,
+        true,
+        type: DriftSqlType.double,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _purchaseUnitLabelMeta =
+      const VerificationMeta('purchaseUnitLabel');
+  @override
+  late final GeneratedColumn<String> purchaseUnitLabel =
+      GeneratedColumn<String>(
+        'purchase_unit_label',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _barcodeMeta = const VerificationMeta(
     'barcode',
   );
@@ -217,6 +250,9 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, ItemRecord> {
     quantityOnHand,
     minimumQuantity,
     unitOfMeasureId,
+    purchaseUnitOfMeasureId,
+    purchaseToStockConversionFactor,
+    purchaseUnitLabel,
     barcode,
     sku,
     supplier,
@@ -319,6 +355,33 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, ItemRecord> {
       );
     } else if (isInserting) {
       context.missing(_unitOfMeasureIdMeta);
+    }
+    if (data.containsKey('purchase_unit_of_measure_id')) {
+      context.handle(
+        _purchaseUnitOfMeasureIdMeta,
+        purchaseUnitOfMeasureId.isAcceptableOrUnknown(
+          data['purchase_unit_of_measure_id']!,
+          _purchaseUnitOfMeasureIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('purchase_to_stock_conversion_factor')) {
+      context.handle(
+        _purchaseToStockConversionFactorMeta,
+        purchaseToStockConversionFactor.isAcceptableOrUnknown(
+          data['purchase_to_stock_conversion_factor']!,
+          _purchaseToStockConversionFactorMeta,
+        ),
+      );
+    }
+    if (data.containsKey('purchase_unit_label')) {
+      context.handle(
+        _purchaseUnitLabelMeta,
+        purchaseUnitLabel.isAcceptableOrUnknown(
+          data['purchase_unit_label']!,
+          _purchaseUnitLabelMeta,
+        ),
+      );
     }
     if (data.containsKey('barcode')) {
       context.handle(
@@ -430,6 +493,18 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, ItemRecord> {
         DriftSqlType.string,
         data['${effectivePrefix}unit_of_measure_id'],
       )!,
+      purchaseUnitOfMeasureId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}purchase_unit_of_measure_id'],
+      ),
+      purchaseToStockConversionFactor: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}purchase_to_stock_conversion_factor'],
+      ),
+      purchaseUnitLabel: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}purchase_unit_label'],
+      ),
       barcode: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}barcode'],
@@ -485,6 +560,9 @@ class ItemRecord extends DataClass implements Insertable<ItemRecord> {
   final double quantityOnHand;
   final double minimumQuantity;
   final String unitOfMeasureId;
+  final String? purchaseUnitOfMeasureId;
+  final double? purchaseToStockConversionFactor;
+  final String? purchaseUnitLabel;
   final String? barcode;
   final String? sku;
   final String? supplier;
@@ -504,6 +582,9 @@ class ItemRecord extends DataClass implements Insertable<ItemRecord> {
     required this.quantityOnHand,
     required this.minimumQuantity,
     required this.unitOfMeasureId,
+    this.purchaseUnitOfMeasureId,
+    this.purchaseToStockConversionFactor,
+    this.purchaseUnitLabel,
     this.barcode,
     this.sku,
     this.supplier,
@@ -526,6 +607,19 @@ class ItemRecord extends DataClass implements Insertable<ItemRecord> {
     map['quantity_on_hand'] = Variable<double>(quantityOnHand);
     map['minimum_quantity'] = Variable<double>(minimumQuantity);
     map['unit_of_measure_id'] = Variable<String>(unitOfMeasureId);
+    if (!nullToAbsent || purchaseUnitOfMeasureId != null) {
+      map['purchase_unit_of_measure_id'] = Variable<String>(
+        purchaseUnitOfMeasureId,
+      );
+    }
+    if (!nullToAbsent || purchaseToStockConversionFactor != null) {
+      map['purchase_to_stock_conversion_factor'] = Variable<double>(
+        purchaseToStockConversionFactor,
+      );
+    }
+    if (!nullToAbsent || purchaseUnitLabel != null) {
+      map['purchase_unit_label'] = Variable<String>(purchaseUnitLabel);
+    }
     if (!nullToAbsent || barcode != null) {
       map['barcode'] = Variable<String>(barcode);
     }
@@ -559,6 +653,17 @@ class ItemRecord extends DataClass implements Insertable<ItemRecord> {
       quantityOnHand: Value(quantityOnHand),
       minimumQuantity: Value(minimumQuantity),
       unitOfMeasureId: Value(unitOfMeasureId),
+      purchaseUnitOfMeasureId:
+          purchaseUnitOfMeasureId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(purchaseUnitOfMeasureId),
+      purchaseToStockConversionFactor:
+          purchaseToStockConversionFactor == null && nullToAbsent
+          ? const Value.absent()
+          : Value(purchaseToStockConversionFactor),
+      purchaseUnitLabel: purchaseUnitLabel == null && nullToAbsent
+          ? const Value.absent()
+          : Value(purchaseUnitLabel),
       barcode: barcode == null && nullToAbsent
           ? const Value.absent()
           : Value(barcode),
@@ -594,6 +699,15 @@ class ItemRecord extends DataClass implements Insertable<ItemRecord> {
       quantityOnHand: serializer.fromJson<double>(json['quantityOnHand']),
       minimumQuantity: serializer.fromJson<double>(json['minimumQuantity']),
       unitOfMeasureId: serializer.fromJson<String>(json['unitOfMeasureId']),
+      purchaseUnitOfMeasureId: serializer.fromJson<String?>(
+        json['purchaseUnitOfMeasureId'],
+      ),
+      purchaseToStockConversionFactor: serializer.fromJson<double?>(
+        json['purchaseToStockConversionFactor'],
+      ),
+      purchaseUnitLabel: serializer.fromJson<String?>(
+        json['purchaseUnitLabel'],
+      ),
       barcode: serializer.fromJson<String?>(json['barcode']),
       sku: serializer.fromJson<String?>(json['sku']),
       supplier: serializer.fromJson<String?>(json['supplier']),
@@ -620,6 +734,13 @@ class ItemRecord extends DataClass implements Insertable<ItemRecord> {
       'quantityOnHand': serializer.toJson<double>(quantityOnHand),
       'minimumQuantity': serializer.toJson<double>(minimumQuantity),
       'unitOfMeasureId': serializer.toJson<String>(unitOfMeasureId),
+      'purchaseUnitOfMeasureId': serializer.toJson<String?>(
+        purchaseUnitOfMeasureId,
+      ),
+      'purchaseToStockConversionFactor': serializer.toJson<double?>(
+        purchaseToStockConversionFactor,
+      ),
+      'purchaseUnitLabel': serializer.toJson<String?>(purchaseUnitLabel),
       'barcode': serializer.toJson<String?>(barcode),
       'sku': serializer.toJson<String?>(sku),
       'supplier': serializer.toJson<String?>(supplier),
@@ -644,6 +765,9 @@ class ItemRecord extends DataClass implements Insertable<ItemRecord> {
     double? quantityOnHand,
     double? minimumQuantity,
     String? unitOfMeasureId,
+    Value<String?> purchaseUnitOfMeasureId = const Value.absent(),
+    Value<double?> purchaseToStockConversionFactor = const Value.absent(),
+    Value<String?> purchaseUnitLabel = const Value.absent(),
     Value<String?> barcode = const Value.absent(),
     Value<String?> sku = const Value.absent(),
     Value<String?> supplier = const Value.absent(),
@@ -663,6 +787,15 @@ class ItemRecord extends DataClass implements Insertable<ItemRecord> {
     quantityOnHand: quantityOnHand ?? this.quantityOnHand,
     minimumQuantity: minimumQuantity ?? this.minimumQuantity,
     unitOfMeasureId: unitOfMeasureId ?? this.unitOfMeasureId,
+    purchaseUnitOfMeasureId: purchaseUnitOfMeasureId.present
+        ? purchaseUnitOfMeasureId.value
+        : this.purchaseUnitOfMeasureId,
+    purchaseToStockConversionFactor: purchaseToStockConversionFactor.present
+        ? purchaseToStockConversionFactor.value
+        : this.purchaseToStockConversionFactor,
+    purchaseUnitLabel: purchaseUnitLabel.present
+        ? purchaseUnitLabel.value
+        : this.purchaseUnitLabel,
     barcode: barcode.present ? barcode.value : this.barcode,
     sku: sku.present ? sku.value : this.sku,
     supplier: supplier.present ? supplier.value : this.supplier,
@@ -695,6 +828,16 @@ class ItemRecord extends DataClass implements Insertable<ItemRecord> {
       unitOfMeasureId: data.unitOfMeasureId.present
           ? data.unitOfMeasureId.value
           : this.unitOfMeasureId,
+      purchaseUnitOfMeasureId: data.purchaseUnitOfMeasureId.present
+          ? data.purchaseUnitOfMeasureId.value
+          : this.purchaseUnitOfMeasureId,
+      purchaseToStockConversionFactor:
+          data.purchaseToStockConversionFactor.present
+          ? data.purchaseToStockConversionFactor.value
+          : this.purchaseToStockConversionFactor,
+      purchaseUnitLabel: data.purchaseUnitLabel.present
+          ? data.purchaseUnitLabel.value
+          : this.purchaseUnitLabel,
       barcode: data.barcode.present ? data.barcode.value : this.barcode,
       sku: data.sku.present ? data.sku.value : this.sku,
       supplier: data.supplier.present ? data.supplier.value : this.supplier,
@@ -721,6 +864,11 @@ class ItemRecord extends DataClass implements Insertable<ItemRecord> {
           ..write('quantityOnHand: $quantityOnHand, ')
           ..write('minimumQuantity: $minimumQuantity, ')
           ..write('unitOfMeasureId: $unitOfMeasureId, ')
+          ..write('purchaseUnitOfMeasureId: $purchaseUnitOfMeasureId, ')
+          ..write(
+            'purchaseToStockConversionFactor: $purchaseToStockConversionFactor, ',
+          )
+          ..write('purchaseUnitLabel: $purchaseUnitLabel, ')
           ..write('barcode: $barcode, ')
           ..write('sku: $sku, ')
           ..write('supplier: $supplier, ')
@@ -745,6 +893,9 @@ class ItemRecord extends DataClass implements Insertable<ItemRecord> {
     quantityOnHand,
     minimumQuantity,
     unitOfMeasureId,
+    purchaseUnitOfMeasureId,
+    purchaseToStockConversionFactor,
+    purchaseUnitLabel,
     barcode,
     sku,
     supplier,
@@ -768,6 +919,10 @@ class ItemRecord extends DataClass implements Insertable<ItemRecord> {
           other.quantityOnHand == this.quantityOnHand &&
           other.minimumQuantity == this.minimumQuantity &&
           other.unitOfMeasureId == this.unitOfMeasureId &&
+          other.purchaseUnitOfMeasureId == this.purchaseUnitOfMeasureId &&
+          other.purchaseToStockConversionFactor ==
+              this.purchaseToStockConversionFactor &&
+          other.purchaseUnitLabel == this.purchaseUnitLabel &&
           other.barcode == this.barcode &&
           other.sku == this.sku &&
           other.supplier == this.supplier &&
@@ -789,6 +944,9 @@ class ItemsCompanion extends UpdateCompanion<ItemRecord> {
   final Value<double> quantityOnHand;
   final Value<double> minimumQuantity;
   final Value<String> unitOfMeasureId;
+  final Value<String?> purchaseUnitOfMeasureId;
+  final Value<double?> purchaseToStockConversionFactor;
+  final Value<String?> purchaseUnitLabel;
   final Value<String?> barcode;
   final Value<String?> sku;
   final Value<String?> supplier;
@@ -809,6 +967,9 @@ class ItemsCompanion extends UpdateCompanion<ItemRecord> {
     this.quantityOnHand = const Value.absent(),
     this.minimumQuantity = const Value.absent(),
     this.unitOfMeasureId = const Value.absent(),
+    this.purchaseUnitOfMeasureId = const Value.absent(),
+    this.purchaseToStockConversionFactor = const Value.absent(),
+    this.purchaseUnitLabel = const Value.absent(),
     this.barcode = const Value.absent(),
     this.sku = const Value.absent(),
     this.supplier = const Value.absent(),
@@ -830,6 +991,9 @@ class ItemsCompanion extends UpdateCompanion<ItemRecord> {
     required double quantityOnHand,
     required double minimumQuantity,
     required String unitOfMeasureId,
+    this.purchaseUnitOfMeasureId = const Value.absent(),
+    this.purchaseToStockConversionFactor = const Value.absent(),
+    this.purchaseUnitLabel = const Value.absent(),
     this.barcode = const Value.absent(),
     this.sku = const Value.absent(),
     this.supplier = const Value.absent(),
@@ -863,6 +1027,9 @@ class ItemsCompanion extends UpdateCompanion<ItemRecord> {
     Expression<double>? quantityOnHand,
     Expression<double>? minimumQuantity,
     Expression<String>? unitOfMeasureId,
+    Expression<String>? purchaseUnitOfMeasureId,
+    Expression<double>? purchaseToStockConversionFactor,
+    Expression<String>? purchaseUnitLabel,
     Expression<String>? barcode,
     Expression<String>? sku,
     Expression<String>? supplier,
@@ -884,6 +1051,11 @@ class ItemsCompanion extends UpdateCompanion<ItemRecord> {
       if (quantityOnHand != null) 'quantity_on_hand': quantityOnHand,
       if (minimumQuantity != null) 'minimum_quantity': minimumQuantity,
       if (unitOfMeasureId != null) 'unit_of_measure_id': unitOfMeasureId,
+      if (purchaseUnitOfMeasureId != null)
+        'purchase_unit_of_measure_id': purchaseUnitOfMeasureId,
+      if (purchaseToStockConversionFactor != null)
+        'purchase_to_stock_conversion_factor': purchaseToStockConversionFactor,
+      if (purchaseUnitLabel != null) 'purchase_unit_label': purchaseUnitLabel,
       if (barcode != null) 'barcode': barcode,
       if (sku != null) 'sku': sku,
       if (supplier != null) 'supplier': supplier,
@@ -908,6 +1080,9 @@ class ItemsCompanion extends UpdateCompanion<ItemRecord> {
     Value<double>? quantityOnHand,
     Value<double>? minimumQuantity,
     Value<String>? unitOfMeasureId,
+    Value<String?>? purchaseUnitOfMeasureId,
+    Value<double?>? purchaseToStockConversionFactor,
+    Value<String?>? purchaseUnitLabel,
     Value<String?>? barcode,
     Value<String?>? sku,
     Value<String?>? supplier,
@@ -929,6 +1104,12 @@ class ItemsCompanion extends UpdateCompanion<ItemRecord> {
       quantityOnHand: quantityOnHand ?? this.quantityOnHand,
       minimumQuantity: minimumQuantity ?? this.minimumQuantity,
       unitOfMeasureId: unitOfMeasureId ?? this.unitOfMeasureId,
+      purchaseUnitOfMeasureId:
+          purchaseUnitOfMeasureId ?? this.purchaseUnitOfMeasureId,
+      purchaseToStockConversionFactor:
+          purchaseToStockConversionFactor ??
+          this.purchaseToStockConversionFactor,
+      purchaseUnitLabel: purchaseUnitLabel ?? this.purchaseUnitLabel,
       barcode: barcode ?? this.barcode,
       sku: sku ?? this.sku,
       supplier: supplier ?? this.supplier,
@@ -972,6 +1153,19 @@ class ItemsCompanion extends UpdateCompanion<ItemRecord> {
     }
     if (unitOfMeasureId.present) {
       map['unit_of_measure_id'] = Variable<String>(unitOfMeasureId.value);
+    }
+    if (purchaseUnitOfMeasureId.present) {
+      map['purchase_unit_of_measure_id'] = Variable<String>(
+        purchaseUnitOfMeasureId.value,
+      );
+    }
+    if (purchaseToStockConversionFactor.present) {
+      map['purchase_to_stock_conversion_factor'] = Variable<double>(
+        purchaseToStockConversionFactor.value,
+      );
+    }
+    if (purchaseUnitLabel.present) {
+      map['purchase_unit_label'] = Variable<String>(purchaseUnitLabel.value);
     }
     if (barcode.present) {
       map['barcode'] = Variable<String>(barcode.value);
@@ -1020,6 +1214,11 @@ class ItemsCompanion extends UpdateCompanion<ItemRecord> {
           ..write('quantityOnHand: $quantityOnHand, ')
           ..write('minimumQuantity: $minimumQuantity, ')
           ..write('unitOfMeasureId: $unitOfMeasureId, ')
+          ..write('purchaseUnitOfMeasureId: $purchaseUnitOfMeasureId, ')
+          ..write(
+            'purchaseToStockConversionFactor: $purchaseToStockConversionFactor, ',
+          )
+          ..write('purchaseUnitLabel: $purchaseUnitLabel, ')
           ..write('barcode: $barcode, ')
           ..write('sku: $sku, ')
           ..write('supplier: $supplier, ')
@@ -9045,6 +9244,9 @@ typedef $$ItemsTableCreateCompanionBuilder =
       required double quantityOnHand,
       required double minimumQuantity,
       required String unitOfMeasureId,
+      Value<String?> purchaseUnitOfMeasureId,
+      Value<double?> purchaseToStockConversionFactor,
+      Value<String?> purchaseUnitLabel,
       Value<String?> barcode,
       Value<String?> sku,
       Value<String?> supplier,
@@ -9067,6 +9269,9 @@ typedef $$ItemsTableUpdateCompanionBuilder =
       Value<double> quantityOnHand,
       Value<double> minimumQuantity,
       Value<String> unitOfMeasureId,
+      Value<String?> purchaseUnitOfMeasureId,
+      Value<double?> purchaseToStockConversionFactor,
+      Value<String?> purchaseUnitLabel,
       Value<String?> barcode,
       Value<String?> sku,
       Value<String?> supplier,
@@ -9129,6 +9334,22 @@ class $$ItemsTableFilterComposer extends Composer<_$AppDatabase, $ItemsTable> {
 
   ColumnFilters<String> get unitOfMeasureId => $composableBuilder(
     column: $table.unitOfMeasureId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get purchaseUnitOfMeasureId => $composableBuilder(
+    column: $table.purchaseUnitOfMeasureId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get purchaseToStockConversionFactor =>
+      $composableBuilder(
+        column: $table.purchaseToStockConversionFactor,
+        builder: (column) => ColumnFilters(column),
+      );
+
+  ColumnFilters<String> get purchaseUnitLabel => $composableBuilder(
+    column: $table.purchaseUnitLabel,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -9232,6 +9453,22 @@ class $$ItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get purchaseUnitOfMeasureId => $composableBuilder(
+    column: $table.purchaseUnitOfMeasureId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get purchaseToStockConversionFactor =>
+      $composableBuilder(
+        column: $table.purchaseToStockConversionFactor,
+        builder: (column) => ColumnOrderings(column),
+      );
+
+  ColumnOrderings<String> get purchaseUnitLabel => $composableBuilder(
+    column: $table.purchaseUnitLabel,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get barcode => $composableBuilder(
     column: $table.barcode,
     builder: (column) => ColumnOrderings(column),
@@ -9324,6 +9561,22 @@ class $$ItemsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get purchaseUnitOfMeasureId => $composableBuilder(
+    column: $table.purchaseUnitOfMeasureId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get purchaseToStockConversionFactor =>
+      $composableBuilder(
+        column: $table.purchaseToStockConversionFactor,
+        builder: (column) => column,
+      );
+
+  GeneratedColumn<String> get purchaseUnitLabel => $composableBuilder(
+    column: $table.purchaseUnitLabel,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get barcode =>
       $composableBuilder(column: $table.barcode, builder: (column) => column);
 
@@ -9391,6 +9644,10 @@ class $$ItemsTableTableManager
                 Value<double> quantityOnHand = const Value.absent(),
                 Value<double> minimumQuantity = const Value.absent(),
                 Value<String> unitOfMeasureId = const Value.absent(),
+                Value<String?> purchaseUnitOfMeasureId = const Value.absent(),
+                Value<double?> purchaseToStockConversionFactor =
+                    const Value.absent(),
+                Value<String?> purchaseUnitLabel = const Value.absent(),
                 Value<String?> barcode = const Value.absent(),
                 Value<String?> sku = const Value.absent(),
                 Value<String?> supplier = const Value.absent(),
@@ -9411,6 +9668,10 @@ class $$ItemsTableTableManager
                 quantityOnHand: quantityOnHand,
                 minimumQuantity: minimumQuantity,
                 unitOfMeasureId: unitOfMeasureId,
+                purchaseUnitOfMeasureId: purchaseUnitOfMeasureId,
+                purchaseToStockConversionFactor:
+                    purchaseToStockConversionFactor,
+                purchaseUnitLabel: purchaseUnitLabel,
                 barcode: barcode,
                 sku: sku,
                 supplier: supplier,
@@ -9433,6 +9694,10 @@ class $$ItemsTableTableManager
                 required double quantityOnHand,
                 required double minimumQuantity,
                 required String unitOfMeasureId,
+                Value<String?> purchaseUnitOfMeasureId = const Value.absent(),
+                Value<double?> purchaseToStockConversionFactor =
+                    const Value.absent(),
+                Value<String?> purchaseUnitLabel = const Value.absent(),
                 Value<String?> barcode = const Value.absent(),
                 Value<String?> sku = const Value.absent(),
                 Value<String?> supplier = const Value.absent(),
@@ -9453,6 +9718,10 @@ class $$ItemsTableTableManager
                 quantityOnHand: quantityOnHand,
                 minimumQuantity: minimumQuantity,
                 unitOfMeasureId: unitOfMeasureId,
+                purchaseUnitOfMeasureId: purchaseUnitOfMeasureId,
+                purchaseToStockConversionFactor:
+                    purchaseToStockConversionFactor,
+                purchaseUnitLabel: purchaseUnitLabel,
                 barcode: barcode,
                 sku: sku,
                 supplier: supplier,

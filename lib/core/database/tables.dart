@@ -11,6 +11,9 @@ class Items extends Table {
   RealColumn get quantityOnHand => real()();
   RealColumn get minimumQuantity => real()();
   TextColumn get unitOfMeasureId => text()();
+  TextColumn get purchaseUnitOfMeasureId => text().nullable()();
+  RealColumn get purchaseToStockConversionFactor => real().nullable()();
+  TextColumn get purchaseUnitLabel => text().nullable()();
   TextColumn get barcode => text().nullable()();
   TextColumn get sku => text().nullable()();
   TextColumn get supplier => text().nullable()();
