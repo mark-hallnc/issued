@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/app_store.dart';
 import '../core/models/models.dart';
 import '../core/permissions/app_permissions.dart';
+import 'backup_restore_screen.dart';
 import 'import_export_screen.dart';
 import 'reports_screen.dart';
 import 'settings_detail_screens.dart';
@@ -56,6 +57,12 @@ class SettingsScreen extends StatelessWidget {
         icon: Icons.assessment_outlined,
         screen: ReportsScreen(),
       ),
+      if (permissions.isAdmin || permissions.isManager)
+        const _SettingsRow(
+          title: 'Backup & Restore',
+          icon: Icons.backup_outlined,
+          screen: BackupRestoreScreen(),
+        ),
       if (permissions.canImportExport)
         const _SettingsRow(
           title: 'Import & Export',
