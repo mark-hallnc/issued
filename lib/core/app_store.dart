@@ -1051,7 +1051,8 @@ class AppStore extends ChangeNotifier {
         !_pinHashService.isValidPin(normalizedPin)) {
       return const AppActionResult.failure('PIN must be 4-8 digits.');
     }
-    if (normalizedPin.isNotEmpty && !_pinHashService.isValidPin(normalizedPin)) {
+    if (normalizedPin.isNotEmpty &&
+        !_pinHashService.isValidPin(normalizedPin)) {
       return const AppActionResult.failure('PIN must be 4-8 digits.');
     }
 
@@ -1507,7 +1508,7 @@ class AppStore extends ChangeNotifier {
       await _ensureLocation('Main Stockroom', 'Stockroom', id: 'loc-main');
     }
     if (!_users.any((user) => user.isActive && user.role == UserRole.admin)) {
-      await _ensureAdminUser('Admin User', 'admin@issued.local', now);
+      await _ensureAdminUser('Admin User', 'admin@issued.local', '0000', now);
     }
     await _loadFromDatabase();
     notifyListeners();

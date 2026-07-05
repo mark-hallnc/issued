@@ -498,8 +498,8 @@ class DataHealthService {
 
     final names = <String, List<String>>{};
     for (final user in store.users) {
-      final name = store.resolveUserName(user.id).trim().toLowerCase();
-      if (name.isEmpty) {
+      final name = store.resolveUserName(user.id)?.trim().toLowerCase();
+      if (name == null || name.isEmpty) {
         continue;
       }
       names.putIfAbsent(name, () => []).add(user.id);

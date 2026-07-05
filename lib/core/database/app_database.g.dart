@@ -2510,14 +2510,13 @@ class $AppUsersTable extends AppUsers
     'lastLoginAt',
   );
   @override
-  late final GeneratedColumn<DateTime> lastLoginAt =
-      GeneratedColumn<DateTime>(
-        'last_login_at',
-        aliasedName,
-        true,
-        type: DriftSqlType.dateTime,
-        requiredDuringInsert: false,
-      );
+  late final GeneratedColumn<DateTime> lastLoginAt = GeneratedColumn<DateTime>(
+    'last_login_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2836,19 +2835,18 @@ class AppUserRecord extends DataClass implements Insertable<AppUserRecord> {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(
-        id,
-        personId,
-        email,
-        role,
-        isActive,
-        pinHash,
-        pinSalt,
-        createdAt,
-        updatedAt,
-        lastLoginAt,
-      );
+  int get hashCode => Object.hash(
+    id,
+    personId,
+    email,
+    role,
+    isActive,
+    pinHash,
+    pinSalt,
+    createdAt,
+    updatedAt,
+    lastLoginAt,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||

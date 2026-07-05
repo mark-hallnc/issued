@@ -262,7 +262,7 @@ class UsersRolesSettingsScreen extends StatelessWidget {
     return null;
   }
 
-  Future<void?> _showUserForm(
+  Future<void> _showUserForm(
     BuildContext context,
     AppStore store, {
     AppUser? user,
@@ -292,8 +292,7 @@ class UsersRolesSettingsScreen extends StatelessWidget {
                       TextFormField(
                         controller: nameController,
                         decoration: const InputDecoration(labelText: 'Name'),
-                        validator: (value) =>
-                            (value?.trim().isEmpty ?? true)
+                        validator: (value) => (value?.trim().isEmpty ?? true)
                             ? 'Name is required.'
                             : null,
                       ),
@@ -405,9 +404,7 @@ class UsersRolesSettingsScreen extends StatelessWidget {
                       return;
                     }
                     ScaffoldMessenger.of(dialogContext).showSnackBar(
-                      SnackBar(
-                        content: Text(result.message ?? 'User saved.'),
-                      ),
+                      SnackBar(content: Text(result.message ?? 'User saved.')),
                     );
                     if (result.success) {
                       Navigator.of(dialogContext).pop();
