@@ -475,10 +475,11 @@ Future<_QuantityNotesResult?> _showQuantityNotesDialog(
   final store = AppStoreScope.of(context);
   final canUsePurchase =
       allowPurchaseMode && item != null && store.hasPurchaseConversion(item);
+  final purchaseItem = canUsePurchase ? item! : null;
   var receiveByPurchase = canUsePurchase;
-  final initialText = canUsePurchase && item != null
+  final initialText = purchaseItem != null
       ? _formatQuantity(
-          initialQuantity / item.purchaseToStockConversionFactor!,
+          initialQuantity / purchaseItem.purchaseToStockConversionFactor!,
         )
       : _formatQuantity(initialQuantity);
   final formKey = GlobalKey<FormState>();
@@ -495,19 +496,23 @@ Future<_QuantityNotesResult?> _showQuantityNotesDialog(
           }
 
           double stockQuantity() {
-            if (receiveByPurchase && item != null) {
-              return store.convertPurchaseToStock(item, enteredQuantity());
+            if (receiveByPurchase && purchaseItem != null) {
+              return store.convertPurchaseToStock(
+                purchaseItem,
+                enteredQuantity(),
+              );
             }
             return enteredQuantity();
           }
 
           String? combinedNotes() {
             final notes = notesController.text.trim();
-            if (!receiveByPurchase || item == null) {
+            if (!receiveByPurchase || purchaseItem == null) {
               return notes.isEmpty ? null : notes;
             }
             final conversionNote =
-                'Received ${store.formatPurchaseQuantity(item, enteredQuantity())} = ${store.formatStockQuantity(item, stockQuantity())}.';
+                'Received ${store.formatPurchaseQuantity(purchaseItem, enteredQuantity())} = '
+                '${store.formatStockQuantity(purchaseItem, stockQuantity())}.';
             return notes.isEmpty ? conversionNote : '$conversionNote $notes';
           }
 
@@ -521,8 +526,9 @@ Future<_QuantityNotesResult?> _showQuantityNotesDialog(
                   TextFormField(
                     controller: quantityController,
                     decoration: InputDecoration(
-                      labelText: receiveByPurchase && item != null
-                          ? 'Received quantity (${store.getPurchaseUom(item)?.abbreviation ?? 'purchase UOM'})'
+                      labelText: receiveByPurchase && purchaseItem != null
+                          ? 'Received quantity '
+                                '(${store.getPurchaseUom(purchaseItem)?.abbreviation ?? 'purchase UOM'})'
                           : quantityLabel,
                     ),
                     keyboardType: const TextInputType.numberWithOptions(
@@ -533,9 +539,9 @@ Future<_QuantityNotesResult?> _showQuantityNotesDialog(
                       if (quantity == null || quantity <= 0) {
                         return 'Enter a quantity greater than 0.';
                       }
-                      if (receiveByPurchase && item != null) {
+                      if (receiveByPurchase && purchaseItem != null) {
                         return store.validatePurchaseReceiveQuantity(
-                          item,
+                          purchaseItem,
                           quantity,
                         );
                       }
@@ -543,20 +549,22 @@ Future<_QuantityNotesResult?> _showQuantityNotesDialog(
                     },
                     onChanged: (_) => setDialogState(() {}),
                   ),
-                  if (canUsePurchase && item != null) ...[
+                  if (purchaseItem != null) ...[
                     const SizedBox(height: 8),
                     SegmentedButton<bool>(
                       segments: [
                         ButtonSegment<bool>(
                           value: false,
                           label: Text(
-                            'Receive by ${store.getStockUom(item)?.abbreviation ?? 'stock'}',
+                            'Receive by '
+                            '${store.getStockUom(purchaseItem)?.abbreviation ?? 'stock'}',
                           ),
                         ),
                         ButtonSegment<bool>(
                           value: true,
                           label: Text(
-                            'Receive by ${store.getPurchaseUom(item)?.abbreviation ?? 'purchase'}',
+                            'Receive by '
+                            '${store.getPurchaseUom(purchaseItem)?.abbreviation ?? 'purchase'}',
                           ),
                         ),
                       ],
@@ -571,7 +579,7 @@ Future<_QuantityNotesResult?> _showQuantityNotesDialog(
                     Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        'This will add ${store.formatStockQuantity(item, stockQuantity())}.',
+                        'This will add ${store.formatStockQuantity(purchaseItem, stockQuantity())}.',
                       ),
                     ),
                   ],
