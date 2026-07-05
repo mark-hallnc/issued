@@ -610,13 +610,34 @@ class AppStore extends ChangeNotifier {
     _currentUserId ??= currentUser?.id;
   }
 
-  void addItem(Item item) {
+  AppActionResult addItem(Item item) {
+    if (!permissions.canManageItems) {
+      return AppActionResult.denied();
+    }
+    if (item.isActive && !canAddItem) {
+      return AppActionResult.failure(
+        'Your ${currentPlan.name} plan includes up to ${currentPlan.itemLimit} active items.',
+      );
+    }
     _items.add(item);
     unawaited(_database.upsertItem(item.toCompanion()));
     notifyListeners();
+    return const AppActionResult.success(message: 'Item added.');
   }
 
-  void addItemWithInitialBalance(Item item, String locationId) {
+  AppActionResult addItemWithInitialBalance(
+    Item item,
+    String locationId, {
+    String? initialTransactionNotes,
+  }) {
+    if (!permissions.canManageItems) {
+      return AppActionResult.denied();
+    }
+    if (item.isActive && !canAddItem) {
+      return AppActionResult.failure(
+        'Your ${currentPlan.name} plan includes up to ${currentPlan.itemLimit} active items.',
+      );
+    }
     _items.add(item);
     unawaited(_database.upsertItem(item.toCompanion()));
     final balance = ItemLocationBalance(
@@ -629,20 +650,66 @@ class AppStore extends ChangeNotifier {
     );
     _upsertBalanceInMemory(balance);
     unawaited(_database.upsertItemLocationBalance(balance.toCompanion()));
+    if (item.quantityOnHand > 0) {
+      _appendInventoryTransaction(
+        itemId: item.id,
+        type: InventoryTransactionType.receive,
+        quantityDelta: item.quantityOnHand,
+        toLocationId: locationId,
+        notes: initialTransactionNotes ?? 'Starting quantity',
+      );
+    }
     notifyListeners();
+    return const AppActionResult.success(message: 'Item added.');
   }
 
-  void updateItem(Item item) {
+  AppActionResult updateItem(Item item) {
+    if (!permissions.canManageItems) {
+      return AppActionResult.denied();
+    }
     final itemIndex = _items.indexWhere(
       (storedItem) => storedItem.id == item.id,
     );
     if (itemIndex == -1) {
-      return;
+      return AppActionResult.failure('Item not found.');
     }
 
-    _items[itemIndex] = item;
-    unawaited(_database.upsertItem(item.toCompanion()));
+    final savedItem = item.copyWith(
+      quantityOnHand: _items[itemIndex].quantityOnHand,
+    );
+    _items[itemIndex] = savedItem;
+    unawaited(_database.upsertItem(savedItem.toCompanion()));
     notifyListeners();
+    return const AppActionResult.success(message: 'Item updated.');
+  }
+
+  AppActionResult archiveItem(String itemId) {
+    if (!permissions.canArchiveItems) {
+      return AppActionResult.denied();
+    }
+    final item = _itemById(itemId);
+    if (item == null) {
+      return AppActionResult.failure('Item not found.');
+    }
+    return updateItem(
+      item.copyWith(isActive: false, updatedAt: DateTime.now()),
+    );
+  }
+
+  AppActionResult unarchiveItem(String itemId) {
+    if (!permissions.canArchiveItems) {
+      return AppActionResult.denied();
+    }
+    if (!canAddItem) {
+      return AppActionResult.failure(
+        'Your ${currentPlan.name} plan includes up to ${currentPlan.itemLimit} active items.',
+      );
+    }
+    final item = _itemById(itemId);
+    if (item == null) {
+      return AppActionResult.failure('Item not found.');
+    }
+    return updateItem(item.copyWith(isActive: true, updatedAt: DateTime.now()));
   }
 
   void recordLabelExport() {
@@ -1271,10 +1338,14 @@ class AppStore extends ChangeNotifier {
     });
   }
 
-  void addTransaction(InventoryTransaction transaction) {
+  AppActionResult addTransaction(InventoryTransaction transaction) {
+    if (!permissions.canImportExport && !permissions.canManageItems) {
+      return AppActionResult.denied();
+    }
     _transactions.add(transaction);
     unawaited(_database.upsertTransaction(transaction.toCompanion()));
     notifyListeners();
+    return const AppActionResult.success(message: 'Activity recorded.');
   }
 
   List<ItemLocationBalance> itemBalancesForItem(String itemId) {
@@ -1597,7 +1668,10 @@ class AppStore extends ChangeNotifier {
     return null;
   }
 
-  void setCustomFieldValue(CustomFieldValue value) {
+  AppActionResult setCustomFieldValue(CustomFieldValue value) {
+    if (!permissions.canManageItems && !permissions.canManageSettings) {
+      return AppActionResult.denied();
+    }
     final valueIndex = _customFieldValues.indexWhere(
       (storedValue) => storedValue.id == value.id,
     );
@@ -1608,12 +1682,17 @@ class AppStore extends ChangeNotifier {
     }
     unawaited(_database.upsertCustomFieldValue(value.toCompanion()));
     notifyListeners();
+    return const AppActionResult.success(message: 'Custom field saved.');
   }
 
-  void deleteCustomFieldValue(String valueId) {
+  AppActionResult deleteCustomFieldValue(String valueId) {
+    if (!permissions.canManageItems && !permissions.canManageSettings) {
+      return AppActionResult.denied();
+    }
     _customFieldValues.removeWhere((value) => value.id == valueId);
     unawaited(_database.deleteCustomFieldValueById(valueId));
     notifyListeners();
+    return const AppActionResult.success(message: 'Custom field cleared.');
   }
 
   InventorySummaryReport getInventorySummary() {
@@ -2906,43 +2985,67 @@ class AppStore extends ChangeNotifier {
     };
   }
 
-  void addUnitOfMeasure(UnitOfMeasure unit) {
+  AppActionResult addUnitOfMeasure(UnitOfMeasure unit) {
+    if (!permissions.canManageSettings) {
+      return AppActionResult.denied();
+    }
     _unitsOfMeasure.add(unit);
     unawaited(_database.upsertUnitOfMeasure(unit.toCompanion()));
     notifyListeners();
+    return const AppActionResult.success(message: 'Unit added.');
   }
 
-  void addLocation(Location location) {
+  AppActionResult addLocation(Location location) {
+    if (!permissions.canManageSettings) {
+      return AppActionResult.denied();
+    }
+    if (location.isActive && !canAddLocation) {
+      return AppActionResult.failure(
+        'Your ${currentPlan.name} plan includes up to ${currentPlan.locationLimit} active locations.',
+      );
+    }
     _locations.add(location);
     unawaited(_database.upsertLocation(location.toCompanion()));
     notifyListeners();
+    return const AppActionResult.success(message: 'Location added.');
   }
 
-  void addCustomFieldDefinition(CustomFieldDefinition field) {
+  AppActionResult addCustomFieldDefinition(CustomFieldDefinition field) {
+    if (!permissions.canManageSettings) {
+      return AppActionResult.denied();
+    }
     _customFieldDefinitions.add(field);
     unawaited(_database.upsertCustomFieldDefinition(field.toCompanion()));
     notifyListeners();
+    return const AppActionResult.success(message: 'Custom field added.');
   }
 
-  void updateCustomFieldDefinition(CustomFieldDefinition field) {
+  AppActionResult updateCustomFieldDefinition(CustomFieldDefinition field) {
+    if (!permissions.canManageSettings) {
+      return AppActionResult.denied();
+    }
     final fieldIndex = _customFieldDefinitions.indexWhere(
       (storedField) => storedField.id == field.id,
     );
     if (fieldIndex == -1) {
-      return;
+      return AppActionResult.failure('Custom field not found.');
     }
 
     _customFieldDefinitions[fieldIndex] = field;
     unawaited(_database.upsertCustomFieldDefinition(field.toCompanion()));
     notifyListeners();
+    return const AppActionResult.success(message: 'Custom field updated.');
   }
 
-  void archiveCustomFieldDefinition(String fieldId) {
+  AppActionResult archiveCustomFieldDefinition(String fieldId) {
+    if (!permissions.canManageSettings) {
+      return AppActionResult.denied();
+    }
     final fieldIndex = _customFieldDefinitions.indexWhere(
       (field) => field.id == fieldId,
     );
     if (fieldIndex == -1) {
-      return;
+      return AppActionResult.failure('Custom field not found.');
     }
 
     final archivedField = _customFieldDefinitions[fieldIndex].copyWith(
@@ -2953,6 +3056,7 @@ class AppStore extends ChangeNotifier {
       _database.upsertCustomFieldDefinition(archivedField.toCompanion()),
     );
     notifyListeners();
+    return const AppActionResult.success(message: 'Custom field archived.');
   }
 
   void addCycleCountSession(CycleCountSession session) {
@@ -2993,6 +3097,51 @@ class AppStore extends ChangeNotifier {
     _cycleCountLines[lineIndex] = line;
     unawaited(_database.upsertCycleCountLine(line.toCompanion()));
     notifyListeners();
+  }
+
+  AppActionResult submitCycleCount(
+    String sessionId,
+    List<CycleCountLine> updatedLines,
+  ) {
+    if (!permissions.canPerformInventoryActions) {
+      return AppActionResult.denied();
+    }
+    final sessionIndex = _cycleCountSessions.indexWhere(
+      (session) => session.id == sessionId,
+    );
+    if (sessionIndex == -1) {
+      return AppActionResult.failure('Cycle count not found.');
+    }
+    final session = _cycleCountSessions[sessionIndex];
+    if (session.status == CycleCountStatus.submitted ||
+        session.status == CycleCountStatus.approved) {
+      return AppActionResult.failure('Cycle count cannot be submitted.');
+    }
+
+    for (final line in updatedLines) {
+      final lineIndex = _cycleCountLines.indexWhere(
+        (storedLine) => storedLine.id == line.id,
+      );
+      if (lineIndex == -1) {
+        return AppActionResult.failure('Cycle count line not found.');
+      }
+      _cycleCountLines[lineIndex] = line;
+      unawaited(_database.upsertCycleCountLine(line.toCompanion()));
+    }
+
+    final submittedSession = session.copyWith(
+      status: CycleCountStatus.submitted,
+      submittedAt: DateTime.now(),
+    );
+    _cycleCountSessions[sessionIndex] = submittedSession;
+    unawaited(
+      _database.upsertCycleCountSession(submittedSession.toCompanion()),
+    );
+    notifyListeners();
+    return AppActionResult.success(
+      message: 'Cycle count submitted.',
+      data: submittedSession,
+    );
   }
 
   double getExpectedQuantityForItemAtLocation(
@@ -3287,6 +3436,24 @@ class UsageByAssignmentTargetRow {
   final double quantity;
   final int transactionCount;
   final List<String> topItemIds;
+}
+
+class AppActionResult {
+  const AppActionResult({required this.success, this.message, this.data});
+
+  const AppActionResult.success({this.message, this.data}) : success = true;
+
+  const AppActionResult.failure(this.message, {this.data}) : success = false;
+
+  factory AppActionResult.denied() {
+    return const AppActionResult.failure(
+      'Your current role does not allow this action.',
+    );
+  }
+
+  final bool success;
+  final String? message;
+  final Object? data;
 }
 
 class LostDamagedReportRow {

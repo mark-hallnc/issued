@@ -889,9 +889,12 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     }
 
     if (_item.isActive) {
-      _applyItemUpdate(
-        _item.copyWith(isActive: false, updatedAt: DateTime.now()),
-      );
+      final result = store.archiveItem(_item.id);
+      if (!result.success) {
+        _showMessage(result.message ?? 'Could not archive item.');
+        return;
+      }
+      _syncCurrentItem(store);
       return;
     }
 
@@ -920,12 +923,21 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
       return;
     }
 
-    _applyItemUpdate(_item.copyWith(isActive: true, updatedAt: DateTime.now()));
+    final result = store.unarchiveItem(_item.id);
+    if (!result.success) {
+      _showMessage(result.message ?? 'Could not unarchive item.');
+      return;
+    }
+    _syncCurrentItem(store);
   }
 
   void _applyItemUpdate(Item updatedItem) {
     final store = AppStoreScope.of(context);
-    store.updateItem(updatedItem);
+    final result = store.updateItem(updatedItem);
+    if (!result.success) {
+      _showMessage(result.message ?? 'Could not update item.');
+      return;
+    }
 
     setState(() {
       _item = updatedItem;

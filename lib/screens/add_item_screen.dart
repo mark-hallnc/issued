@@ -458,7 +458,11 @@ class _AddItemScreenState extends State<AddItemScreen> {
       updatedAt: now,
     );
 
-    store.addItemWithInitialBalance(item, _selectedLocation!.id);
+    final result = store.addItemWithInitialBalance(item, _selectedLocation!.id);
+    if (!result.success) {
+      _showMessage(result.message ?? 'Could not add item.');
+      return;
+    }
     for (final field in store.activeCustomFieldsForItem(item)) {
       final value = _customValueForField(field, item.id, now);
       if (value != null) {
@@ -609,6 +613,12 @@ class _AddItemScreenState extends State<AddItemScreen> {
   String? _emptyToNull(String value) {
     final trimmedValue = value.trim();
     return trimmedValue.isEmpty ? null : trimmedValue;
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   String _itemTypeLabel(ItemType type) {

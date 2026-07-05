@@ -164,24 +164,16 @@ class _CycleCountDetailScreenState extends State<CycleCountDetailScreen> {
       );
     }
 
-    for (final updatedLine in updatedLines) {
-      store.updateCycleCountLine(updatedLine);
+    final result = store.submitCycleCount(_session.id, updatedLines);
+    if (!result.success) {
+      _showMessage(result.message ?? 'Could not submit cycle count.');
+      return;
     }
-
-    _replaceSession(
-      store,
-      CycleCountSession(
-        id: _session.id,
-        name: _session.name,
-        status: CycleCountStatus.submitted,
-        assignedToUserId: _session.assignedToUserId,
-        blindCount: _session.blindCount,
-        dueAt: _session.dueAt,
-        createdAt: _session.createdAt,
-        submittedAt: DateTime.now(),
-        approvedAt: _session.approvedAt,
-      ),
-    );
+    setState(() {
+      _session = result.data is CycleCountSession
+          ? result.data! as CycleCountSession
+          : _freshSession(store, _session);
+    });
   }
 
   void _approveCount() {
@@ -219,13 +211,6 @@ class _CycleCountDetailScreenState extends State<CycleCountDetailScreen> {
           .compareTo(store.resolveItemName(right.itemId));
     });
     return lines;
-  }
-
-  void _replaceSession(AppStore store, CycleCountSession updatedSession) {
-    store.updateCycleCountSession(updatedSession);
-    setState(() {
-      _session = updatedSession;
-    });
   }
 
   void _ensureControllers(CycleCountLine line) {

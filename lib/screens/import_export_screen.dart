@@ -375,9 +375,7 @@ class _ImportPreviewScreenState extends State<ImportPreviewScreen> {
           description: row.description ?? duplicate.description,
           itemType: row.itemType,
           category: row.category ?? duplicate.category,
-          quantityOnHand: row.quantityProvided
-              ? row.quantityOnHand
-              : duplicate.quantityOnHand,
+          quantityOnHand: duplicate.quantityOnHand,
           minimumQuantity: row.minimumProvided
               ? row.minimumQuantity
               : duplicate.minimumQuantity,
@@ -392,9 +390,18 @@ class _ImportPreviewScreenState extends State<ImportPreviewScreen> {
               : duplicate.allowFractionalQuantity,
           updatedAt: now,
         );
-        store.updateItem(updatedItem);
+        final updateResult = store.updateItem(updatedItem);
+        if (!updateResult.success) {
+          index++;
+          continue;
+        }
         if (row.quantityProvided &&
             row.quantityOnHand != duplicate.quantityOnHand) {
+          store.setItemLocationBalance(
+            updatedItem.id,
+            updatedLocationId,
+            row.quantityOnHand,
+          );
           _addImportTransaction(
             store,
             item: updatedItem,
@@ -429,16 +436,14 @@ class _ImportPreviewScreenState extends State<ImportPreviewScreen> {
           createdAt: now,
           updatedAt: now,
         );
-        store.addItem(item);
-        if (item.quantityOnHand != 0) {
-          _addImportTransaction(
-            store,
-            item: item,
-            quantity: item.quantityOnHand,
-            type: InventoryTransactionType.receive,
-            now: now,
-            index: index,
-          );
+        final addResult = store.addItemWithInitialBalance(
+          item,
+          location.id,
+          initialTransactionNotes: 'Imported from CSV',
+        );
+        if (!addResult.success) {
+          index++;
+          continue;
         }
         importedCount++;
       }
