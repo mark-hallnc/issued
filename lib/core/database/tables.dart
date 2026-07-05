@@ -72,7 +72,11 @@ class AppUsers extends Table {
   TextColumn get email => text()();
   TextColumn get role => text()();
   BoolColumn get isActive => boolean()();
+  TextColumn get pinHash => text().nullable()();
+  TextColumn get pinSalt => text().nullable()();
   DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime().nullable()();
+  DateTimeColumn get lastLoginAt => dateTime().nullable()();
 
   @override
   Set<Column<Object>> get primaryKey => {id};

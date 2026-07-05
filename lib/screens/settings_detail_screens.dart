@@ -200,9 +200,15 @@ class UsersRolesSettingsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 OutlinedButton.icon(
-                  onPressed: () => _showUserSwitcher(context, store),
-                  icon: const Icon(Icons.swap_horiz),
-                  label: const Text('Switch User - Local testing only'),
+                  onPressed: () => store.lockSession(clearCurrentUser: true),
+                  icon: const Icon(Icons.lock_outline),
+                  label: const Text('Switch User'),
+                ),
+                const SizedBox(height: 8),
+                FilledButton.icon(
+                  onPressed: () => _showUserForm(context, store),
+                  icon: const Icon(Icons.person_add_outlined),
+                  label: const Text('Add User'),
                 ),
               ],
             ),
@@ -220,6 +226,15 @@ class UsersRolesSettingsScreen extends StatelessWidget {
               ),
               title: Text(person.displayName),
               subtitle: Text(_personSubtitle(store, person)),
+              trailing: _userForPerson(store, person.id)?.lastLoginAt == null
+                  ? const Icon(Icons.edit_outlined)
+                  : const Icon(Icons.manage_accounts_outlined),
+              onTap: () {
+                final user = _userForPerson(store, person.id);
+                if (user != null) {
+                  _showUserForm(context, store, user: user, person: person);
+                }
+              },
             ),
           ),
           const SizedBox(height: 10),
@@ -247,38 +262,170 @@ class UsersRolesSettingsScreen extends StatelessWidget {
     return null;
   }
 
-  Future<void> _showUserSwitcher(BuildContext context, AppStore store) {
+  Future<void?> _showUserForm(
+    BuildContext context,
+    AppStore store, {
+    AppUser? user,
+    Person? person,
+  }) {
+    final formKey = GlobalKey<FormState>();
+    final nameController = TextEditingController(text: person?.displayName);
+    final emailController = TextEditingController(text: user?.email);
+    final pinController = TextEditingController();
+    final pinConfirmController = TextEditingController();
+    var role = user?.role ?? UserRole.worker;
+    var isActive = user?.isActive ?? true;
+
     return showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Switch current user'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final user in store.users.where((user) => user.isActive))
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(_personNameForUser(store, user)),
-                subtitle: Text(roleLabel(user.role)),
-                onTap: () {
-                  store.setCurrentUserForTesting(user.id);
-                  Navigator.of(context).pop();
-                },
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text(user == null ? 'Add User' : 'Edit User'),
+              content: Form(
+                key: formKey,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextFormField(
+                        controller: nameController,
+                        decoration: const InputDecoration(labelText: 'Name'),
+                        validator: (value) =>
+                            (value?.trim().isEmpty ?? true)
+                            ? 'Name is required.'
+                            : null,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: emailController,
+                        decoration: const InputDecoration(
+                          labelText: 'Email optional',
+                        ),
+                        keyboardType: TextInputType.emailAddress,
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<UserRole>(
+                        initialValue: role,
+                        decoration: const InputDecoration(labelText: 'Role'),
+                        items: [
+                          for (final option in UserRole.values)
+                            DropdownMenuItem(
+                              value: option,
+                              child: Text(roleLabel(option)),
+                            ),
+                        ],
+                        onChanged: (value) {
+                          setDialogState(() {
+                            role = value ?? UserRole.worker;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: pinController,
+                        decoration: InputDecoration(
+                          labelText: user == null ? 'PIN' : 'New PIN optional',
+                          helperText: 'Use 4-8 digits.',
+                        ),
+                        obscureText: true,
+                        keyboardType: TextInputType.number,
+                        validator: (value) {
+                          final pin = value?.trim() ?? '';
+                          final needsPin =
+                              user == null && role != UserRole.viewOnly;
+                          if (needsPin && !RegExp(r'^\d{4,8}$').hasMatch(pin)) {
+                            return 'Enter a 4-8 digit PIN.';
+                          }
+                          if (pin.isNotEmpty &&
+                              !RegExp(r'^\d{4,8}$').hasMatch(pin)) {
+                            return 'Enter a 4-8 digit PIN.';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: pinConfirmController,
+                        decoration: const InputDecoration(
+                          labelText: 'Confirm PIN',
+                        ),
+                        obscureText: true,
+                        keyboardType: TextInputType.number,
+                        validator: (value) {
+                          if ((pinController.text.trim()).isNotEmpty &&
+                              value?.trim() != pinController.text.trim()) {
+                            return 'PINs do not match.';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Active'),
+                        value: isActive,
+                        onChanged: (value) {
+                          setDialogState(() {
+                            isActive = value;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ),
               ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  String _personNameForUser(AppStore store, AppUser user) {
-    for (final person in store.people) {
-      if (person.id == user.personId) {
-        return person.displayName;
-      }
-    }
-
-    return user.email;
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () async {
+                    if (!formKey.currentState!.validate()) {
+                      return;
+                    }
+                    final result = user == null
+                        ? await store.createLocalUser(
+                            displayName: nameController.text,
+                            email: emailController.text,
+                            role: role,
+                            pin: pinController.text,
+                          )
+                        : await store.updateLocalUser(
+                            userId: user.id,
+                            displayName: nameController.text,
+                            email: emailController.text,
+                            role: role,
+                            isActive: isActive,
+                            pin: pinController.text,
+                          );
+                    if (!dialogContext.mounted) {
+                      return;
+                    }
+                    ScaffoldMessenger.of(dialogContext).showSnackBar(
+                      SnackBar(
+                        content: Text(result.message ?? 'User saved.'),
+                      ),
+                    );
+                    if (result.success) {
+                      Navigator.of(dialogContext).pop();
+                    }
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    ).whenComplete(() {
+      nameController.dispose();
+      emailController.dispose();
+      pinController.dispose();
+      pinConfirmController.dispose();
+    });
   }
 }
 

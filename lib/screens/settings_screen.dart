@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../core/app_store.dart';
-import '../core/models/models.dart';
 import '../core/permissions/app_permissions.dart';
 import 'assignment_targets_screen.dart';
 import 'backup_restore_screen.dart';
@@ -128,55 +127,34 @@ class _CurrentUserCard extends StatelessWidget {
     final personName = store.currentPerson?.displayName ?? 'Local User';
 
     return Card(
-      child: ListTile(
-        leading: const Icon(Icons.account_circle_outlined),
-        title: Text(personName),
-        subtitle: Text('${roleLabel(store.currentRole)} - Local testing only'),
-        trailing: const Icon(Icons.swap_horiz),
-        onTap: () => _showUserSwitcher(context),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            const Icon(Icons.account_circle_outlined),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(personName),
+                  Text(roleLabel(store.currentRole)),
+                ],
+              ),
+            ),
+            TextButton(
+              onPressed: () => store.lockSession(clearCurrentUser: true),
+              child: const Text('Switch User'),
+            ),
+            IconButton(
+              tooltip: 'Lock',
+              onPressed: () => store.lockSession(),
+              icon: const Icon(Icons.lock_outline),
+            ),
+          ],
+        ),
       ),
     );
-  }
-
-  Future<void> _showUserSwitcher(BuildContext context) {
-    return showDialog<void>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Switch current user'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: Text('Local testing only'),
-              ),
-              const SizedBox(height: 12),
-              for (final user in store.users.where((user) => user.isActive))
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(_personNameForUser(user)),
-                  subtitle: Text(roleLabel(user.role)),
-                  onTap: () {
-                    store.setCurrentUserForTesting(user.id);
-                    Navigator.of(context).pop();
-                  },
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  String _personNameForUser(AppUser user) {
-    for (final person in store.people) {
-      if (person.id == user.personId) {
-        return person.displayName;
-      }
-    }
-
-    return user.email;
   }
 }
 

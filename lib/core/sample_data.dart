@@ -84,7 +84,11 @@ final sampleUsers = [
     email: 'admin@example.com',
     role: UserRole.admin,
     isActive: true,
+    pinHash: null,
+    pinSalt: null,
     createdAt: DateTime(2026, 7, 1),
+    updatedAt: DateTime(2026, 7, 1),
+    lastLoginAt: null,
   ),
   AppUser(
     id: 'user-manager',
@@ -92,7 +96,11 @@ final sampleUsers = [
     email: 'manager@example.com',
     role: UserRole.manager,
     isActive: true,
+    pinHash: null,
+    pinSalt: null,
     createdAt: DateTime(2026, 7, 1),
+    updatedAt: DateTime(2026, 7, 1),
+    lastLoginAt: null,
   ),
   AppUser(
     id: 'user-worker',
@@ -100,7 +108,11 @@ final sampleUsers = [
     email: 'worker@example.com',
     role: UserRole.worker,
     isActive: true,
+    pinHash: null,
+    pinSalt: null,
     createdAt: DateTime(2026, 7, 1),
+    updatedAt: DateTime(2026, 7, 1),
+    lastLoginAt: null,
   ),
   AppUser(
     id: 'user-view-only',
@@ -108,7 +120,11 @@ final sampleUsers = [
     email: 'view@example.com',
     role: UserRole.viewOnly,
     isActive: true,
+    pinHash: null,
+    pinSalt: null,
     createdAt: DateTime(2026, 7, 1),
+    updatedAt: DateTime(2026, 7, 1),
+    lastLoginAt: null,
   ),
 ];
 

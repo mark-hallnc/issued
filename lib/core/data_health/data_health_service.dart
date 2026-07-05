@@ -473,6 +473,54 @@ class DataHealthService {
         ),
       );
     }
+
+    for (final user in store.users.where((user) => user.isActive)) {
+      final needsPin = user.role != UserRole.viewOnly;
+      final hasPin =
+          (user.pinHash?.isNotEmpty ?? false) &&
+          (user.pinSalt?.isNotEmpty ?? false);
+      if (needsPin && !hasPin) {
+        issues.add(
+          DataHealthIssue(
+            id: 'active-user-missing-pin-${user.id}',
+            severity: DataHealthSeverity.warning,
+            title: 'Active user is missing a PIN',
+            description:
+                '${store.resolveUserName(user.id)} can change inventory but does not have a local PIN set.',
+            affectedRecordType: 'appUser',
+            affectedRecordId: user.id,
+            repairAction: null,
+            canRepair: false,
+          ),
+        );
+      }
+    }
+
+    final names = <String, List<String>>{};
+    for (final user in store.users) {
+      final name = store.resolveUserName(user.id).trim().toLowerCase();
+      if (name.isEmpty) {
+        continue;
+      }
+      names.putIfAbsent(name, () => []).add(user.id);
+    }
+    for (final entry in names.entries) {
+      if (entry.value.length > 1) {
+        issues.add(
+          DataHealthIssue(
+            id: 'duplicate-user-name-${entry.key}',
+            severity: DataHealthSeverity.info,
+            title: 'Duplicate local user names',
+            description:
+                'More than one local user is named ${store.resolveUserName(entry.value.first)}.',
+            affectedRecordType: 'appUser',
+            affectedRecordId: entry.value.first,
+            repairAction: null,
+            canRepair: false,
+          ),
+        );
+      }
+    }
   }
 
   void _checkInvalidQuantities(AppStore store, List<DataHealthIssue> issues) {

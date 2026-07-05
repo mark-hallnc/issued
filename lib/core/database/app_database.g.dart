@@ -2462,6 +2462,28 @@ class $AppUsersTable extends AppUsers
       'CHECK ("is_active" IN (0, 1))',
     ),
   );
+  static const VerificationMeta _pinHashMeta = const VerificationMeta(
+    'pinHash',
+  );
+  @override
+  late final GeneratedColumn<String> pinHash = GeneratedColumn<String>(
+    'pin_hash',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _pinSaltMeta = const VerificationMeta(
+    'pinSalt',
+  );
+  @override
+  late final GeneratedColumn<String> pinSalt = GeneratedColumn<String>(
+    'pin_salt',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -2473,6 +2495,29 @@ class $AppUsersTable extends AppUsers
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _lastLoginAtMeta = const VerificationMeta(
+    'lastLoginAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastLoginAt =
+      GeneratedColumn<DateTime>(
+        'last_login_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2480,7 +2525,11 @@ class $AppUsersTable extends AppUsers
     email,
     role,
     isActive,
+    pinHash,
+    pinSalt,
     createdAt,
+    updatedAt,
+    lastLoginAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2531,6 +2580,18 @@ class $AppUsersTable extends AppUsers
     } else if (isInserting) {
       context.missing(_isActiveMeta);
     }
+    if (data.containsKey('pin_hash')) {
+      context.handle(
+        _pinHashMeta,
+        pinHash.isAcceptableOrUnknown(data['pin_hash']!, _pinHashMeta),
+      );
+    }
+    if (data.containsKey('pin_salt')) {
+      context.handle(
+        _pinSaltMeta,
+        pinSalt.isAcceptableOrUnknown(data['pin_salt']!, _pinSaltMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -2538,6 +2599,21 @@ class $AppUsersTable extends AppUsers
       );
     } else if (isInserting) {
       context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    if (data.containsKey('last_login_at')) {
+      context.handle(
+        _lastLoginAtMeta,
+        lastLoginAt.isAcceptableOrUnknown(
+          data['last_login_at']!,
+          _lastLoginAtMeta,
+        ),
+      );
     }
     return context;
   }
@@ -2568,10 +2644,26 @@ class $AppUsersTable extends AppUsers
         DriftSqlType.bool,
         data['${effectivePrefix}is_active'],
       )!,
+      pinHash: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pin_hash'],
+      ),
+      pinSalt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pin_salt'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
       )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      ),
+      lastLoginAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_login_at'],
+      ),
     );
   }
 
@@ -2587,14 +2679,22 @@ class AppUserRecord extends DataClass implements Insertable<AppUserRecord> {
   final String email;
   final String role;
   final bool isActive;
+  final String? pinHash;
+  final String? pinSalt;
   final DateTime createdAt;
+  final DateTime? updatedAt;
+  final DateTime? lastLoginAt;
   const AppUserRecord({
     required this.id,
     required this.personId,
     required this.email,
     required this.role,
     required this.isActive,
+    this.pinHash,
+    this.pinSalt,
     required this.createdAt,
+    this.updatedAt,
+    this.lastLoginAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2604,7 +2704,19 @@ class AppUserRecord extends DataClass implements Insertable<AppUserRecord> {
     map['email'] = Variable<String>(email);
     map['role'] = Variable<String>(role);
     map['is_active'] = Variable<bool>(isActive);
+    if (!nullToAbsent || pinHash != null) {
+      map['pin_hash'] = Variable<String>(pinHash);
+    }
+    if (!nullToAbsent || pinSalt != null) {
+      map['pin_salt'] = Variable<String>(pinSalt);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
+    if (!nullToAbsent || lastLoginAt != null) {
+      map['last_login_at'] = Variable<DateTime>(lastLoginAt);
+    }
     return map;
   }
 
@@ -2615,7 +2727,19 @@ class AppUserRecord extends DataClass implements Insertable<AppUserRecord> {
       email: Value(email),
       role: Value(role),
       isActive: Value(isActive),
+      pinHash: pinHash == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pinHash),
+      pinSalt: pinSalt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pinSalt),
       createdAt: Value(createdAt),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
+      lastLoginAt: lastLoginAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastLoginAt),
     );
   }
 
@@ -2630,7 +2754,11 @@ class AppUserRecord extends DataClass implements Insertable<AppUserRecord> {
       email: serializer.fromJson<String>(json['email']),
       role: serializer.fromJson<String>(json['role']),
       isActive: serializer.fromJson<bool>(json['isActive']),
+      pinHash: serializer.fromJson<String?>(json['pinHash']),
+      pinSalt: serializer.fromJson<String?>(json['pinSalt']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
+      lastLoginAt: serializer.fromJson<DateTime?>(json['lastLoginAt']),
     );
   }
   @override
@@ -2642,7 +2770,11 @@ class AppUserRecord extends DataClass implements Insertable<AppUserRecord> {
       'email': serializer.toJson<String>(email),
       'role': serializer.toJson<String>(role),
       'isActive': serializer.toJson<bool>(isActive),
+      'pinHash': serializer.toJson<String?>(pinHash),
+      'pinSalt': serializer.toJson<String?>(pinSalt),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime?>(updatedAt),
+      'lastLoginAt': serializer.toJson<DateTime?>(lastLoginAt),
     };
   }
 
@@ -2652,14 +2784,22 @@ class AppUserRecord extends DataClass implements Insertable<AppUserRecord> {
     String? email,
     String? role,
     bool? isActive,
+    Value<String?> pinHash = const Value.absent(),
+    Value<String?> pinSalt = const Value.absent(),
     DateTime? createdAt,
+    Value<DateTime?> updatedAt = const Value.absent(),
+    Value<DateTime?> lastLoginAt = const Value.absent(),
   }) => AppUserRecord(
     id: id ?? this.id,
     personId: personId ?? this.personId,
     email: email ?? this.email,
     role: role ?? this.role,
     isActive: isActive ?? this.isActive,
+    pinHash: pinHash.present ? pinHash.value : this.pinHash,
+    pinSalt: pinSalt.present ? pinSalt.value : this.pinSalt,
     createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
+    lastLoginAt: lastLoginAt.present ? lastLoginAt.value : this.lastLoginAt,
   );
   AppUserRecord copyWithCompanion(AppUsersCompanion data) {
     return AppUserRecord(
@@ -2668,7 +2808,13 @@ class AppUserRecord extends DataClass implements Insertable<AppUserRecord> {
       email: data.email.present ? data.email.value : this.email,
       role: data.role.present ? data.role.value : this.role,
       isActive: data.isActive.present ? data.isActive.value : this.isActive,
+      pinHash: data.pinHash.present ? data.pinHash.value : this.pinHash,
+      pinSalt: data.pinSalt.present ? data.pinSalt.value : this.pinSalt,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      lastLoginAt: data.lastLoginAt.present
+          ? data.lastLoginAt.value
+          : this.lastLoginAt,
     );
   }
 
@@ -2680,14 +2826,29 @@ class AppUserRecord extends DataClass implements Insertable<AppUserRecord> {
           ..write('email: $email, ')
           ..write('role: $role, ')
           ..write('isActive: $isActive, ')
-          ..write('createdAt: $createdAt')
+          ..write('pinHash: $pinHash, ')
+          ..write('pinSalt: $pinSalt, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('lastLoginAt: $lastLoginAt')
           ..write(')'))
         .toString();
   }
 
   @override
   int get hashCode =>
-      Object.hash(id, personId, email, role, isActive, createdAt);
+      Object.hash(
+        id,
+        personId,
+        email,
+        role,
+        isActive,
+        pinHash,
+        pinSalt,
+        createdAt,
+        updatedAt,
+        lastLoginAt,
+      );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2697,7 +2858,11 @@ class AppUserRecord extends DataClass implements Insertable<AppUserRecord> {
           other.email == this.email &&
           other.role == this.role &&
           other.isActive == this.isActive &&
-          other.createdAt == this.createdAt);
+          other.pinHash == this.pinHash &&
+          other.pinSalt == this.pinSalt &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.lastLoginAt == this.lastLoginAt);
 }
 
 class AppUsersCompanion extends UpdateCompanion<AppUserRecord> {
@@ -2706,7 +2871,11 @@ class AppUsersCompanion extends UpdateCompanion<AppUserRecord> {
   final Value<String> email;
   final Value<String> role;
   final Value<bool> isActive;
+  final Value<String?> pinHash;
+  final Value<String?> pinSalt;
   final Value<DateTime> createdAt;
+  final Value<DateTime?> updatedAt;
+  final Value<DateTime?> lastLoginAt;
   final Value<int> rowid;
   const AppUsersCompanion({
     this.id = const Value.absent(),
@@ -2714,7 +2883,11 @@ class AppUsersCompanion extends UpdateCompanion<AppUserRecord> {
     this.email = const Value.absent(),
     this.role = const Value.absent(),
     this.isActive = const Value.absent(),
+    this.pinHash = const Value.absent(),
+    this.pinSalt = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.lastLoginAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   AppUsersCompanion.insert({
@@ -2723,7 +2896,11 @@ class AppUsersCompanion extends UpdateCompanion<AppUserRecord> {
     required String email,
     required String role,
     required bool isActive,
+    this.pinHash = const Value.absent(),
+    this.pinSalt = const Value.absent(),
     required DateTime createdAt,
+    this.updatedAt = const Value.absent(),
+    this.lastLoginAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        personId = Value(personId),
@@ -2737,7 +2914,11 @@ class AppUsersCompanion extends UpdateCompanion<AppUserRecord> {
     Expression<String>? email,
     Expression<String>? role,
     Expression<bool>? isActive,
+    Expression<String>? pinHash,
+    Expression<String>? pinSalt,
     Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? lastLoginAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -2746,7 +2927,11 @@ class AppUsersCompanion extends UpdateCompanion<AppUserRecord> {
       if (email != null) 'email': email,
       if (role != null) 'role': role,
       if (isActive != null) 'is_active': isActive,
+      if (pinHash != null) 'pin_hash': pinHash,
+      if (pinSalt != null) 'pin_salt': pinSalt,
       if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (lastLoginAt != null) 'last_login_at': lastLoginAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2757,7 +2942,11 @@ class AppUsersCompanion extends UpdateCompanion<AppUserRecord> {
     Value<String>? email,
     Value<String>? role,
     Value<bool>? isActive,
+    Value<String?>? pinHash,
+    Value<String?>? pinSalt,
     Value<DateTime>? createdAt,
+    Value<DateTime?>? updatedAt,
+    Value<DateTime?>? lastLoginAt,
     Value<int>? rowid,
   }) {
     return AppUsersCompanion(
@@ -2766,7 +2955,11 @@ class AppUsersCompanion extends UpdateCompanion<AppUserRecord> {
       email: email ?? this.email,
       role: role ?? this.role,
       isActive: isActive ?? this.isActive,
+      pinHash: pinHash ?? this.pinHash,
+      pinSalt: pinSalt ?? this.pinSalt,
       createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      lastLoginAt: lastLoginAt ?? this.lastLoginAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2789,8 +2982,20 @@ class AppUsersCompanion extends UpdateCompanion<AppUserRecord> {
     if (isActive.present) {
       map['is_active'] = Variable<bool>(isActive.value);
     }
+    if (pinHash.present) {
+      map['pin_hash'] = Variable<String>(pinHash.value);
+    }
+    if (pinSalt.present) {
+      map['pin_salt'] = Variable<String>(pinSalt.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (lastLoginAt.present) {
+      map['last_login_at'] = Variable<DateTime>(lastLoginAt.value);
     }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
@@ -2806,7 +3011,11 @@ class AppUsersCompanion extends UpdateCompanion<AppUserRecord> {
           ..write('email: $email, ')
           ..write('role: $role, ')
           ..write('isActive: $isActive, ')
+          ..write('pinHash: $pinHash, ')
+          ..write('pinSalt: $pinSalt, ')
           ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('lastLoginAt: $lastLoginAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -11101,7 +11310,11 @@ typedef $$AppUsersTableCreateCompanionBuilder =
       required String email,
       required String role,
       required bool isActive,
+      Value<String?> pinHash,
+      Value<String?> pinSalt,
       required DateTime createdAt,
+      Value<DateTime?> updatedAt,
+      Value<DateTime?> lastLoginAt,
       Value<int> rowid,
     });
 typedef $$AppUsersTableUpdateCompanionBuilder =
@@ -11111,7 +11324,11 @@ typedef $$AppUsersTableUpdateCompanionBuilder =
       Value<String> email,
       Value<String> role,
       Value<bool> isActive,
+      Value<String?> pinHash,
+      Value<String?> pinSalt,
       Value<DateTime> createdAt,
+      Value<DateTime?> updatedAt,
+      Value<DateTime?> lastLoginAt,
       Value<int> rowid,
     });
 
@@ -11149,8 +11366,28 @@ class $$AppUsersTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get pinHash => $composableBuilder(
+    column: $table.pinHash,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pinSalt => $composableBuilder(
+    column: $table.pinSalt,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastLoginAt => $composableBuilder(
+    column: $table.lastLoginAt,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -11189,8 +11426,28 @@ class $$AppUsersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get pinHash => $composableBuilder(
+    column: $table.pinHash,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pinSalt => $composableBuilder(
+    column: $table.pinSalt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastLoginAt => $composableBuilder(
+    column: $table.lastLoginAt,
     builder: (column) => ColumnOrderings(column),
   );
 }
@@ -11219,8 +11476,22 @@ class $$AppUsersTableAnnotationComposer
   GeneratedColumn<bool> get isActive =>
       $composableBuilder(column: $table.isActive, builder: (column) => column);
 
+  GeneratedColumn<String> get pinHash =>
+      $composableBuilder(column: $table.pinHash, builder: (column) => column);
+
+  GeneratedColumn<String> get pinSalt =>
+      $composableBuilder(column: $table.pinSalt, builder: (column) => column);
+
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get lastLoginAt => $composableBuilder(
+    column: $table.lastLoginAt,
+    builder: (column) => column,
+  );
 }
 
 class $$AppUsersTableTableManager
@@ -11259,7 +11530,11 @@ class $$AppUsersTableTableManager
                 Value<String> email = const Value.absent(),
                 Value<String> role = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
+                Value<String?> pinHash = const Value.absent(),
+                Value<String?> pinSalt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
+                Value<DateTime?> lastLoginAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AppUsersCompanion(
                 id: id,
@@ -11267,7 +11542,11 @@ class $$AppUsersTableTableManager
                 email: email,
                 role: role,
                 isActive: isActive,
+                pinHash: pinHash,
+                pinSalt: pinSalt,
                 createdAt: createdAt,
+                updatedAt: updatedAt,
+                lastLoginAt: lastLoginAt,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -11277,7 +11556,11 @@ class $$AppUsersTableTableManager
                 required String email,
                 required String role,
                 required bool isActive,
+                Value<String?> pinHash = const Value.absent(),
+                Value<String?> pinSalt = const Value.absent(),
                 required DateTime createdAt,
+                Value<DateTime?> updatedAt = const Value.absent(),
+                Value<DateTime?> lastLoginAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AppUsersCompanion.insert(
                 id: id,
@@ -11285,7 +11568,11 @@ class $$AppUsersTableTableManager
                 email: email,
                 role: role,
                 isActive: isActive,
+                pinHash: pinHash,
+                pinSalt: pinSalt,
                 createdAt: createdAt,
+                updatedAt: updatedAt,
+                lastLoginAt: lastLoginAt,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

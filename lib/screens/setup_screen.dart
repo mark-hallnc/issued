@@ -19,6 +19,8 @@ class _SetupScreenState extends State<SetupScreen> {
   final _locationController = TextEditingController(text: 'Main Stockroom');
   final _adminNameController = TextEditingController();
   final _adminEmailController = TextEditingController();
+  final _adminPinController = TextEditingController();
+  final _adminPinConfirmController = TextEditingController();
   final _pageController = PageController();
   int _step = 0;
   String _locationType = 'Stockroom';
@@ -32,6 +34,8 @@ class _SetupScreenState extends State<SetupScreen> {
     _locationController.dispose();
     _adminNameController.dispose();
     _adminEmailController.dispose();
+    _adminPinController.dispose();
+    _adminPinConfirmController.dispose();
     _pageController.dispose();
     super.dispose();
   }
@@ -196,6 +200,27 @@ class _SetupScreenState extends State<SetupScreen> {
                         ),
                         keyboardType: TextInputType.emailAddress,
                       ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _adminPinController,
+                        decoration: const InputDecoration(
+                          labelText: 'PIN',
+                          helperText: 'Use 4-8 digits for this shared device.',
+                        ),
+                        obscureText: true,
+                        keyboardType: TextInputType.number,
+                        validator: _pinValidator,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _adminPinConfirmController,
+                        decoration: const InputDecoration(
+                          labelText: 'Confirm PIN',
+                        ),
+                        obscureText: true,
+                        keyboardType: TextInputType.number,
+                        validator: _pinConfirmValidator,
+                      ),
                       const SizedBox(height: 16),
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
@@ -306,8 +331,25 @@ class _SetupScreenState extends State<SetupScreen> {
       locationType: _locationType,
       adminDisplayName: _adminNameController.text,
       adminEmail: _adminEmailController.text,
+      adminPin: _adminPinController.text,
       includeSampleData: _includeSampleData,
     );
+  }
+
+  String? _pinValidator(String? value) {
+    final pin = value?.trim() ?? '';
+    if (!RegExp(r'^\d{4,8}$').hasMatch(pin)) {
+      return 'Enter a 4-8 digit PIN.';
+    }
+    return null;
+  }
+
+  String? _pinConfirmValidator(String? value) {
+    final confirmation = value?.trim() ?? '';
+    if (confirmation != _adminPinController.text.trim()) {
+      return 'PINs do not match.';
+    }
+    return null;
   }
 }
 

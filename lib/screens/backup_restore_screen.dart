@@ -32,6 +32,10 @@ class BackupRestoreScreen extends StatelessWidget {
               const Text(
                 'This backup includes inventory records and local photo paths. Photo file bundling will be added later.',
               ),
+              const SizedBox(height: 8),
+              const Text(
+                'Local users and PIN hashes are included so restored devices can keep user access.',
+              ),
               const SizedBox(height: 12),
               FilledButton.icon(
                 onPressed: canExportBackup

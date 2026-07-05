@@ -9,6 +9,7 @@ import 'data_health/data_health_service.dart';
 import 'models/models.dart';
 import 'permissions/app_permissions.dart';
 import 'sample_data.dart';
+import 'security/pin_hash_service.dart';
 
 class AppStore extends ChangeNotifier {
   AppStore({AppDatabase? database}) : _database = database ?? AppDatabase();
@@ -33,8 +34,11 @@ class AppStore extends ChangeNotifier {
   Plan _plan = samplePlan;
   CompanyUsage _companyUsage = sampleCompanyUsage;
   String? _currentUserId;
-  UserRole? _currentRoleOverride;
+  bool _isLocked = true;
+  DateTime? _lastActivityAt;
+  int _sessionTimeoutMinutes = 10;
   bool _isInitialized = false;
+  final PinHashService _pinHashService = PinHashService();
 
   bool get isInitialized => _isInitialized;
   List<Item> get items => List.unmodifiable(_items);
@@ -67,30 +71,22 @@ class AppStore extends ChangeNotifier {
   Plan get plan => _plan;
   CompanyUsage get companyUsage => _companyUsage;
   Plan get currentPlan => _plan;
+  bool get isLocked => _isLocked || currentUser == null;
+  DateTime? get lastActivityAt => _lastActivityAt;
+  int get sessionTimeoutMinutes => _sessionTimeoutMinutes;
   AppUser? get currentUser {
-    if (_users.isEmpty) {
+    final requestedUserId = _currentUserId;
+    if (_users.isEmpty || requestedUserId == null) {
       return null;
     }
 
-    final requestedUserId = _currentUserId;
-    if (requestedUserId != null) {
-      for (final user in _users) {
-        if (user.id == requestedUserId && user.isActive) {
-          return user;
-        }
-      }
-    }
-
     for (final user in _users) {
-      if (user.isActive && user.role == UserRole.admin) {
+      if (user.id == requestedUserId && user.isActive) {
         return user;
       }
     }
 
-    return _users.firstWhere(
-      (user) => user.isActive,
-      orElse: () => _users.first,
-    );
+    return null;
   }
 
   Person? get currentPerson {
@@ -109,7 +105,10 @@ class AppStore extends ChangeNotifier {
   }
 
   UserRole get currentRole {
-    return _currentRoleOverride ?? currentUser?.role ?? UserRole.manager;
+    if (isLocked) {
+      return UserRole.viewOnly;
+    }
+    return currentUser?.role ?? UserRole.viewOnly;
   }
 
   AppPermissions get permissions => AppPermissions(currentRole);
@@ -138,6 +137,7 @@ class AppStore extends ChangeNotifier {
     await _backfillItemLocationBalances();
     if (isSetupComplete) {
       await _ensureLocalTestUsers();
+      await _ensurePinsForMigratedLocalUsers();
     }
     await _seedAssignmentTargetsIfNeeded();
     _isInitialized = true;
@@ -189,12 +189,39 @@ class AppStore extends ChangeNotifier {
         continue;
       }
 
-      _users.add(user);
-      await _database.upsertAppUser(user.toCompanion());
+      final userWithPin = _withPin(user, '1234');
+      _users.add(userWithPin);
+      await _database.upsertAppUser(userWithPin.toCompanion());
       addedUsers = true;
     }
 
     if (addedUsers) {
+      await _loadFromDatabase();
+    }
+  }
+
+  Future<void> _ensurePinsForMigratedLocalUsers() async {
+    var changed = false;
+    final seedUserIds = {
+      for (final user in sampleUsers) user.id,
+      'user-first-admin',
+    };
+    for (final user in List<AppUser>.from(_users)) {
+      if (!seedUserIds.contains(user.id)) {
+        continue;
+      }
+      final hasPin =
+          (user.pinHash?.isNotEmpty ?? false) &&
+          (user.pinSalt?.isNotEmpty ?? false);
+      if (hasPin) {
+        continue;
+      }
+      final userWithPin = _withPin(user, '1234');
+      _upsertUserInMemory(userWithPin);
+      await _database.upsertAppUser(userWithPin.toCompanion());
+      changed = true;
+    }
+    if (changed) {
       await _loadFromDatabase();
     }
   }
@@ -471,6 +498,7 @@ class AppStore extends ChangeNotifier {
   Future<void> _ensureAdminUser(
     String displayName,
     String? email,
+    String pin,
     DateTime now,
   ) async {
     final person = Person(
@@ -489,10 +517,16 @@ class AppStore extends ChangeNotifier {
       email: email ?? 'admin@issued.local',
       role: UserRole.admin,
       isActive: true,
+      pinHash: null,
+      pinSalt: null,
       createdAt: now,
+      updatedAt: now,
+      lastLoginAt: null,
     );
-    await _ensureUser(user);
+    await _ensureUser(_withPin(user, pin));
     _currentUserId = user.id;
+    _isLocked = false;
+    _lastActivityAt = now;
   }
 
   Future<void> _ensurePerson(Person person) async {
@@ -511,16 +545,50 @@ class AppStore extends ChangeNotifier {
   }
 
   Future<void> _ensureUser(AppUser user) async {
-    final exists = _users.any((storedUser) {
+    final existingIndex = _users.indexWhere((storedUser) {
       return storedUser.id == user.id ||
           storedUser.email.toLowerCase() == user.email.toLowerCase();
     });
-    if (exists) {
+    if (existingIndex != -1) {
+      final existing = _users[existingIndex];
+      final existingHasPin =
+          (existing.pinHash?.isNotEmpty ?? false) &&
+          (existing.pinSalt?.isNotEmpty ?? false);
+      final incomingHasPin =
+          (user.pinHash?.isNotEmpty ?? false) &&
+          (user.pinSalt?.isNotEmpty ?? false);
+      if (!existingHasPin && incomingHasPin) {
+        final updated = existing.copyWith(
+          pinHash: user.pinHash,
+          pinSalt: user.pinSalt,
+          updatedAt: DateTime.now(),
+        );
+        _users[existingIndex] = updated;
+        await _database.upsertAppUser(updated.toCompanion());
+      }
       return;
     }
 
     _users.add(user);
     await _database.upsertAppUser(user.toCompanion());
+  }
+
+  AppUser _withPin(AppUser user, String pin) {
+    final salt = _pinHashService.generateSalt();
+    return user.copyWith(
+      pinSalt: salt,
+      pinHash: _pinHashService.hashPin(pin, salt),
+      updatedAt: DateTime.now(),
+    );
+  }
+
+  void _upsertUserInMemory(AppUser user) {
+    final index = _users.indexWhere((storedUser) => storedUser.id == user.id);
+    if (index == -1) {
+      _users.add(user);
+    } else {
+      _users[index] = user;
+    }
   }
 
   Future<void> _loadFromDatabase() async {
@@ -607,7 +675,6 @@ class AppStore extends ChangeNotifier {
     _companyUsage = usages.isEmpty
         ? sampleCompanyUsage
         : usages.first.toDomain();
-    _currentUserId ??= currentUser?.id;
   }
 
   AppActionResult addItem(Item item) {
@@ -805,16 +872,241 @@ class AppStore extends ChangeNotifier {
     for (final user in _users) {
       if (user.id == userId && user.isActive) {
         _currentUserId = userId;
-        _currentRoleOverride = null;
+        _isLocked = false;
+        _lastActivityAt = DateTime.now();
         notifyListeners();
         return;
       }
     }
   }
 
-  void setCurrentRoleForTesting(UserRole role) {
-    _currentRoleOverride = role;
+  Future<AppActionResult> signInLocalUser(String userId, String pin) async {
+    final normalizedPin = pin.trim();
+    if (!_pinHashService.isValidPin(normalizedPin)) {
+      return const AppActionResult.failure('PIN must be 4-8 digits.');
+    }
+
+    AppUser? user;
+    for (final candidate in _users) {
+      if (candidate.id == userId) {
+        user = candidate;
+        break;
+      }
+    }
+    if (user == null) {
+      return const AppActionResult.failure('User not found.');
+    }
+    if (!user.isActive) {
+      return const AppActionResult.failure('This user is inactive.');
+    }
+    final salt = user.pinSalt;
+    final hash = user.pinHash;
+    if (salt == null || hash == null || salt.isEmpty || hash.isEmpty) {
+      return const AppActionResult.failure(
+        'Your account is not set up with a PIN.',
+      );
+    }
+    if (!_pinHashService.verifyPin(normalizedPin, salt, hash)) {
+      return const AppActionResult.failure('Incorrect PIN.');
+    }
+
+    final now = DateTime.now();
+    final signedInUser = user.copyWith(lastLoginAt: now, updatedAt: now);
+    _upsertUserInMemory(signedInUser);
+    await _database.upsertAppUser(signedInUser.toCompanion());
+    _currentUserId = userId;
+    _isLocked = false;
+    _lastActivityAt = now;
     notifyListeners();
+    return AppActionResult.success(
+      message: 'Signed in as ${resolveUserName(userId)}.',
+    );
+  }
+
+  Future<AppActionResult> switchUser(String userId, String pin) {
+    return signInLocalUser(userId, pin);
+  }
+
+  Future<AppActionResult> unlockSession(String userId, String pin) {
+    return signInLocalUser(userId, pin);
+  }
+
+  void lockSession({bool clearCurrentUser = false}) {
+    _isLocked = true;
+    if (clearCurrentUser) {
+      _currentUserId = null;
+    }
+    notifyListeners();
+  }
+
+  void recordUserActivity() {
+    if (!isLocked) {
+      _lastActivityAt = DateTime.now();
+    }
+  }
+
+  bool checkSessionTimeout() {
+    if (isLocked || _sessionTimeoutMinutes <= 0 || _lastActivityAt == null) {
+      return false;
+    }
+    final elapsed = DateTime.now().difference(_lastActivityAt!);
+    if (elapsed.inMinutes >= _sessionTimeoutMinutes) {
+      lockSession();
+      return true;
+    }
+    return false;
+  }
+
+  void setSessionTimeoutMinutes(int minutes) {
+    _sessionTimeoutMinutes = minutes;
+    notifyListeners();
+  }
+
+  Future<AppActionResult> createLocalUser({
+    required String displayName,
+    required String? email,
+    required UserRole role,
+    required String? pin,
+  }) async {
+    if (!permissions.canManageUsers) {
+      return AppActionResult.denied();
+    }
+    if (!canAddUser) {
+      return AppActionResult.failure(
+        'Your ${currentPlan.name} plan includes up to ${currentPlan.userLimit} login users.',
+      );
+    }
+
+    final normalizedName = displayName.trim();
+    if (normalizedName.isEmpty) {
+      return const AppActionResult.failure('User name is required.');
+    }
+    final normalizedEmail = _emptyToNull(email) ?? '';
+    final normalizedPin = pin?.trim() ?? '';
+    if (_roleRequiresPin(role) && !_pinHashService.isValidPin(normalizedPin)) {
+      return const AppActionResult.failure('PIN must be 4-8 digits.');
+    }
+
+    final now = DateTime.now();
+    final idSuffix = now.microsecondsSinceEpoch;
+    final person = Person(
+      id: 'person-local-$idSuffix',
+      displayName: normalizedName,
+      email: normalizedEmail.isEmpty ? null : normalizedEmail,
+      phone: null,
+      isActive: true,
+      isLoginUser: true,
+    );
+    var user = AppUser(
+      id: 'user-local-$idSuffix',
+      personId: person.id,
+      email: normalizedEmail.isEmpty
+          ? 'user-$idSuffix@issued.local'
+          : normalizedEmail,
+      role: role,
+      isActive: true,
+      pinHash: null,
+      pinSalt: null,
+      createdAt: now,
+      updatedAt: now,
+      lastLoginAt: null,
+    );
+    if (normalizedPin.isNotEmpty) {
+      user = _withPin(user, normalizedPin);
+    }
+
+    _people.add(person);
+    _users.add(user);
+    await _database.upsertPerson(person.toCompanion());
+    await _database.upsertAppUser(user.toCompanion());
+    notifyListeners();
+    return const AppActionResult.success(message: 'User added.');
+  }
+
+  Future<AppActionResult> updateLocalUser({
+    required String userId,
+    required String displayName,
+    required String? email,
+    required UserRole role,
+    required bool isActive,
+    String? pin,
+  }) async {
+    if (!permissions.canManageUsers) {
+      return AppActionResult.denied();
+    }
+    final index = _users.indexWhere((user) => user.id == userId);
+    if (index == -1) {
+      return const AppActionResult.failure('User not found.');
+    }
+    final existing = _users[index];
+    if (!_canChangeAdminStatus(existing, role, isActive)) {
+      return const AppActionResult.failure(
+        'Issued must keep at least one active Admin user.',
+      );
+    }
+
+    final normalizedPin = pin?.trim() ?? '';
+    if (_roleRequiresPin(role) &&
+        existing.pinHash == null &&
+        !_pinHashService.isValidPin(normalizedPin)) {
+      return const AppActionResult.failure('PIN must be 4-8 digits.');
+    }
+    if (normalizedPin.isNotEmpty && !_pinHashService.isValidPin(normalizedPin)) {
+      return const AppActionResult.failure('PIN must be 4-8 digits.');
+    }
+
+    final normalizedEmail = _emptyToNull(email) ?? existing.email;
+    final now = DateTime.now();
+    var updated = existing.copyWith(
+      email: normalizedEmail,
+      role: role,
+      isActive: isActive,
+      updatedAt: now,
+    );
+    if (normalizedPin.isNotEmpty) {
+      updated = _withPin(updated, normalizedPin);
+    }
+    _users[index] = updated;
+
+    final personIndex = _people.indexWhere(
+      (person) => person.id == existing.personId,
+    );
+    if (personIndex != -1) {
+      final person = _people[personIndex].copyWith(
+        displayName: displayName.trim(),
+        email: normalizedEmail.isEmpty ? null : normalizedEmail,
+        isActive: isActive,
+        isLoginUser: true,
+      );
+      _people[personIndex] = person;
+      await _database.upsertPerson(person.toCompanion());
+    }
+    await _database.upsertAppUser(updated.toCompanion());
+    if (_currentUserId == updated.id && !updated.isActive) {
+      lockSession(clearCurrentUser: true);
+    } else {
+      notifyListeners();
+    }
+    return const AppActionResult.success(message: 'User updated.');
+  }
+
+  bool _roleRequiresPin(UserRole role) {
+    return role != UserRole.viewOnly;
+  }
+
+  bool _canChangeAdminStatus(AppUser user, UserRole newRole, bool isActive) {
+    if (user.role != UserRole.admin) {
+      return true;
+    }
+    if (newRole == UserRole.admin && isActive) {
+      return true;
+    }
+    final otherActiveAdmins = _users.where((candidate) {
+      return candidate.id != user.id &&
+          candidate.isActive &&
+          candidate.role == UserRole.admin;
+    }).length;
+    return otherActiveAdmins > 0;
   }
 
   Future<void> completeSetup({
@@ -824,6 +1116,7 @@ class AppStore extends ChangeNotifier {
     required String locationType,
     required String adminDisplayName,
     required String? adminEmail,
+    required String adminPin,
     required bool includeSampleData,
   }) async {
     final now = DateTime.now();
@@ -845,14 +1138,16 @@ class AppStore extends ChangeNotifier {
 
     await _ensureDefaultUnitsOfMeasure();
     await _ensureLocation(normalizedLocationName, locationType);
-    await _ensureAdminUser(normalizedAdminName, normalizedEmail, now);
+    await _ensureAdminUser(normalizedAdminName, normalizedEmail, adminPin, now);
 
     if (includeSampleData && _items.isEmpty) {
       await _seedSampleDataIfNeeded();
     }
 
     await _loadFromDatabase();
-    _currentUserId ??= currentUser?.id;
+    _currentUserId = 'user-first-admin';
+    _isLocked = false;
+    _lastActivityAt = DateTime.now();
     notifyListeners();
   }
 
@@ -967,6 +1262,9 @@ class AppStore extends ChangeNotifier {
     );
 
     await _loadFromDatabase();
+    _currentUserId = null;
+    _isLocked = true;
+    _lastActivityAt = null;
     await _ensureBasePlanData();
     await _loadFromDatabase();
     notifyListeners();

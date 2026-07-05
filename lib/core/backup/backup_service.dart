@@ -271,7 +271,11 @@ class BackupService {
       'email': user.email,
       'role': user.role.name,
       'isActive': user.isActive,
+      'pinHash': user.pinHash,
+      'pinSalt': user.pinSalt,
       'createdAt': user.createdAt.toIso8601String(),
+      'updatedAt': user.updatedAt.toIso8601String(),
+      'lastLoginAt': user.lastLoginAt?.toIso8601String(),
     };
   }
 
@@ -615,7 +619,12 @@ class BackupService {
       email: _string(row, 'email', ''),
       role: role,
       isActive: _bool(row, 'isActive', true),
+      pinHash: row['pinHash']?.toString(),
+      pinSalt: row['pinSalt']?.toString(),
       createdAt: _date(row['createdAt']) ?? DateTime.now(),
+      updatedAt:
+          _date(row['updatedAt']) ?? _date(row['createdAt']) ?? DateTime.now(),
+      lastLoginAt: _date(row['lastLoginAt']),
     );
   }
 

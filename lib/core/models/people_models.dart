@@ -43,7 +43,11 @@ class AppUser {
     required this.email,
     required this.role,
     required this.isActive,
+    required this.pinHash,
+    required this.pinSalt,
     required this.createdAt,
+    required this.updatedAt,
+    required this.lastLoginAt,
   });
 
   final String id;
@@ -51,7 +55,11 @@ class AppUser {
   final String email;
   final UserRole role;
   final bool isActive;
+  final String? pinHash;
+  final String? pinSalt;
   final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? lastLoginAt;
 
   AppUser copyWith({
     String? id,
@@ -59,7 +67,11 @@ class AppUser {
     String? email,
     UserRole? role,
     bool? isActive,
+    String? pinHash,
+    String? pinSalt,
     DateTime? createdAt,
+    DateTime? updatedAt,
+    DateTime? lastLoginAt,
   }) {
     return AppUser(
       id: id ?? this.id,
@@ -67,7 +79,11 @@ class AppUser {
       email: email ?? this.email,
       role: role ?? this.role,
       isActive: isActive ?? this.isActive,
+      pinHash: pinHash ?? this.pinHash,
+      pinSalt: pinSalt ?? this.pinSalt,
       createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      lastLoginAt: lastLoginAt ?? this.lastLoginAt,
     );
   }
 }

@@ -144,7 +144,11 @@ extension AppUserRecordMapper on AppUserRecord {
       email: email,
       role: _enumByName(domain.UserRole.values, role),
       isActive: isActive,
+      pinHash: pinHash,
+      pinSalt: pinSalt,
       createdAt: createdAt,
+      updatedAt: updatedAt ?? createdAt,
+      lastLoginAt: lastLoginAt,
     );
   }
 }
@@ -157,7 +161,11 @@ extension AppUserDomainMapper on domain.AppUser {
       email: Value(email),
       role: Value(role.name),
       isActive: Value(isActive),
+      pinHash: Value(pinHash),
+      pinSalt: Value(pinSalt),
       createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      lastLoginAt: Value(lastLoginAt),
     );
   }
 }

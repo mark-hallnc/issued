@@ -7,6 +7,7 @@ import 'screens/items_screen.dart';
 import 'screens/scan_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/setup_screen.dart';
+import 'screens/session_lock_screen.dart';
 
 class IssuedApp extends StatefulWidget {
   const IssuedApp({super.key, this.store});
@@ -104,9 +105,13 @@ class _IssuedAppState extends State<IssuedApp> {
             return AnimatedBuilder(
               animation: _store,
               builder: (context, _) {
-                return _store.isSetupComplete
-                    ? const IssuedShell()
-                    : const SetupScreen();
+                if (!_store.isSetupComplete) {
+                  return const SetupScreen();
+                }
+                if (_store.isLocked) {
+                  return const SessionLockScreen();
+                }
+                return const IssuedShell();
               },
             );
           },
@@ -163,14 +168,39 @@ class _IssuedShellState extends State<IssuedShell> {
 
   @override
   Widget build(BuildContext context) {
+    final store = AppStoreScope.of(context);
+    final userName = store.currentPerson?.displayName ?? 'Local user';
     return Scaffold(
-      appBar: AppBar(title: const Text('Issued')),
+      appBar: AppBar(
+        title: const Text('Issued'),
+        actions: [
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Text(
+                userName,
+                style: const TextStyle(fontSize: 12),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Lock',
+            onPressed: () => store.lockSession(),
+            icon: const Icon(Icons.lock_outline),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: IndexedStack(index: _selectedIndex, children: _screens),
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) {
+          if (store.checkSessionTimeout()) {
+            return;
+          }
+          store.recordUserActivity();
           setState(() {
             _selectedIndex = index;
           });

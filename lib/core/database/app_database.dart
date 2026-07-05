@@ -31,7 +31,7 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? openDatabaseConnection());
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration {
@@ -85,6 +85,12 @@ class AppDatabase extends _$AppDatabase {
             checkoutRecords,
             checkoutRecords.assignedToTargetId,
           );
+        }
+        if (from < 9) {
+          await migrator.addColumn(appUsers, appUsers.pinHash);
+          await migrator.addColumn(appUsers, appUsers.pinSalt);
+          await migrator.addColumn(appUsers, appUsers.updatedAt);
+          await migrator.addColumn(appUsers, appUsers.lastLoginAt);
         }
       },
     );
