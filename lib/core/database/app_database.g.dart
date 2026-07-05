@@ -125,8 +125,9 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, ItemRecord> {
         type: DriftSqlType.double,
         requiredDuringInsert: false,
       );
-  static const VerificationMeta _purchaseUnitLabelMeta =
-      const VerificationMeta('purchaseUnitLabel');
+  static const VerificationMeta _purchaseUnitLabelMeta = const VerificationMeta(
+    'purchaseUnitLabel',
+  );
   @override
   late final GeneratedColumn<String> purchaseUnitLabel =
       GeneratedColumn<String>(
@@ -653,8 +654,7 @@ class ItemRecord extends DataClass implements Insertable<ItemRecord> {
       quantityOnHand: Value(quantityOnHand),
       minimumQuantity: Value(minimumQuantity),
       unitOfMeasureId: Value(unitOfMeasureId),
-      purchaseUnitOfMeasureId:
-          purchaseUnitOfMeasureId == null && nullToAbsent
+      purchaseUnitOfMeasureId: purchaseUnitOfMeasureId == null && nullToAbsent
           ? const Value.absent()
           : Value(purchaseUnitOfMeasureId),
       purchaseToStockConversionFactor:
@@ -883,7 +883,7 @@ class ItemRecord extends DataClass implements Insertable<ItemRecord> {
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     name,
     description,
@@ -905,7 +905,7 @@ class ItemRecord extends DataClass implements Insertable<ItemRecord> {
     allowFractionalQuantity,
     createdAt,
     updatedAt,
-  );
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||

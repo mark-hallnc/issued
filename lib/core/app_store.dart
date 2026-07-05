@@ -722,6 +722,117 @@ class AppStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  bool updateItemDetails(
+    Item updatedItem, {
+    List<CustomFieldValue> customFieldValues = const [],
+    String? activityNote,
+  }) {
+    if (!permissions.canManageItems) {
+      return false;
+    }
+
+    final itemIndex = _items.indexWhere(
+      (storedItem) => storedItem.id == updatedItem.id,
+    );
+    if (itemIndex == -1) {
+      return false;
+    }
+
+    final existingItem = _items[itemIndex];
+    final savedItem = Item(
+      id: updatedItem.id,
+      name: updatedItem.name,
+      description: updatedItem.description,
+      itemType: updatedItem.itemType,
+      category: updatedItem.category,
+      locationId: updatedItem.locationId,
+      quantityOnHand: existingItem.quantityOnHand,
+      minimumQuantity: updatedItem.minimumQuantity,
+      unitOfMeasureId: updatedItem.unitOfMeasureId,
+      purchaseUnitOfMeasureId: updatedItem.purchaseUnitOfMeasureId,
+      purchaseToStockConversionFactor:
+          updatedItem.purchaseToStockConversionFactor,
+      purchaseUnitLabel: updatedItem.purchaseUnitLabel,
+      barcode: updatedItem.barcode,
+      sku: updatedItem.sku,
+      supplier: updatedItem.supplier,
+      unitCost: updatedItem.unitCost,
+      photoPath: existingItem.photoPath,
+      isActive: existingItem.isActive,
+      allowFractionalQuantity: updatedItem.allowFractionalQuantity,
+      createdAt: existingItem.createdAt,
+      updatedAt: DateTime.now(),
+    );
+    _items[itemIndex] = savedItem;
+    unawaited(_database.upsertItem(savedItem.toCompanion()));
+
+    for (final value in customFieldValues) {
+      final valueIndex = _customFieldValues.indexWhere(
+        (storedValue) => storedValue.id == value.id,
+      );
+      if (valueIndex == -1) {
+        _customFieldValues.add(value);
+      } else {
+        _customFieldValues[valueIndex] = value;
+      }
+      unawaited(_database.upsertCustomFieldValue(value.toCompanion()));
+    }
+
+    final note = activityNote?.trim();
+    if (note != null && note.isNotEmpty) {
+      final transaction = InventoryTransaction(
+        id: 'txn-item-edit-${DateTime.now().microsecondsSinceEpoch}',
+        itemId: savedItem.id,
+        transactionType: InventoryTransactionType.adjustment,
+        quantityDelta: 0,
+        unitOfMeasureId: savedItem.unitOfMeasureId,
+        fromLocationId: null,
+        toLocationId: null,
+        assignedToPersonId: null,
+        performedByUserId: currentUser?.id,
+        notes: note,
+        createdAt: DateTime.now(),
+      );
+      _transactions.add(transaction);
+      unawaited(_database.upsertTransaction(transaction.toCompanion()));
+    }
+
+    notifyListeners();
+    return true;
+  }
+
+  bool hasTransactionsForItem(String itemId) {
+    return _transactions.any((transaction) => transaction.itemId == itemId);
+  }
+
+  bool hasOpenCheckoutsForItem(String itemId) {
+    return openCheckoutRecordsForItem(itemId).isNotEmpty;
+  }
+
+  bool isBarcodeInUse(String barcode, {String? excludingItemId}) {
+    final normalized = barcode.trim().toLowerCase();
+    if (normalized.isEmpty) {
+      return false;
+    }
+    return _items.any((item) {
+      return item.isActive &&
+          item.id != excludingItemId &&
+          (item.barcode ?? '').trim().toLowerCase() == normalized;
+    });
+  }
+
+  bool isSkuInUse(String sku, {String? excludingItemId}) {
+    final normalized = sku.trim().toLowerCase();
+    if (normalized.isEmpty) {
+      return false;
+    }
+    return _items.any((item) {
+      return item.isActive &&
+          item.id != excludingItemId &&
+          (item.sku ?? '').trim().toLowerCase() == normalized;
+    });
+  }
+
   void addTransaction(InventoryTransaction transaction) {
     _transactions.add(transaction);
     unawaited(_database.upsertTransaction(transaction.toCompanion()));

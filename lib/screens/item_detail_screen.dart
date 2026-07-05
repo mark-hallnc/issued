@@ -10,6 +10,7 @@ import '../core/labels/label_service.dart';
 import '../core/models/models.dart';
 import '../core/photos/item_photo_service.dart';
 import 'activity_screen.dart';
+import 'edit_item_screen.dart';
 import 'plan_screens.dart';
 import 'settings_detail_screens.dart';
 
@@ -46,7 +47,17 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     final recentTransactions = _recentTransactions(store);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Item Detail')),
+      appBar: AppBar(
+        title: const Text('Item Detail'),
+        actions: [
+          if (permissions.canManageItems)
+            IconButton(
+              tooltip: 'Edit item',
+              onPressed: _openEditItem,
+              icon: const Icon(Icons.edit),
+            ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -951,6 +962,23 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
         builder: (context) => ActivityScreen(itemId: _item.id),
       ),
     );
+  }
+
+  Future<void> _openEditItem() async {
+    final store = AppStoreScope.of(context);
+    if (!store.permissions.canManageItems) {
+      _showPermissionDenied();
+      return;
+    }
+
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (context) => EditItemScreen(item: _item),
+      ),
+    );
+    if (changed == true && mounted) {
+      _syncCurrentItem(store);
+    }
   }
 
   String? _checkedOutPerson(AppStore store) {
