@@ -199,23 +199,37 @@ String buildActivityCsv(AppStore store) {
   return const CsvEncoder().convert(rows);
 }
 
-String buildImportTemplateCsv() {
+String buildImportTemplateCsv([
+  List<CustomFieldDefinition> customFields = const [],
+]) {
+  final activeCustomFields =
+      customFields
+          .where(
+            (field) =>
+                field.isActive &&
+                field.entityType == CustomFieldEntityType.item,
+          )
+          .toList()
+        ..sort((left, right) => left.sortOrder.compareTo(right.sortOrder));
   return const CsvEncoder().convert([
     [
       'name',
       'description',
       'item_type',
       'category',
-      'quantity_on_hand',
+      'quantity',
       'minimum_quantity',
       'unit_of_measure',
-      'unit_of_measure_abbreviation',
       'location',
       'barcode',
       'sku',
       'supplier',
       'unit_cost',
       'allow_fractional_quantity',
+      'purchase_unit_of_measure',
+      'purchase_to_stock_conversion_factor',
+      'notes',
+      for (final field in activeCustomFields) 'custom_${_slug(field.name)}',
     ],
     [
       'Nitrile Gloves',
@@ -225,13 +239,16 @@ String buildImportTemplateCsv() {
       '100',
       '25',
       'Each',
-      'ea',
       'Main Tool Crib',
       '',
       'GLOVE-NITRILE',
       'Safety Supply Co.',
       '12.50',
       'false',
+      '',
+      '',
+      'Created by CSV import',
+      ...List.filled(activeCustomFields.length, ''),
     ],
     [
       'Torque Wrench',
@@ -241,13 +258,16 @@ String buildImportTemplateCsv() {
       '1',
       '1',
       'Each',
-      'ea',
       'Main Tool Crib',
       'TW-IMPORT-001',
       'TW-050',
       'Tool House',
       '148.00',
       'false',
+      '',
+      '',
+      'Created by CSV import',
+      ...List.filled(activeCustomFields.length, ''),
     ],
     [
       'Oil Filter',
@@ -257,13 +277,16 @@ String buildImportTemplateCsv() {
       '6',
       '2',
       'Each',
-      'ea',
       'Main Tool Crib',
       '',
       'FILTER-OIL',
       'Industrial Supply Co.',
       '18.75',
       'false',
+      '',
+      '',
+      'Created by CSV import',
+      ...List.filled(activeCustomFields.length, ''),
     ],
   ]);
 }

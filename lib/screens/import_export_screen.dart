@@ -7,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 import '../core/app_store.dart';
 import '../core/csv/inventory_csv_service.dart';
 import '../core/models/models.dart';
+import 'csv_import_screen.dart';
 import 'plan_screens.dart';
 
 class ImportExportScreen extends StatelessWidget {
@@ -88,7 +89,9 @@ class ImportExportScreen extends StatelessWidget {
                 onTap: () => _shareCsv(
                   context,
                   filename: 'issued_import_template.csv',
-                  csvText: buildImportTemplateCsv(),
+                  csvText: buildImportTemplateCsv(
+                    AppStoreScope.of(context).customFieldDefinitions,
+                  ),
                 ),
               ),
             ],
@@ -99,9 +102,8 @@ class ImportExportScreen extends StatelessWidget {
   }
 
   Future<void> _startImport(BuildContext context) async {
-    _showMessage(
-      context,
-      'CSV file import is temporarily disabled while file selection support is being updated.',
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (context) => const CsvImportScreen()),
     );
   }
 
