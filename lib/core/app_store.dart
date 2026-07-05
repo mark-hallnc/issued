@@ -2019,6 +2019,70 @@ class AppStore extends ChangeNotifier {
     );
   }
 
+  DashboardSummary getDashboardSummary() {
+    final activeItems = _items.where((item) => item.isActive).toList();
+    final openCheckouts = openCheckoutRecords;
+    final today = DateTime.now();
+    final startOfToday = DateTime(today.year, today.month, today.day);
+    final dueSoonCutoff = startOfToday.add(const Duration(days: 7));
+    final recentTransactions = List<InventoryTransaction>.from(_transactions)
+      ..sort((left, right) => right.createdAt.compareTo(left.createdAt));
+
+    return DashboardSummary(
+      totalActiveItems: activeItems.length,
+      lowStockCount: activeItems.where(isItemLowStock).length,
+      outOfStockCount: activeItems
+          .where((item) => totalQuantityForItem(item.id) <= 0)
+          .length,
+      negativeStockCount: activeItems
+          .where((item) => totalQuantityForItem(item.id) < 0)
+          .length,
+      missingLocationBalanceCount: activeItems
+          .where((item) => itemBalancesForItem(item.id).isEmpty)
+          .length,
+      missingSetupDataCount: activeItems.where(_isMissingSetupData).length,
+      checkedOutCount: openCheckouts.length,
+      overdueCheckoutCount: overdueCheckoutRecords.length,
+      dueSoonCheckoutCount: openCheckouts.where((record) {
+        final dueAt = record.dueAt;
+        return dueAt != null &&
+            !dueAt.isBefore(startOfToday) &&
+            dueAt.isBefore(dueSoonCutoff);
+      }).length,
+      pendingReorderCount: _reorderRequests
+          .where((request) => request.status == ReorderStatus.needed)
+          .length,
+      orderedReorderCount: _reorderRequests
+          .where((request) => request.status == ReorderStatus.ordered)
+          .length,
+      lowStockWithoutReorderCount: activeItems.where((item) {
+        return isItemLowStock(item) && getActiveReorderForItem(item.id) == null;
+      }).length,
+      draftCycleCountCount: _cycleCountSessions
+          .where(
+            (session) =>
+                session.status == CycleCountStatus.draft ||
+                session.status == CycleCountStatus.assigned,
+          )
+          .length,
+      submittedCycleCountCount: _cycleCountSessions
+          .where((session) => session.status == CycleCountStatus.submitted)
+          .length,
+      cycleCountVarianceCount: _cycleCountLines
+          .where((line) => (line.varianceQuantity ?? 0) != 0)
+          .length,
+      dataHealthErrorCount: null,
+      dataHealthWarningCount: null,
+      recentTransactions: recentTransactions.take(5).toList(),
+    );
+  }
+
+  bool _isMissingSetupData(Item item) {
+    final hasUnit = _unitById(item.unitOfMeasureId) != null;
+    final hasLocation = _locationById(item.locationId) != null;
+    return !hasUnit || !hasLocation;
+  }
+
   InventoryValueReport getInventoryValueReport() {
     final byType = <ItemType, double>{};
     final byLocation = <String, double>{};
@@ -3811,6 +3875,63 @@ class ReorderStatusSummary {
   final int ordered;
   final int received;
   final int canceled;
+}
+
+class DashboardSummary {
+  const DashboardSummary({
+    required this.totalActiveItems,
+    required this.lowStockCount,
+    required this.outOfStockCount,
+    required this.negativeStockCount,
+    required this.missingLocationBalanceCount,
+    required this.missingSetupDataCount,
+    required this.checkedOutCount,
+    required this.overdueCheckoutCount,
+    required this.dueSoonCheckoutCount,
+    required this.pendingReorderCount,
+    required this.orderedReorderCount,
+    required this.lowStockWithoutReorderCount,
+    required this.draftCycleCountCount,
+    required this.submittedCycleCountCount,
+    required this.cycleCountVarianceCount,
+    required this.dataHealthErrorCount,
+    required this.dataHealthWarningCount,
+    required this.recentTransactions,
+  });
+
+  final int totalActiveItems;
+  final int lowStockCount;
+  final int outOfStockCount;
+  final int negativeStockCount;
+  final int missingLocationBalanceCount;
+  final int missingSetupDataCount;
+  final int checkedOutCount;
+  final int overdueCheckoutCount;
+  final int dueSoonCheckoutCount;
+  final int pendingReorderCount;
+  final int orderedReorderCount;
+  final int lowStockWithoutReorderCount;
+  final int draftCycleCountCount;
+  final int submittedCycleCountCount;
+  final int cycleCountVarianceCount;
+  final int? dataHealthErrorCount;
+  final int? dataHealthWarningCount;
+  final List<InventoryTransaction> recentTransactions;
+
+  bool get hasAttentionItems {
+    return lowStockCount > 0 ||
+        outOfStockCount > 0 ||
+        negativeStockCount > 0 ||
+        missingLocationBalanceCount > 0 ||
+        missingSetupDataCount > 0 ||
+        overdueCheckoutCount > 0 ||
+        pendingReorderCount > 0 ||
+        orderedReorderCount > 0 ||
+        submittedCycleCountCount > 0 ||
+        cycleCountVarianceCount > 0 ||
+        (dataHealthErrorCount ?? 0) > 0 ||
+        (dataHealthWarningCount ?? 0) > 0;
+  }
 }
 
 class AppStoreScope extends InheritedNotifier<AppStore> {
