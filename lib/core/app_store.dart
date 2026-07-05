@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'backup/backup_service.dart';
 import 'database/app_database.dart';
 import 'database/model_mappers.dart';
+import 'data_health/data_health_service.dart';
 import 'models/models.dart';
 import 'permissions/app_permissions.dart';
 import 'sample_data.dart';
@@ -805,6 +806,249 @@ class AppStore extends ChangeNotifier {
       backupVersion: validation.backupVersion,
       createdAt: validation.createdAt,
     );
+  }
+
+  DataHealthReport runDataHealthCheck() {
+    return const DataHealthService().run(this);
+  }
+
+  Future<bool> repairDataHealthIssue(String issueId) async {
+    if (!_canRepairDataHealth) {
+      return false;
+    }
+
+    final report = runDataHealthCheck();
+    DataHealthIssue? issue;
+    for (final candidate in report.issues) {
+      if (candidate.id == issueId) {
+        issue = candidate;
+        break;
+      }
+    }
+    if (issue == null || !issue.canRepair || issue.repairAction == null) {
+      return false;
+    }
+
+    return _repairDataHealthIssue(issue);
+  }
+
+  Future<int> repairAllSafeDataHealthIssues() async {
+    if (!_canRepairDataHealth) {
+      return 0;
+    }
+
+    var repaired = 0;
+    var report = runDataHealthCheck();
+    while (true) {
+      final safeIssues = report.issues.where((issue) {
+        return issue.canRepair && issue.repairAction != null;
+      }).toList();
+      if (safeIssues.isEmpty) {
+        return repaired;
+      }
+
+      var changed = false;
+      for (final issue in safeIssues) {
+        if (await _repairDataHealthIssue(issue)) {
+          repaired += 1;
+          changed = true;
+        }
+      }
+      if (!changed) {
+        return repaired;
+      }
+      report = runDataHealthCheck();
+    }
+  }
+
+  bool get _canRepairDataHealth {
+    return currentRole == UserRole.admin ||
+        (currentRole == UserRole.manager &&
+            permissions.canManageSettings &&
+            permissions.canManageItems);
+  }
+
+  Future<bool> _repairDataHealthIssue(DataHealthIssue issue) {
+    return switch (issue.repairAction) {
+      DataHealthRepairAction.syncItemQuantityFromBalances =>
+        syncItemQuantityFromBalances(issue.affectedRecordId ?? ''),
+      DataHealthRepairAction.createMissingBalanceForItem =>
+        createMissingBalanceForItem(issue.affectedRecordId ?? ''),
+      DataHealthRepairAction.reassignBalanceToFallbackLocation =>
+        reassignBalanceToFallbackLocation(issue.affectedRecordId ?? ''),
+      DataHealthRepairAction.cancelOrphanReorderRequest =>
+        cancelOrphanReorderRequest(issue.affectedRecordId ?? ''),
+      DataHealthRepairAction.removeOrphanCustomFieldValue =>
+        removeOrphanCustomFieldValue(issue.affectedRecordId ?? ''),
+      DataHealthRepairAction.resetNegativeMinimumQuantity =>
+        resetNegativeMinimumQuantity(issue.affectedRecordId ?? ''),
+      DataHealthRepairAction.createMissingDefaultSetup =>
+        createMissingDefaultSetup(),
+      null => Future.value(false),
+    };
+  }
+
+  Future<bool> syncItemQuantityFromBalances(String itemId) async {
+    final itemIndex = _items.indexWhere((item) => item.id == itemId);
+    if (itemIndex == -1) {
+      return false;
+    }
+    final now = DateTime.now();
+    final updatedItem = _items[itemIndex].copyWith(
+      quantityOnHand: totalQuantityForItem(itemId),
+      updatedAt: now,
+    );
+    _items[itemIndex] = updatedItem;
+    await _database.upsertItem(updatedItem.toCompanion());
+    notifyListeners();
+    return true;
+  }
+
+  Future<bool> createMissingBalanceForItem(String itemId) async {
+    final item = _itemById(itemId);
+    if (item == null || itemBalancesForItem(itemId).isNotEmpty) {
+      return false;
+    }
+    final locationId =
+        _locationById(item.locationId)?.id ?? _firstActiveLocationId();
+    if (locationId == null) {
+      return false;
+    }
+
+    final balance = ItemLocationBalance(
+      id: _balanceId(itemId, locationId),
+      itemId: itemId,
+      locationId: locationId,
+      quantityOnHand: item.quantityOnHand,
+      minimumQuantity: 0,
+      updatedAt: DateTime.now(),
+    );
+    _upsertBalanceInMemory(balance);
+    await _database.upsertItemLocationBalance(balance.toCompanion());
+    notifyListeners();
+    return true;
+  }
+
+  Future<bool> reassignBalanceToFallbackLocation(String balanceId) async {
+    final balanceIndex = _itemLocationBalances.indexWhere(
+      (balance) => balance.id == balanceId,
+    );
+    if (balanceIndex == -1) {
+      return false;
+    }
+    final balance = _itemLocationBalances[balanceIndex];
+    final item = _itemById(balance.itemId);
+    final fallbackLocationId =
+        item != null && _locationById(item.locationId) != null
+        ? item.locationId
+        : _firstActiveLocationId();
+    if (fallbackLocationId == null) {
+      return false;
+    }
+
+    final existing = _balanceFor(balance.itemId, fallbackLocationId);
+    final updated = (existing ?? balance).copyWith(
+      id: existing?.id ?? _balanceId(balance.itemId, fallbackLocationId),
+      locationId: fallbackLocationId,
+      quantityOnHand: (existing?.quantityOnHand ?? 0) + balance.quantityOnHand,
+      updatedAt: DateTime.now(),
+    );
+    if (existing == null) {
+      _itemLocationBalances[balanceIndex] = updated;
+    } else {
+      _upsertBalanceInMemory(updated);
+      _itemLocationBalances.removeWhere((stored) => stored.id == balance.id);
+      await _database.deleteItemLocationBalance(balance.id);
+    }
+    await _database.upsertItemLocationBalance(updated.toCompanion());
+    await syncItemQuantityFromBalances(balance.itemId);
+    notifyListeners();
+    return true;
+  }
+
+  Future<bool> cancelOrphanReorderRequest(String reorderId) async {
+    final index = _reorderRequests.indexWhere(
+      (request) => request.id == reorderId,
+    );
+    if (index == -1) {
+      return false;
+    }
+    final request = _reorderRequests[index];
+    if (request.status != ReorderStatus.needed &&
+        request.status != ReorderStatus.ordered) {
+      return false;
+    }
+    final updated = request.copyWith(
+      status: ReorderStatus.canceled,
+      notes: [
+        if (request.notes?.trim().isNotEmpty == true) request.notes!.trim(),
+        'Canceled by Data Health repair because the item is missing.',
+      ].join(' '),
+    );
+    _reorderRequests[index] = updated;
+    await _database.upsertReorderRequest(updated.toCompanion());
+    notifyListeners();
+    return true;
+  }
+
+  Future<bool> removeOrphanCustomFieldValue(String valueId) async {
+    final removed = _customFieldValues.any((value) => value.id == valueId);
+    if (!removed) {
+      return false;
+    }
+    _customFieldValues.removeWhere((value) => value.id == valueId);
+    await _database.deleteCustomFieldValueById(valueId);
+    notifyListeners();
+    return true;
+  }
+
+  Future<bool> resetNegativeMinimumQuantity(String itemId) async {
+    final index = _items.indexWhere((item) => item.id == itemId);
+    if (index == -1 || _items[index].minimumQuantity >= 0) {
+      return false;
+    }
+    final updated = _items[index].copyWith(
+      minimumQuantity: 0,
+      updatedAt: DateTime.now(),
+    );
+    _items[index] = updated;
+    await _database.upsertItem(updated.toCompanion());
+    notifyListeners();
+    return true;
+  }
+
+  Future<bool> createMissingDefaultSetup() async {
+    final now = DateTime.now();
+    if (_company == null) {
+      _company = Company(
+        id: 'company-local',
+        name: 'Issued Workspace',
+        industry: null,
+        createdAt: now,
+        updatedAt: now,
+        setupCompleted: true,
+      );
+      await _database.upsertCompany(_company!.toCompanion());
+    }
+    await _ensureDefaultUnitsOfMeasure();
+    if (!_locations.any((location) => location.isActive)) {
+      await _ensureLocation('Main Stockroom', 'Stockroom', id: 'loc-main');
+    }
+    if (!_users.any((user) => user.isActive && user.role == UserRole.admin)) {
+      await _ensureAdminUser('Admin User', 'admin@issued.local', now);
+    }
+    await _loadFromDatabase();
+    notifyListeners();
+    return true;
+  }
+
+  String? _firstActiveLocationId() {
+    for (final location in _locations) {
+      if (location.isActive) {
+        return location.id;
+      }
+    }
+    return null;
   }
 
   bool updateItemDetails(

@@ -4,6 +4,7 @@ import '../core/app_store.dart';
 import '../core/models/models.dart';
 import '../core/permissions/app_permissions.dart';
 import 'backup_restore_screen.dart';
+import 'data_health_screen.dart';
 import 'import_export_screen.dart';
 import 'reports_screen.dart';
 import 'settings_detail_screens.dart';
@@ -62,6 +63,12 @@ class SettingsScreen extends StatelessWidget {
           title: 'Backup & Restore',
           icon: Icons.backup_outlined,
           screen: BackupRestoreScreen(),
+        ),
+      if (permissions.isAdmin || permissions.isManager)
+        const _SettingsRow(
+          title: 'Data Health',
+          icon: Icons.health_and_safety_outlined,
+          screen: DataHealthScreen(),
         ),
       if (permissions.canImportExport)
         const _SettingsRow(
