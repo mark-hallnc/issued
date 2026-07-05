@@ -66,7 +66,8 @@ class _EditItemScreenState extends State<EditItemScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final store = AppStoreScope.of(context);
-    _stockUom = _unitById(store, widget.item.unitOfMeasureId) ??
+    _stockUom =
+        _unitById(store, widget.item.unitOfMeasureId) ??
         store.unitsOfMeasure.first;
     _purchaseUom = widget.item.purchaseUnitOfMeasureId == null
         ? null
@@ -138,185 +139,210 @@ class _EditItemScreenState extends State<EditItemScreen> {
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              _SectionCard(title: 'Basics', children: [
-                TextFormField(
-                  controller: _nameController,
-                  decoration: const InputDecoration(labelText: 'Item name'),
-                  validator: _required,
-                  onChanged: (_) => _markDirty(),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _descriptionController,
-                  decoration: const InputDecoration(labelText: 'Description'),
-                  maxLines: 3,
-                  onChanged: (_) => _markDirty(),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<ItemType>(
-                  initialValue: _itemType,
-                  decoration: const InputDecoration(labelText: 'Item type'),
-                  items: ItemType.values
-                      .map(
-                        (type) => DropdownMenuItem(
-                          value: type,
-                          child: Text(_itemTypeLabel(type)),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) {
-                    if (value == null) {
-                      return;
-                    }
-                    setState(() {
-                      _itemType = value;
-                      _dirty = true;
-                    });
-                  },
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _categoryController,
-                  decoration: const InputDecoration(labelText: 'Category'),
-                  onChanged: (_) => setState(() => _dirty = true),
-                ),
-              ]),
-              _SectionCard(title: 'Stocking', children: [
-                TextFormField(
-                  controller: _minimumQuantityController,
-                  decoration: const InputDecoration(labelText: 'Minimum quantity'),
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
+              _SectionCard(
+                title: 'Basics',
+                children: [
+                  TextFormField(
+                    controller: _nameController,
+                    decoration: const InputDecoration(labelText: 'Item name'),
+                    validator: _required,
+                    onChanged: (_) => _markDirty(),
                   ),
-                  validator: _requiredNumber,
-                  onChanged: (_) => _markDirty(),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<UnitOfMeasure>(
-                  initialValue: _stockUom,
-                  decoration: const InputDecoration(labelText: 'Stocking UOM'),
-                  items: store.unitsOfMeasure
-                      .map(
-                        (unit) => DropdownMenuItem(
-                          value: unit,
-                          child: Text('${unit.name} (${unit.abbreviation})'),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (unit) {
-                    if (unit == null) {
-                      return;
-                    }
-                    setState(() {
-                      _stockUom = unit;
-                      _dirty = true;
-                    });
-                  },
-                ),
-                CheckboxListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Allow fractional quantity'),
-                  value: _allowFractionalQuantity,
-                  onChanged: (value) {
-                    setState(() {
-                      _allowFractionalQuantity = value ?? false;
-                      _dirty = true;
-                    });
-                  },
-                ),
-                DropdownButtonFormField<Location>(
-                  initialValue: _location,
-                  decoration: const InputDecoration(labelText: 'Default location'),
-                  items: store.locations
-                      .map(
-                        (location) => DropdownMenuItem(
-                          value: location,
-                          child: Text(location.name),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (location) {
-                    if (location == null) {
-                      return;
-                    }
-                    setState(() {
-                      _location = location;
-                      _dirty = true;
-                    });
-                  },
-                ),
-              ]),
-              _QuantitySummaryCard(item: widget.item, store: store),
-              _SectionCard(title: 'Purchasing / Receiving', children: [
-                DropdownButtonFormField<UnitOfMeasure?>(
-                  initialValue: _purchaseUom,
-                  decoration: const InputDecoration(labelText: 'Purchase UOM'),
-                  items: [
-                    const DropdownMenuItem<UnitOfMeasure?>(
-                      value: null,
-                      child: Text('No purchase UOM'),
-                    ),
-                    for (final unit in store.unitsOfMeasure)
-                      DropdownMenuItem<UnitOfMeasure?>(
-                        value: unit,
-                        child: Text('${unit.name} (${unit.abbreviation})'),
-                      ),
-                  ],
-                  onChanged: (unit) {
-                    setState(() {
-                      _purchaseUom = unit;
-                      _dirty = true;
-                    });
-                  },
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _purchaseConversionController,
-                  decoration: InputDecoration(
-                    labelText: 'Stocking units per purchase unit',
-                    helperText: _purchasePreview().isEmpty
-                        ? 'Example: 1 case = 12 each, enter 12.'
-                        : _purchasePreview(),
-                  ),
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  validator: _purchaseConversionValidator,
-                  onChanged: (_) => setState(() => _dirty = true),
-                ),
-              ]),
-              _SectionCard(title: 'Identification', children: [
-                TextFormField(
-                  controller: _skuController,
-                  decoration: const InputDecoration(labelText: 'SKU/part number'),
-                  onChanged: (_) => _markDirty(),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _barcodeController,
-                  decoration: const InputDecoration(labelText: 'Barcode'),
-                  onChanged: (_) => _markDirty(),
-                ),
-              ]),
-              _SectionCard(title: 'Supplier & Cost', children: [
-                TextFormField(
-                  controller: _supplierController,
-                  decoration: const InputDecoration(labelText: 'Supplier'),
-                  onChanged: (_) => _markDirty(),
-                ),
-                if (store.permissions.canViewCosts) ...[
                   const SizedBox(height: 12),
                   TextFormField(
-                    controller: _unitCostController,
-                    decoration: const InputDecoration(labelText: 'Unit cost'),
+                    controller: _descriptionController,
+                    decoration: const InputDecoration(labelText: 'Description'),
+                    maxLines: 3,
+                    onChanged: (_) => _markDirty(),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<ItemType>(
+                    initialValue: _itemType,
+                    decoration: const InputDecoration(labelText: 'Item type'),
+                    items: ItemType.values
+                        .map(
+                          (type) => DropdownMenuItem(
+                            value: type,
+                            child: Text(_itemTypeLabel(type)),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value == null) {
+                        return;
+                      }
+                      setState(() {
+                        _itemType = value;
+                        _dirty = true;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _categoryController,
+                    decoration: const InputDecoration(labelText: 'Category'),
+                    onChanged: (_) => setState(() => _dirty = true),
+                  ),
+                ],
+              ),
+              _SectionCard(
+                title: 'Stocking',
+                children: [
+                  TextFormField(
+                    controller: _minimumQuantityController,
+                    decoration: const InputDecoration(
+                      labelText: 'Minimum quantity',
+                    ),
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
-                    validator: _optionalNumber,
+                    validator: _requiredNumber,
+                    onChanged: (_) => _markDirty(),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<UnitOfMeasure>(
+                    initialValue: _stockUom,
+                    decoration: const InputDecoration(
+                      labelText: 'Stocking UOM',
+                    ),
+                    items: store.unitsOfMeasure
+                        .map(
+                          (unit) => DropdownMenuItem(
+                            value: unit,
+                            child: Text('${unit.name} (${unit.abbreviation})'),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (unit) {
+                      if (unit == null) {
+                        return;
+                      }
+                      setState(() {
+                        _stockUom = unit;
+                        _dirty = true;
+                      });
+                    },
+                  ),
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Allow fractional quantity'),
+                    value: _allowFractionalQuantity,
+                    onChanged: (value) {
+                      setState(() {
+                        _allowFractionalQuantity = value ?? false;
+                        _dirty = true;
+                      });
+                    },
+                  ),
+                  DropdownButtonFormField<Location>(
+                    initialValue: _location,
+                    decoration: const InputDecoration(
+                      labelText: 'Default location',
+                    ),
+                    items: store.locations
+                        .map(
+                          (location) => DropdownMenuItem(
+                            value: location,
+                            child: Text(location.name),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (location) {
+                      if (location == null) {
+                        return;
+                      }
+                      setState(() {
+                        _location = location;
+                        _dirty = true;
+                      });
+                    },
+                  ),
+                ],
+              ),
+              _QuantitySummaryCard(item: widget.item, store: store),
+              _SectionCard(
+                title: 'Purchasing / Receiving',
+                children: [
+                  DropdownButtonFormField<UnitOfMeasure?>(
+                    initialValue: _purchaseUom,
+                    decoration: const InputDecoration(
+                      labelText: 'Purchase UOM',
+                    ),
+                    items: [
+                      const DropdownMenuItem<UnitOfMeasure?>(
+                        value: null,
+                        child: Text('No purchase UOM'),
+                      ),
+                      for (final unit in store.unitsOfMeasure)
+                        DropdownMenuItem<UnitOfMeasure?>(
+                          value: unit,
+                          child: Text('${unit.name} (${unit.abbreviation})'),
+                        ),
+                    ],
+                    onChanged: (unit) {
+                      setState(() {
+                        _purchaseUom = unit;
+                        _dirty = true;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _purchaseConversionController,
+                    decoration: InputDecoration(
+                      labelText: 'Stocking units per purchase unit',
+                      helperText: _purchasePreview().isEmpty
+                          ? 'Example: 1 case = 12 each, enter 12.'
+                          : _purchasePreview(),
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    validator: _purchaseConversionValidator,
+                    onChanged: (_) => setState(() => _dirty = true),
+                  ),
+                ],
+              ),
+              _SectionCard(
+                title: 'Identification',
+                children: [
+                  TextFormField(
+                    controller: _skuController,
+                    decoration: const InputDecoration(
+                      labelText: 'SKU/part number',
+                    ),
+                    onChanged: (_) => _markDirty(),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _barcodeController,
+                    decoration: const InputDecoration(labelText: 'Barcode'),
                     onChanged: (_) => _markDirty(),
                   ),
                 ],
-              ]),
+              ),
+              _SectionCard(
+                title: 'Supplier & Cost',
+                children: [
+                  TextFormField(
+                    controller: _supplierController,
+                    decoration: const InputDecoration(labelText: 'Supplier'),
+                    onChanged: (_) => _markDirty(),
+                  ),
+                  if (store.permissions.canViewCosts) ...[
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _unitCostController,
+                      decoration: const InputDecoration(labelText: 'Unit cost'),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      validator: _optionalNumber,
+                      onChanged: (_) => _markDirty(),
+                    ),
+                  ],
+                ],
+              ),
               _CustomFieldsEditor(
                 fields: customFields,
                 textControllers: _customTextControllers,
@@ -325,9 +351,10 @@ class _EditItemScreenState extends State<EditItemScreen> {
                 selectValues: _customSelectValues,
                 onChanged: () => setState(() => _dirty = true),
               ),
-              _SectionCard(title: 'Photo', children: const [
-                Text('Manage photo on Item Detail.'),
-              ]),
+              _SectionCard(
+                title: 'Photo',
+                children: const [Text('Manage photo on Item Detail.')],
+              ),
             ],
           ),
         ),
@@ -407,7 +434,8 @@ class _EditItemScreenState extends State<EditItemScreen> {
         }
       }
       final oldUom =
-          store.getStockUom(widget.item)?.abbreviation ?? widget.item.unitOfMeasureId;
+          store.getStockUom(widget.item)?.abbreviation ??
+          widget.item.unitOfMeasureId;
       activityNote =
           'Item stocking UOM changed from $oldUom to ${_stockUom.abbreviation}.';
     }
@@ -456,9 +484,9 @@ class _EditItemScreenState extends State<EditItemScreen> {
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Item updated.')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Item updated.')));
     Navigator.of(context).pop(true);
   }
 
@@ -484,7 +512,9 @@ class _EditItemScreenState extends State<EditItemScreen> {
           definitionId: field.id,
           entityId: itemId,
           textValue: null,
-          numberValue: _optionalDouble(_customTextControllers[field.id]?.text ?? ''),
+          numberValue: _optionalDouble(
+            _customTextControllers[field.id]?.text ?? '',
+          ),
           dateValue: null,
           booleanValue: null,
           selectedOption: null,
@@ -648,7 +678,9 @@ class _EditItemScreenState extends State<EditItemScreen> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   String? _required(String? value) {
@@ -695,9 +727,9 @@ class _SectionCard extends StatelessWidget {
           children: [
             Text(
               title,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 12),
             ...children,
@@ -720,7 +752,9 @@ class _QuantitySummaryCard extends StatelessWidget {
     return _SectionCard(
       title: 'Read-only Quantity Summary',
       children: [
-        Text('Current total: ${store.formatStockQuantity(item, item.quantityOnHand)}'),
+        Text(
+          'Current total: ${store.formatStockQuantity(item, item.quantityOnHand)}',
+        ),
         const SizedBox(height: 8),
         for (final balance in balances)
           Text(

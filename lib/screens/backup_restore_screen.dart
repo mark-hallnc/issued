@@ -15,6 +15,7 @@ class BackupRestoreScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final store = AppStoreScope.of(context);
     final canExportBackup = _canExportBackup(store);
+    final canRestoreBackup = _canRestoreBackup(store);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Backup & Restore')),
@@ -45,14 +46,22 @@ class BackupRestoreScreen extends StatelessWidget {
           _SectionCard(
             title: 'Restore',
             children: [
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.restore_outlined),
-                title: const Text('Restore from backup'),
-                subtitle: const Text(
-                  'Restore will be added after safe file selection support is re-enabled.',
-                ),
-                enabled: false,
+              const Text(
+                'Open your Issued backup JSON file, copy its contents, and paste it here.',
+              ),
+              const SizedBox(height: 8),
+              const Text('File-based restore will be added later.'),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: canRestoreBackup
+                    ? () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const RestoreBackupScreen(),
+                        ),
+                      )
+                    : () => _showPermissionDenied(context),
+                icon: const Icon(Icons.content_paste),
+                label: const Text('Restore from Pasted Backup'),
               ),
             ],
           ),
@@ -147,13 +156,483 @@ class BackupRestoreScreen extends StatelessWidget {
             store.permissions.canImportExport);
   }
 
+  bool _canRestoreBackup(AppStore store) {
+    return store.currentRole == UserRole.admin ||
+        (store.currentRole == UserRole.manager &&
+            store.permissions.canImportExport &&
+            store.permissions.canManageSettings);
+  }
+
   void _showPermissionDenied(BuildContext context) {
     _showMessage(context, 'Your current role does not allow this action.');
   }
 
   void _showMessage(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+}
+
+class RestoreBackupScreen extends StatefulWidget {
+  const RestoreBackupScreen({super.key});
+
+  @override
+  State<RestoreBackupScreen> createState() => _RestoreBackupScreenState();
+}
+
+class _RestoreBackupScreenState extends State<RestoreBackupScreen> {
+  final _jsonController = TextEditingController();
+  BackupValidationResult? _validation;
+  List<String> _previewWarnings = const [];
+
+  @override
+  void dispose() {
+    _jsonController.dispose();
+    super.dispose();
+  }
+
+  void _validateBackup() {
+    final text = _jsonController.text.trim();
+    if (text.isEmpty) {
+      setState(() {
+        _validation = const BackupValidationResult(
+          isValid: false,
+          message: 'Paste backup JSON first.',
+          errors: ['Paste backup JSON first.'],
+        );
+        _previewWarnings = const [];
+      });
+      return;
+    }
+
+    final service = const BackupService();
+    final validation = service.validateBackupJson(text);
+    final parsedBackup = validation.isValid
+        ? service.parseBackupData(text)
+        : null;
+    final parseWarnings = parsedBackup?.warnings ?? const <String>[];
+
+    setState(() {
+      _validation = validation;
+      _previewWarnings = [...validation.warnings, ...parseWarnings];
+    });
+
+    if (!validation.isValid) {
+      return;
+    }
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => RestorePreviewScreen(
+          backupJson: text,
+          validation: validation,
+          warnings: _previewWarnings,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final validation = _validation;
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Pasted Backup')),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const Text('Paste the full contents of an Issued JSON backup file.'),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _jsonController,
+            minLines: 12,
+            maxLines: 18,
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
+              labelText: 'Backup JSON',
+              alignLabelWithHint: true,
+            ),
+            textInputAction: TextInputAction.newline,
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              OutlinedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancel'),
+              ),
+              const SizedBox(width: 12),
+              FilledButton.icon(
+                onPressed: _validateBackup,
+                icon: const Icon(Icons.check_circle_outline),
+                label: const Text('Validate Backup'),
+              ),
+            ],
+          ),
+          if (validation != null) ...[
+            const SizedBox(height: 16),
+            _ValidationResultCard(
+              validation: validation,
+              warnings: _previewWarnings,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class RestorePreviewScreen extends StatelessWidget {
+  const RestorePreviewScreen({
+    required this.backupJson,
+    required this.validation,
+    required this.warnings,
+    super.key,
+  });
+
+  final String backupJson;
+  final BackupValidationResult validation;
+  final List<String> warnings;
+
+  Future<void> _exportCurrentBackupFirst(BuildContext context) async {
+    final store = AppStoreScope.of(context);
+    try {
+      final backupJson = const BackupService().exportBackupJson(store);
+      final directory = await getTemporaryDirectory();
+      final filename = _backupFilename();
+      final file = File('${directory.path}${Platform.pathSeparator}$filename');
+      await file.writeAsString(backupJson, flush: true);
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path, mimeType: 'application/json')],
+          fileNameOverrides: [filename],
+        ),
+      );
+      if (context.mounted) {
+        _showMessage(context, 'Current backup exported.');
+      }
+    } catch (_) {
+      if (context.mounted) {
+        _showMessage(context, 'Could not export current backup.');
+      }
+    }
+  }
+
+  Future<void> _restoreBackup(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => const _RestoreConfirmationDialog(),
+    );
+    if (confirmed != true || !context.mounted) {
+      return;
+    }
+
+    final store = AppStoreScope.of(context);
+    final result = await store.restoreFromBackupJson(backupJson);
+    if (!context.mounted) {
+      return;
+    }
+
+    if (!result.isValid) {
+      _showMessage(context, result.message);
+      return;
+    }
+
+    final messenger = ScaffoldMessenger.of(context);
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    messenger.showSnackBar(const SnackBar(content: Text('Backup restored.')));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final counts = validation.counts;
+    final createdAt = validation.createdAt;
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Restore Preview')),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    validation.companyName ?? 'Issued workspace',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text('Backup version: ${validation.backupVersion ?? '-'}'),
+                  if (createdAt != null)
+                    Text('Created: ${_formatDate(createdAt)}'),
+                  const Divider(height: 24),
+                  _CountLine(label: 'Items', value: counts.items),
+                  _CountLine(label: 'Locations', value: counts.locations),
+                  _CountLine(
+                    label: 'People and users',
+                    value: counts.people + counts.users,
+                  ),
+                  _CountLine(label: 'Transactions', value: counts.transactions),
+                  _CountLine(label: 'Cycle counts', value: counts.cycleCounts),
+                  _CountLine(label: 'Balances', value: counts.balances),
+                  _CountLine(label: 'Checkouts', value: counts.checkouts),
+                  _CountLine(
+                    label: 'Reorder requests',
+                    value: counts.reorderRequests,
+                  ),
+                  _CountLine(
+                    label: 'Custom fields',
+                    value: counts.customFields,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          const _WarningCard(
+            message:
+                'Restoring will replace the local data on this device. Export a backup first if you want to keep the current data.',
+          ),
+          const SizedBox(height: 12),
+          const _WarningCard(
+            message:
+                'Photo file paths are restored, but image files may not exist on this device unless they were copied separately.',
+          ),
+          if (warnings.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _ValidationWarningsCard(warnings: warnings),
+          ],
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            children: [
+              OutlinedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancel'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => _exportCurrentBackupFirst(context),
+                icon: const Icon(Icons.download),
+                label: const Text('Export Current Backup First'),
+              ),
+              FilledButton.icon(
+                onPressed: () => _restoreBackup(context),
+                icon: const Icon(Icons.restore),
+                label: const Text('Restore Backup'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _backupFilename() {
+    final now = DateTime.now();
+    final date =
+        '${now.year}${_two(now.month)}${_two(now.day)}_${_two(now.hour)}${_two(now.minute)}';
+    return 'issued_backup_$date.json';
+  }
+
+  String _two(int value) => value.toString().padLeft(2, '0');
+
+  String _formatDate(DateTime value) {
+    final local = value.toLocal();
+    return '${local.year}-${_two(local.month)}-${_two(local.day)} ${_two(local.hour)}:${_two(local.minute)}';
+  }
+
+  void _showMessage(BuildContext context, String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+}
+
+class _RestoreConfirmationDialog extends StatefulWidget {
+  const _RestoreConfirmationDialog();
+
+  @override
+  State<_RestoreConfirmationDialog> createState() =>
+      _RestoreConfirmationDialogState();
+}
+
+class _RestoreConfirmationDialogState
+    extends State<_RestoreConfirmationDialog> {
+  final _controller = TextEditingController();
+  bool _showError = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _confirm() {
+    if (_controller.text.trim() == 'RESTORE') {
+      Navigator.of(context).pop(true);
+      return;
+    }
+    setState(() {
+      _showError = true;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Replace Local Data?'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Are you sure? This will replace the local Issued data on this device.',
+          ),
+          const SizedBox(height: 12),
+          const Text('Type RESTORE to continue.'),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _controller,
+            decoration: InputDecoration(
+              border: const OutlineInputBorder(),
+              errorText: _showError ? 'Type RESTORE exactly.' : null,
+            ),
+            onSubmitted: (_) => _confirm(),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(onPressed: _confirm, child: const Text('Replace Data')),
+      ],
+    );
+  }
+}
+
+class _ValidationResultCard extends StatelessWidget {
+  const _ValidationResultCard({
+    required this.validation,
+    required this.warnings,
+  });
+
+  final BackupValidationResult validation;
+  final List<String> warnings;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = validation.isValid ? Colors.green : Colors.red;
+    final messages = validation.isValid ? warnings : validation.errors;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  validation.isValid
+                      ? Icons.check_circle_outline
+                      : Icons.error_outline,
+                  color: color,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    validation.message,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+              ],
+            ),
+            if (messages.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              for (final message in messages.take(5)) Text(message),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ValidationWarningsCard extends StatelessWidget {
+  const _ValidationWarningsCard({required this.warnings});
+
+  final List<String> warnings;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Warnings',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 8),
+            for (final warning in warnings.take(8)) Text(warning),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WarningCard extends StatelessWidget {
+  const _WarningCard({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.warning_amber_outlined),
+            const SizedBox(width: 12),
+            Expanded(child: Text(message)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CountLine extends StatelessWidget {
+  const _CountLine({required this.label, required this.value});
+
+  final String label;
+  final int value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Expanded(child: Text(label)),
+          Text('$value', style: const TextStyle(fontWeight: FontWeight.w700)),
+        ],
+      ),
     );
   }
 }

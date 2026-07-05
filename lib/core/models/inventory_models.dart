@@ -102,7 +102,7 @@ class Item {
       purchaseToStockConversionFactor: clearPurchaseToStockConversionFactor
           ? null
           : purchaseToStockConversionFactor ??
-              this.purchaseToStockConversionFactor,
+                this.purchaseToStockConversionFactor,
       purchaseUnitLabel: clearPurchaseUnitLabel
           ? null
           : purchaseUnitLabel ?? this.purchaseUnitLabel,

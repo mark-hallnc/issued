@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'backup/backup_service.dart';
 import 'database/app_database.dart';
 import 'database/model_mappers.dart';
 import 'models/models.dart';
@@ -720,6 +721,90 @@ class AppStore extends ChangeNotifier {
     );
     await _database.upsertCompany(_company!.toCompanion());
     notifyListeners();
+  }
+
+  Future<BackupValidationResult> restoreFromBackupJson(String jsonText) async {
+    if (!(currentRole == UserRole.admin ||
+        (currentRole == UserRole.manager &&
+            permissions.canImportExport &&
+            permissions.canManageSettings))) {
+      return const BackupValidationResult(
+        isValid: false,
+        message: 'Your current role does not allow this action.',
+        errors: ['Your current role does not allow this action.'],
+      );
+    }
+
+    final service = const BackupService();
+    final validation = service.validateBackupJson(jsonText);
+    if (!validation.isValid) {
+      return validation;
+    }
+
+    final backup = service.parseBackupData(jsonText);
+    if (backup == null) {
+      return const BackupValidationResult(
+        isValid: false,
+        message: 'Could not read backup data.',
+        errors: ['Could not read backup data.'],
+      );
+    }
+
+    await _database.restoreWorkspaceData(
+      unitRows: backup.unitsOfMeasure
+          .map((unit) => unit.toCompanion())
+          .toList(),
+      locationRows: backup.locations
+          .map((location) => location.toCompanion())
+          .toList(),
+      personRows: backup.people.map((person) => person.toCompanion()).toList(),
+      userRows: backup.users.map((user) => user.toCompanion()).toList(),
+      itemRows: backup.items.map((item) => item.toCompanion()).toList(),
+      balanceRows: backup.itemLocationBalances
+          .map((balance) => balance.toCompanion())
+          .toList(),
+      transactionRows: backup.transactions
+          .map((transaction) => transaction.toCompanion())
+          .toList(),
+      checkoutRows: backup.checkoutRecords
+          .map((record) => record.toCompanion())
+          .toList(),
+      reorderRows: backup.reorderRequests
+          .map((request) => request.toCompanion())
+          .toList(),
+      cycleSessionRows: backup.cycleCountSessions
+          .map((session) => session.toCompanion())
+          .toList(),
+      cycleLineRows: backup.cycleCountLines
+          .map((line) => line.toCompanion())
+          .toList(),
+      customFieldRows: backup.customFieldDefinitions
+          .map((field) => field.toCompanion())
+          .toList(),
+      customValueRows: backup.customFieldValues
+          .map((value) => value.toCompanion())
+          .toList(),
+      planRows: [if (backup.plan != null) backup.plan!.toCompanion()],
+      usageRows: [
+        if (backup.companyUsage != null) backup.companyUsage!.toCompanion(),
+      ],
+      companyRows: [if (backup.company != null) backup.company!.toCompanion()],
+    );
+
+    await _loadFromDatabase();
+    await _ensureBasePlanData();
+    await _loadFromDatabase();
+    notifyListeners();
+
+    return BackupValidationResult(
+      isValid: true,
+      message: 'Backup restored.',
+      warnings: [...validation.warnings, ...backup.warnings],
+      counts: validation.counts,
+      companyName: validation.companyName,
+      backupVersion: validation.backupVersion,
+      createdAt: validation.createdAt,
+    );
   }
 
   bool updateItemDetails(

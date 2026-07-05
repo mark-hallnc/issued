@@ -1684,7 +1684,8 @@ class _LocationQuantityDialogState extends State<_LocationQuantityDialog> {
   Widget build(BuildContext context) {
     final locations = _locationOptions();
     final canUsePurchase =
-        widget.allowPurchaseMode && widget.store.hasPurchaseConversion(widget.item);
+        widget.allowPurchaseMode &&
+        widget.store.hasPurchaseConversion(widget.item);
     _receiveByPurchase ??= canUsePurchase;
     if (locations.isNotEmpty &&
         (_locationId == null ||
@@ -1879,8 +1880,8 @@ class _LocationQuantityDialogState extends State<_LocationQuantityDialog> {
   }
 
   String _receivePreview() {
-    final locationName = widget.store.resolveLocationName(_locationId) ??
-        'selected location';
+    final locationName =
+        widget.store.resolveLocationName(_locationId) ?? 'selected location';
     final stockQuantity = _stockQuantity();
     return 'This will add ${widget.store.formatStockQuantity(widget.item, stockQuantity)} to $locationName.';
   }

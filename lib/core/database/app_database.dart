@@ -64,7 +64,10 @@ class AppDatabase extends _$AppDatabase {
         }
         if (from < 7) {
           await migrator.addColumn(items, items.purchaseUnitOfMeasureId);
-          await migrator.addColumn(items, items.purchaseToStockConversionFactor);
+          await migrator.addColumn(
+            items,
+            items.purchaseToStockConversionFactor,
+          );
           await migrator.addColumn(items, items.purchaseUnitLabel);
         }
       },
@@ -181,5 +184,109 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> upsertCompany(CompaniesCompanion company) {
     return into(companies).insertOnConflictUpdate(company);
+  }
+
+  Future<void> restoreWorkspaceData({
+    required List<UnitsOfMeasureCompanion> unitRows,
+    required List<LocationsCompanion> locationRows,
+    required List<PeopleCompanion> personRows,
+    required List<AppUsersCompanion> userRows,
+    required List<ItemsCompanion> itemRows,
+    required List<ItemLocationBalancesCompanion> balanceRows,
+    required List<InventoryTransactionsCompanion> transactionRows,
+    required List<CheckoutRecordsCompanion> checkoutRows,
+    required List<ReorderRequestsCompanion> reorderRows,
+    required List<CycleCountSessionsCompanion> cycleSessionRows,
+    required List<CycleCountLinesCompanion> cycleLineRows,
+    required List<CustomFieldDefinitionsCompanion> customFieldRows,
+    required List<CustomFieldValuesCompanion> customValueRows,
+    required List<PlansCompanion> planRows,
+    required List<CompanyUsagesCompanion> usageRows,
+    required List<CompaniesCompanion> companyRows,
+  }) {
+    return transaction(() async {
+      await delete(customFieldValues).go();
+      await delete(customFieldDefinitions).go();
+      await delete(cycleCountLines).go();
+      await delete(cycleCountSessions).go();
+      await delete(reorderRequests).go();
+      await delete(checkoutRecords).go();
+      await delete(itemLocationBalances).go();
+      await delete(inventoryTransactions).go();
+      await delete(items).go();
+      await delete(appUsers).go();
+      await delete(people).go();
+      await delete(locations).go();
+      await delete(unitsOfMeasure).go();
+      await delete(companyUsages).go();
+      await delete(companies).go();
+
+      await batch((batch) {
+        batch.insertAll(
+          unitsOfMeasure,
+          unitRows,
+          mode: InsertMode.insertOrReplace,
+        );
+        batch.insertAll(
+          locations,
+          locationRows,
+          mode: InsertMode.insertOrReplace,
+        );
+        batch.insertAll(people, personRows, mode: InsertMode.insertOrReplace);
+        batch.insertAll(appUsers, userRows, mode: InsertMode.insertOrReplace);
+        batch.insertAll(items, itemRows, mode: InsertMode.insertOrReplace);
+        batch.insertAll(
+          itemLocationBalances,
+          balanceRows,
+          mode: InsertMode.insertOrReplace,
+        );
+        batch.insertAll(
+          inventoryTransactions,
+          transactionRows,
+          mode: InsertMode.insertOrReplace,
+        );
+        batch.insertAll(
+          checkoutRecords,
+          checkoutRows,
+          mode: InsertMode.insertOrReplace,
+        );
+        batch.insertAll(
+          reorderRequests,
+          reorderRows,
+          mode: InsertMode.insertOrReplace,
+        );
+        batch.insertAll(
+          cycleCountSessions,
+          cycleSessionRows,
+          mode: InsertMode.insertOrReplace,
+        );
+        batch.insertAll(
+          cycleCountLines,
+          cycleLineRows,
+          mode: InsertMode.insertOrReplace,
+        );
+        batch.insertAll(
+          customFieldDefinitions,
+          customFieldRows,
+          mode: InsertMode.insertOrReplace,
+        );
+        batch.insertAll(
+          customFieldValues,
+          customValueRows,
+          mode: InsertMode.insertOrReplace,
+        );
+        batch.insertAll(plans, planRows, mode: InsertMode.insertOrReplace);
+        batch.insertAll(
+          companyUsages,
+          usageRows,
+          mode: InsertMode.insertOrReplace,
+        );
+        batch.insertAll(
+          companies,
+          companyRows,
+          mode: InsertMode.insertOrReplace,
+        );
+      });
+    });
   }
 }

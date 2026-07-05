@@ -288,7 +288,11 @@ class _ReorderRequestCard extends StatelessWidget {
               'Quantity: ${_formatQuantity(request.requestedQuantity)} ${unit?.abbreviation ?? ''}',
             ),
             if (item != null &&
-                _purchaseEquivalentText(store, item, request.requestedQuantity) !=
+                _purchaseEquivalentText(
+                      store,
+                      item,
+                      request.requestedQuantity,
+                    ) !=
                     null)
               Text(
                 _purchaseEquivalentText(
@@ -475,7 +479,7 @@ Future<_QuantityNotesResult?> _showQuantityNotesDialog(
   final store = AppStoreScope.of(context);
   final canUsePurchase =
       allowPurchaseMode && item != null && store.hasPurchaseConversion(item);
-  final purchaseItem = canUsePurchase ? item! : null;
+  final purchaseItem = canUsePurchase ? item : null;
   var receiveByPurchase = canUsePurchase;
   final initialText = purchaseItem != null
       ? _formatQuantity(
@@ -659,7 +663,11 @@ void _openReorderList(BuildContext context) {
   );
 }
 
-String? _purchaseEquivalentText(AppStore store, Item item, double stockQuantity) {
+String? _purchaseEquivalentText(
+  AppStore store,
+  Item item,
+  double stockQuantity,
+) {
   if (!store.hasPurchaseConversion(item)) {
     return null;
   }
