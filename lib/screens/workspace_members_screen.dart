@@ -146,91 +146,140 @@ class _WorkspaceMembersScreenState extends State<WorkspaceMembersScreen> {
   }
 
   Future<void> _showInviteDialog(AppStore store) async {
-    final emailController = TextEditingController();
-    final nameController = TextEditingController();
-    var role = CloudWorkspaceRole.worker;
-    await showDialog<void>(
+    final result = await showDialog<AppActionResult>(
       context: context,
       builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text('Invite Member'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      decoration: const InputDecoration(labelText: 'Email'),
-                    ),
-                    TextField(
-                      controller: nameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Display name',
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<CloudWorkspaceRole>(
-                      value: role,
-                      decoration: const InputDecoration(labelText: 'Role'),
-                      items:
-                          const [
-                                CloudWorkspaceRole.admin,
-                                CloudWorkspaceRole.manager,
-                                CloudWorkspaceRole.worker,
-                                CloudWorkspaceRole.viewOnly,
-                              ]
-                              .map(
-                                (item) => DropdownMenuItem(
-                                  value: item,
-                                  child: Text(cloudWorkspaceRoleLabel(item)),
-                                ),
-                              )
-                              .toList(),
-                      onChanged: (value) {
-                        if (value != null) {
-                          setDialogState(() => role = value);
-                        }
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text('Cancel'),
-                ),
-                FilledButton(
-                  onPressed: () async {
-                    final result = await store.inviteCloudWorkspaceMember(
-                      email: emailController.text,
-                      role: role,
-                      displayName: nameController.text,
-                    );
-                    if (!dialogContext.mounted) {
-                      return;
-                    }
-                    Navigator.of(dialogContext).pop();
-                    if (!mounted) {
-                      return;
-                    }
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(result.message ?? 'Invite sent.')),
-                    );
-                  },
-                  child: const Text('Send Invite'),
-                ),
-              ],
+        return _InviteWorkspaceMemberDialog(
+          onInvite: ({required email, required role, displayName}) {
+            return store.inviteCloudWorkspaceMember(
+              email: email,
+              role: role,
+              displayName: displayName,
             );
           },
         );
       },
     );
-    emailController.dispose();
-    nameController.dispose();
+    if (!mounted || result == null) {
+      return;
+    }
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(result.message ?? 'Invite sent.')));
+  }
+}
+
+class _InviteWorkspaceMemberDialog extends StatefulWidget {
+  const _InviteWorkspaceMemberDialog({required this.onInvite});
+
+  final Future<AppActionResult> Function({
+    required String email,
+    required CloudWorkspaceRole role,
+    String? displayName,
+  })
+  onInvite;
+
+  @override
+  State<_InviteWorkspaceMemberDialog> createState() =>
+      _InviteWorkspaceMemberDialogState();
+}
+
+class _InviteWorkspaceMemberDialogState
+    extends State<_InviteWorkspaceMemberDialog> {
+  late final TextEditingController _emailController;
+  late final TextEditingController _nameController;
+  CloudWorkspaceRole _role = CloudWorkspaceRole.worker;
+  bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _emailController = TextEditingController();
+    _nameController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Invite Member'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _emailController,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(labelText: 'Email'),
+            ),
+            TextField(
+              controller: _nameController,
+              decoration: const InputDecoration(labelText: 'Display name'),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<CloudWorkspaceRole>(
+              value: _role,
+              decoration: const InputDecoration(labelText: 'Role'),
+              items:
+                  const [
+                    CloudWorkspaceRole.admin,
+                    CloudWorkspaceRole.manager,
+                    CloudWorkspaceRole.worker,
+                    CloudWorkspaceRole.viewOnly,
+                  ].map((item) {
+                    return DropdownMenuItem(
+                      value: item,
+                      child: Text(cloudWorkspaceRoleLabel(item)),
+                    );
+                  }).toList(),
+              onChanged: _isSubmitting
+                  ? null
+                  : (value) {
+                      if (value != null) {
+                        setState(() => _role = value);
+                      }
+                    },
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _isSubmitting ? null : _submit,
+          child: _isSubmitting
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Send Invite'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _submit() async {
+    setState(() => _isSubmitting = true);
+    final result = await widget.onInvite(
+      email: _emailController.text,
+      role: _role,
+      displayName: _nameController.text,
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() => _isSubmitting = false);
+    Navigator.of(context).pop(result);
   }
 }
 
