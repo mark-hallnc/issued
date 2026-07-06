@@ -3110,6 +3110,17 @@ class $InventoryTransactionsTable extends InventoryTransactions
         type: DriftSqlType.string,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _assignedToLocationIdMeta =
+      const VerificationMeta('assignedToLocationId');
+  @override
+  late final GeneratedColumn<String> assignedToLocationId =
+      GeneratedColumn<String>(
+        'assigned_to_location_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _assignedToTargetIdMeta =
       const VerificationMeta('assignedToTargetId');
   @override
@@ -3174,6 +3185,7 @@ class $InventoryTransactionsTable extends InventoryTransactions
     fromLocationId,
     toLocationId,
     assignedToPersonId,
+    assignedToLocationId,
     assignedToTargetId,
     assignedToText,
     performedByUserId,
@@ -3265,6 +3277,15 @@ class $InventoryTransactionsTable extends InventoryTransactions
         ),
       );
     }
+    if (data.containsKey('assigned_to_location_id')) {
+      context.handle(
+        _assignedToLocationIdMeta,
+        assignedToLocationId.isAcceptableOrUnknown(
+          data['assigned_to_location_id']!,
+          _assignedToLocationIdMeta,
+        ),
+      );
+    }
     if (data.containsKey('assigned_to_target_id')) {
       context.handle(
         _assignedToTargetIdMeta,
@@ -3350,6 +3371,10 @@ class $InventoryTransactionsTable extends InventoryTransactions
         DriftSqlType.string,
         data['${effectivePrefix}assigned_to_person_id'],
       ),
+      assignedToLocationId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}assigned_to_location_id'],
+      ),
       assignedToTargetId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}assigned_to_target_id'],
@@ -3389,6 +3414,7 @@ class InventoryTransactionRecord extends DataClass
   final String? fromLocationId;
   final String? toLocationId;
   final String? assignedToPersonId;
+  final String? assignedToLocationId;
   final String? assignedToTargetId;
   final String? assignedToText;
   final String? performedByUserId;
@@ -3403,6 +3429,7 @@ class InventoryTransactionRecord extends DataClass
     this.fromLocationId,
     this.toLocationId,
     this.assignedToPersonId,
+    this.assignedToLocationId,
     this.assignedToTargetId,
     this.assignedToText,
     this.performedByUserId,
@@ -3425,6 +3452,9 @@ class InventoryTransactionRecord extends DataClass
     }
     if (!nullToAbsent || assignedToPersonId != null) {
       map['assigned_to_person_id'] = Variable<String>(assignedToPersonId);
+    }
+    if (!nullToAbsent || assignedToLocationId != null) {
+      map['assigned_to_location_id'] = Variable<String>(assignedToLocationId);
     }
     if (!nullToAbsent || assignedToTargetId != null) {
       map['assigned_to_target_id'] = Variable<String>(assignedToTargetId);
@@ -3458,6 +3488,9 @@ class InventoryTransactionRecord extends DataClass
       assignedToPersonId: assignedToPersonId == null && nullToAbsent
           ? const Value.absent()
           : Value(assignedToPersonId),
+      assignedToLocationId: assignedToLocationId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(assignedToLocationId),
       assignedToTargetId: assignedToTargetId == null && nullToAbsent
           ? const Value.absent()
           : Value(assignedToTargetId),
@@ -3490,6 +3523,9 @@ class InventoryTransactionRecord extends DataClass
       assignedToPersonId: serializer.fromJson<String?>(
         json['assignedToPersonId'],
       ),
+      assignedToLocationId: serializer.fromJson<String?>(
+        json['assignedToLocationId'],
+      ),
       assignedToTargetId: serializer.fromJson<String?>(
         json['assignedToTargetId'],
       ),
@@ -3513,6 +3549,7 @@ class InventoryTransactionRecord extends DataClass
       'fromLocationId': serializer.toJson<String?>(fromLocationId),
       'toLocationId': serializer.toJson<String?>(toLocationId),
       'assignedToPersonId': serializer.toJson<String?>(assignedToPersonId),
+      'assignedToLocationId': serializer.toJson<String?>(assignedToLocationId),
       'assignedToTargetId': serializer.toJson<String?>(assignedToTargetId),
       'assignedToText': serializer.toJson<String?>(assignedToText),
       'performedByUserId': serializer.toJson<String?>(performedByUserId),
@@ -3530,6 +3567,7 @@ class InventoryTransactionRecord extends DataClass
     Value<String?> fromLocationId = const Value.absent(),
     Value<String?> toLocationId = const Value.absent(),
     Value<String?> assignedToPersonId = const Value.absent(),
+    Value<String?> assignedToLocationId = const Value.absent(),
     Value<String?> assignedToTargetId = const Value.absent(),
     Value<String?> assignedToText = const Value.absent(),
     Value<String?> performedByUserId = const Value.absent(),
@@ -3548,6 +3586,9 @@ class InventoryTransactionRecord extends DataClass
     assignedToPersonId: assignedToPersonId.present
         ? assignedToPersonId.value
         : this.assignedToPersonId,
+    assignedToLocationId: assignedToLocationId.present
+        ? assignedToLocationId.value
+        : this.assignedToLocationId,
     assignedToTargetId: assignedToTargetId.present
         ? assignedToTargetId.value
         : this.assignedToTargetId,
@@ -3584,6 +3625,9 @@ class InventoryTransactionRecord extends DataClass
       assignedToPersonId: data.assignedToPersonId.present
           ? data.assignedToPersonId.value
           : this.assignedToPersonId,
+      assignedToLocationId: data.assignedToLocationId.present
+          ? data.assignedToLocationId.value
+          : this.assignedToLocationId,
       assignedToTargetId: data.assignedToTargetId.present
           ? data.assignedToTargetId.value
           : this.assignedToTargetId,
@@ -3609,6 +3653,7 @@ class InventoryTransactionRecord extends DataClass
           ..write('fromLocationId: $fromLocationId, ')
           ..write('toLocationId: $toLocationId, ')
           ..write('assignedToPersonId: $assignedToPersonId, ')
+          ..write('assignedToLocationId: $assignedToLocationId, ')
           ..write('assignedToTargetId: $assignedToTargetId, ')
           ..write('assignedToText: $assignedToText, ')
           ..write('performedByUserId: $performedByUserId, ')
@@ -3628,6 +3673,7 @@ class InventoryTransactionRecord extends DataClass
     fromLocationId,
     toLocationId,
     assignedToPersonId,
+    assignedToLocationId,
     assignedToTargetId,
     assignedToText,
     performedByUserId,
@@ -3646,6 +3692,7 @@ class InventoryTransactionRecord extends DataClass
           other.fromLocationId == this.fromLocationId &&
           other.toLocationId == this.toLocationId &&
           other.assignedToPersonId == this.assignedToPersonId &&
+          other.assignedToLocationId == this.assignedToLocationId &&
           other.assignedToTargetId == this.assignedToTargetId &&
           other.assignedToText == this.assignedToText &&
           other.performedByUserId == this.performedByUserId &&
@@ -3663,6 +3710,7 @@ class InventoryTransactionsCompanion
   final Value<String?> fromLocationId;
   final Value<String?> toLocationId;
   final Value<String?> assignedToPersonId;
+  final Value<String?> assignedToLocationId;
   final Value<String?> assignedToTargetId;
   final Value<String?> assignedToText;
   final Value<String?> performedByUserId;
@@ -3678,6 +3726,7 @@ class InventoryTransactionsCompanion
     this.fromLocationId = const Value.absent(),
     this.toLocationId = const Value.absent(),
     this.assignedToPersonId = const Value.absent(),
+    this.assignedToLocationId = const Value.absent(),
     this.assignedToTargetId = const Value.absent(),
     this.assignedToText = const Value.absent(),
     this.performedByUserId = const Value.absent(),
@@ -3694,6 +3743,7 @@ class InventoryTransactionsCompanion
     this.fromLocationId = const Value.absent(),
     this.toLocationId = const Value.absent(),
     this.assignedToPersonId = const Value.absent(),
+    this.assignedToLocationId = const Value.absent(),
     this.assignedToTargetId = const Value.absent(),
     this.assignedToText = const Value.absent(),
     this.performedByUserId = const Value.absent(),
@@ -3715,6 +3765,7 @@ class InventoryTransactionsCompanion
     Expression<String>? fromLocationId,
     Expression<String>? toLocationId,
     Expression<String>? assignedToPersonId,
+    Expression<String>? assignedToLocationId,
     Expression<String>? assignedToTargetId,
     Expression<String>? assignedToText,
     Expression<String>? performedByUserId,
@@ -3732,6 +3783,8 @@ class InventoryTransactionsCompanion
       if (toLocationId != null) 'to_location_id': toLocationId,
       if (assignedToPersonId != null)
         'assigned_to_person_id': assignedToPersonId,
+      if (assignedToLocationId != null)
+        'assigned_to_location_id': assignedToLocationId,
       if (assignedToTargetId != null)
         'assigned_to_target_id': assignedToTargetId,
       if (assignedToText != null) 'assigned_to_text': assignedToText,
@@ -3751,6 +3804,7 @@ class InventoryTransactionsCompanion
     Value<String?>? fromLocationId,
     Value<String?>? toLocationId,
     Value<String?>? assignedToPersonId,
+    Value<String?>? assignedToLocationId,
     Value<String?>? assignedToTargetId,
     Value<String?>? assignedToText,
     Value<String?>? performedByUserId,
@@ -3767,6 +3821,7 @@ class InventoryTransactionsCompanion
       fromLocationId: fromLocationId ?? this.fromLocationId,
       toLocationId: toLocationId ?? this.toLocationId,
       assignedToPersonId: assignedToPersonId ?? this.assignedToPersonId,
+      assignedToLocationId: assignedToLocationId ?? this.assignedToLocationId,
       assignedToTargetId: assignedToTargetId ?? this.assignedToTargetId,
       assignedToText: assignedToText ?? this.assignedToText,
       performedByUserId: performedByUserId ?? this.performedByUserId,
@@ -3803,6 +3858,11 @@ class InventoryTransactionsCompanion
     if (assignedToPersonId.present) {
       map['assigned_to_person_id'] = Variable<String>(assignedToPersonId.value);
     }
+    if (assignedToLocationId.present) {
+      map['assigned_to_location_id'] = Variable<String>(
+        assignedToLocationId.value,
+      );
+    }
     if (assignedToTargetId.present) {
       map['assigned_to_target_id'] = Variable<String>(assignedToTargetId.value);
     }
@@ -3835,6 +3895,7 @@ class InventoryTransactionsCompanion
           ..write('fromLocationId: $fromLocationId, ')
           ..write('toLocationId: $toLocationId, ')
           ..write('assignedToPersonId: $assignedToPersonId, ')
+          ..write('assignedToLocationId: $assignedToLocationId, ')
           ..write('assignedToTargetId: $assignedToTargetId, ')
           ..write('assignedToText: $assignedToText, ')
           ..write('performedByUserId: $performedByUserId, ')
@@ -6128,6 +6189,15 @@ class $AssignmentTargetsTable extends AssignmentTargets
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _codeMeta = const VerificationMeta('code');
+  @override
+  late final GeneratedColumn<String> code = GeneratedColumn<String>(
+    'code',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _descriptionMeta = const VerificationMeta(
     'description',
   );
@@ -6191,6 +6261,7 @@ class $AssignmentTargetsTable extends AssignmentTargets
     id,
     name,
     targetType,
+    code,
     description,
     locationId,
     isActive,
@@ -6229,6 +6300,12 @@ class $AssignmentTargetsTable extends AssignmentTargets
       );
     } else if (isInserting) {
       context.missing(_targetTypeMeta);
+    }
+    if (data.containsKey('code')) {
+      context.handle(
+        _codeMeta,
+        code.isAcceptableOrUnknown(data['code']!, _codeMeta),
+      );
     }
     if (data.containsKey('description')) {
       context.handle(
@@ -6290,6 +6367,10 @@ class $AssignmentTargetsTable extends AssignmentTargets
         DriftSqlType.string,
         data['${effectivePrefix}target_type'],
       )!,
+      code: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}code'],
+      ),
       description: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}description'],
@@ -6324,6 +6405,7 @@ class AssignmentTargetRecord extends DataClass
   final String id;
   final String name;
   final String targetType;
+  final String? code;
   final String? description;
   final String? locationId;
   final bool isActive;
@@ -6333,6 +6415,7 @@ class AssignmentTargetRecord extends DataClass
     required this.id,
     required this.name,
     required this.targetType,
+    this.code,
     this.description,
     this.locationId,
     required this.isActive,
@@ -6345,6 +6428,9 @@ class AssignmentTargetRecord extends DataClass
     map['id'] = Variable<String>(id);
     map['name'] = Variable<String>(name);
     map['target_type'] = Variable<String>(targetType);
+    if (!nullToAbsent || code != null) {
+      map['code'] = Variable<String>(code);
+    }
     if (!nullToAbsent || description != null) {
       map['description'] = Variable<String>(description);
     }
@@ -6362,6 +6448,7 @@ class AssignmentTargetRecord extends DataClass
       id: Value(id),
       name: Value(name),
       targetType: Value(targetType),
+      code: code == null && nullToAbsent ? const Value.absent() : Value(code),
       description: description == null && nullToAbsent
           ? const Value.absent()
           : Value(description),
@@ -6383,6 +6470,7 @@ class AssignmentTargetRecord extends DataClass
       id: serializer.fromJson<String>(json['id']),
       name: serializer.fromJson<String>(json['name']),
       targetType: serializer.fromJson<String>(json['targetType']),
+      code: serializer.fromJson<String?>(json['code']),
       description: serializer.fromJson<String?>(json['description']),
       locationId: serializer.fromJson<String?>(json['locationId']),
       isActive: serializer.fromJson<bool>(json['isActive']),
@@ -6397,6 +6485,7 @@ class AssignmentTargetRecord extends DataClass
       'id': serializer.toJson<String>(id),
       'name': serializer.toJson<String>(name),
       'targetType': serializer.toJson<String>(targetType),
+      'code': serializer.toJson<String?>(code),
       'description': serializer.toJson<String?>(description),
       'locationId': serializer.toJson<String?>(locationId),
       'isActive': serializer.toJson<bool>(isActive),
@@ -6409,6 +6498,7 @@ class AssignmentTargetRecord extends DataClass
     String? id,
     String? name,
     String? targetType,
+    Value<String?> code = const Value.absent(),
     Value<String?> description = const Value.absent(),
     Value<String?> locationId = const Value.absent(),
     bool? isActive,
@@ -6418,6 +6508,7 @@ class AssignmentTargetRecord extends DataClass
     id: id ?? this.id,
     name: name ?? this.name,
     targetType: targetType ?? this.targetType,
+    code: code.present ? code.value : this.code,
     description: description.present ? description.value : this.description,
     locationId: locationId.present ? locationId.value : this.locationId,
     isActive: isActive ?? this.isActive,
@@ -6431,6 +6522,7 @@ class AssignmentTargetRecord extends DataClass
       targetType: data.targetType.present
           ? data.targetType.value
           : this.targetType,
+      code: data.code.present ? data.code.value : this.code,
       description: data.description.present
           ? data.description.value
           : this.description,
@@ -6449,6 +6541,7 @@ class AssignmentTargetRecord extends DataClass
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('targetType: $targetType, ')
+          ..write('code: $code, ')
           ..write('description: $description, ')
           ..write('locationId: $locationId, ')
           ..write('isActive: $isActive, ')
@@ -6463,6 +6556,7 @@ class AssignmentTargetRecord extends DataClass
     id,
     name,
     targetType,
+    code,
     description,
     locationId,
     isActive,
@@ -6476,6 +6570,7 @@ class AssignmentTargetRecord extends DataClass
           other.id == this.id &&
           other.name == this.name &&
           other.targetType == this.targetType &&
+          other.code == this.code &&
           other.description == this.description &&
           other.locationId == this.locationId &&
           other.isActive == this.isActive &&
@@ -6488,6 +6583,7 @@ class AssignmentTargetsCompanion
   final Value<String> id;
   final Value<String> name;
   final Value<String> targetType;
+  final Value<String?> code;
   final Value<String?> description;
   final Value<String?> locationId;
   final Value<bool> isActive;
@@ -6498,6 +6594,7 @@ class AssignmentTargetsCompanion
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.targetType = const Value.absent(),
+    this.code = const Value.absent(),
     this.description = const Value.absent(),
     this.locationId = const Value.absent(),
     this.isActive = const Value.absent(),
@@ -6509,6 +6606,7 @@ class AssignmentTargetsCompanion
     required String id,
     required String name,
     required String targetType,
+    this.code = const Value.absent(),
     this.description = const Value.absent(),
     this.locationId = const Value.absent(),
     required bool isActive,
@@ -6525,6 +6623,7 @@ class AssignmentTargetsCompanion
     Expression<String>? id,
     Expression<String>? name,
     Expression<String>? targetType,
+    Expression<String>? code,
     Expression<String>? description,
     Expression<String>? locationId,
     Expression<bool>? isActive,
@@ -6536,6 +6635,7 @@ class AssignmentTargetsCompanion
       if (id != null) 'id': id,
       if (name != null) 'name': name,
       if (targetType != null) 'target_type': targetType,
+      if (code != null) 'code': code,
       if (description != null) 'description': description,
       if (locationId != null) 'location_id': locationId,
       if (isActive != null) 'is_active': isActive,
@@ -6549,6 +6649,7 @@ class AssignmentTargetsCompanion
     Value<String>? id,
     Value<String>? name,
     Value<String>? targetType,
+    Value<String?>? code,
     Value<String?>? description,
     Value<String?>? locationId,
     Value<bool>? isActive,
@@ -6560,6 +6661,7 @@ class AssignmentTargetsCompanion
       id: id ?? this.id,
       name: name ?? this.name,
       targetType: targetType ?? this.targetType,
+      code: code ?? this.code,
       description: description ?? this.description,
       locationId: locationId ?? this.locationId,
       isActive: isActive ?? this.isActive,
@@ -6580,6 +6682,9 @@ class AssignmentTargetsCompanion
     }
     if (targetType.present) {
       map['target_type'] = Variable<String>(targetType.value);
+    }
+    if (code.present) {
+      map['code'] = Variable<String>(code.value);
     }
     if (description.present) {
       map['description'] = Variable<String>(description.value);
@@ -6608,6 +6713,7 @@ class AssignmentTargetsCompanion
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('targetType: $targetType, ')
+          ..write('code: $code, ')
           ..write('description: $description, ')
           ..write('locationId: $locationId, ')
           ..write('isActive: $isActive, ')
@@ -11828,6 +11934,7 @@ typedef $$InventoryTransactionsTableCreateCompanionBuilder =
       Value<String?> fromLocationId,
       Value<String?> toLocationId,
       Value<String?> assignedToPersonId,
+      Value<String?> assignedToLocationId,
       Value<String?> assignedToTargetId,
       Value<String?> assignedToText,
       Value<String?> performedByUserId,
@@ -11845,6 +11952,7 @@ typedef $$InventoryTransactionsTableUpdateCompanionBuilder =
       Value<String?> fromLocationId,
       Value<String?> toLocationId,
       Value<String?> assignedToPersonId,
+      Value<String?> assignedToLocationId,
       Value<String?> assignedToTargetId,
       Value<String?> assignedToText,
       Value<String?> performedByUserId,
@@ -11899,6 +12007,11 @@ class $$InventoryTransactionsTableFilterComposer
 
   ColumnFilters<String> get assignedToPersonId => $composableBuilder(
     column: $table.assignedToPersonId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get assignedToLocationId => $composableBuilder(
+    column: $table.assignedToLocationId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -11977,6 +12090,11 @@ class $$InventoryTransactionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get assignedToLocationId => $composableBuilder(
+    column: $table.assignedToLocationId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get assignedToTargetId => $composableBuilder(
     column: $table.assignedToTargetId,
     builder: (column) => ColumnOrderings(column),
@@ -12045,6 +12163,11 @@ class $$InventoryTransactionsTableAnnotationComposer
 
   GeneratedColumn<String> get assignedToPersonId => $composableBuilder(
     column: $table.assignedToPersonId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get assignedToLocationId => $composableBuilder(
+    column: $table.assignedToLocationId,
     builder: (column) => column,
   );
 
@@ -12124,6 +12247,7 @@ class $$InventoryTransactionsTableTableManager
                 Value<String?> fromLocationId = const Value.absent(),
                 Value<String?> toLocationId = const Value.absent(),
                 Value<String?> assignedToPersonId = const Value.absent(),
+                Value<String?> assignedToLocationId = const Value.absent(),
                 Value<String?> assignedToTargetId = const Value.absent(),
                 Value<String?> assignedToText = const Value.absent(),
                 Value<String?> performedByUserId = const Value.absent(),
@@ -12139,6 +12263,7 @@ class $$InventoryTransactionsTableTableManager
                 fromLocationId: fromLocationId,
                 toLocationId: toLocationId,
                 assignedToPersonId: assignedToPersonId,
+                assignedToLocationId: assignedToLocationId,
                 assignedToTargetId: assignedToTargetId,
                 assignedToText: assignedToText,
                 performedByUserId: performedByUserId,
@@ -12156,6 +12281,7 @@ class $$InventoryTransactionsTableTableManager
                 Value<String?> fromLocationId = const Value.absent(),
                 Value<String?> toLocationId = const Value.absent(),
                 Value<String?> assignedToPersonId = const Value.absent(),
+                Value<String?> assignedToLocationId = const Value.absent(),
                 Value<String?> assignedToTargetId = const Value.absent(),
                 Value<String?> assignedToText = const Value.absent(),
                 Value<String?> performedByUserId = const Value.absent(),
@@ -12171,6 +12297,7 @@ class $$InventoryTransactionsTableTableManager
                 fromLocationId: fromLocationId,
                 toLocationId: toLocationId,
                 assignedToPersonId: assignedToPersonId,
+                assignedToLocationId: assignedToLocationId,
                 assignedToTargetId: assignedToTargetId,
                 assignedToText: assignedToText,
                 performedByUserId: performedByUserId,
@@ -13283,6 +13410,7 @@ typedef $$AssignmentTargetsTableCreateCompanionBuilder =
       required String id,
       required String name,
       required String targetType,
+      Value<String?> code,
       Value<String?> description,
       Value<String?> locationId,
       required bool isActive,
@@ -13295,6 +13423,7 @@ typedef $$AssignmentTargetsTableUpdateCompanionBuilder =
       Value<String> id,
       Value<String> name,
       Value<String> targetType,
+      Value<String?> code,
       Value<String?> description,
       Value<String?> locationId,
       Value<bool> isActive,
@@ -13324,6 +13453,11 @@ class $$AssignmentTargetsTableFilterComposer
 
   ColumnFilters<String> get targetType => $composableBuilder(
     column: $table.targetType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get code => $composableBuilder(
+    column: $table.code,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -13377,6 +13511,11 @@ class $$AssignmentTargetsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get code => $composableBuilder(
+    column: $table.code,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get description => $composableBuilder(
     column: $table.description,
     builder: (column) => ColumnOrderings(column),
@@ -13422,6 +13561,9 @@ class $$AssignmentTargetsTableAnnotationComposer
     column: $table.targetType,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get code =>
+      $composableBuilder(column: $table.code, builder: (column) => column);
 
   GeneratedColumn<String> get description => $composableBuilder(
     column: $table.description,
@@ -13486,6 +13628,7 @@ class $$AssignmentTargetsTableTableManager
                 Value<String> id = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<String> targetType = const Value.absent(),
+                Value<String?> code = const Value.absent(),
                 Value<String?> description = const Value.absent(),
                 Value<String?> locationId = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
@@ -13496,6 +13639,7 @@ class $$AssignmentTargetsTableTableManager
                 id: id,
                 name: name,
                 targetType: targetType,
+                code: code,
                 description: description,
                 locationId: locationId,
                 isActive: isActive,
@@ -13508,6 +13652,7 @@ class $$AssignmentTargetsTableTableManager
                 required String id,
                 required String name,
                 required String targetType,
+                Value<String?> code = const Value.absent(),
                 Value<String?> description = const Value.absent(),
                 Value<String?> locationId = const Value.absent(),
                 required bool isActive,
@@ -13518,6 +13663,7 @@ class $$AssignmentTargetsTableTableManager
                 id: id,
                 name: name,
                 targetType: targetType,
+                code: code,
                 description: description,
                 locationId: locationId,
                 isActive: isActive,

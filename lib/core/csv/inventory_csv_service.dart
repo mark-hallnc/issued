@@ -162,9 +162,13 @@ String buildActivityCsv(AppStore store) {
       'unit_of_measure',
       'from_location',
       'to_location',
+      'assigned_to',
+      'assigned_to_type',
       'assigned_to_person',
+      'assigned_to_location',
       'assigned_target',
       'assigned_target_type',
+      'assigned_to_target_code',
       'assigned_text',
       'performed_by_user',
       'notes',
@@ -186,9 +190,19 @@ String buildActivityCsv(AppStore store) {
       _unitById(store, transaction.unitOfMeasureId)?.name ?? 'Unknown',
       _locationById(store, transaction.fromLocationId)?.name ?? '',
       _locationById(store, transaction.toLocationId)?.name ?? '',
+      store.resolveAssignedTo(
+            personId: transaction.assignedToPersonId,
+            locationId: transaction.assignedToLocationId,
+            targetId: transaction.assignedToTargetId,
+            text: transaction.assignedToText,
+          ) ??
+          '',
+      _assignedToType(store, transaction),
       _personById(store, transaction.assignedToPersonId)?.displayName ?? '',
+      _locationById(store, transaction.assignedToLocationId)?.name ?? '',
       target?.name ?? '',
       target == null ? '' : assignmentTargetTypeLabel(target.targetType),
+      target?.code ?? '',
       transaction.assignedToText ?? '',
       _userNameById(store, transaction.performedByUserId),
       transaction.notes ?? '',
@@ -651,6 +665,23 @@ String _userNameById(AppStore store, String? userId) {
   }
 
   return _personById(store, user.personId)?.displayName ?? user.email;
+}
+
+String _assignedToType(AppStore store, InventoryTransaction transaction) {
+  if (transaction.assignedToPersonId != null) {
+    return 'Person';
+  }
+  if (transaction.assignedToLocationId != null) {
+    return 'Location';
+  }
+  final targetId = transaction.assignedToTargetId;
+  if (targetId != null) {
+    return store.resolveAssignmentTargetType(targetId) ?? 'Assignment Target';
+  }
+  if ((transaction.assignedToText ?? '').trim().isNotEmpty) {
+    return 'Other';
+  }
+  return '';
 }
 
 String _normalize(String value) => value.trim().toLowerCase();

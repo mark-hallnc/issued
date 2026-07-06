@@ -136,6 +136,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
         transaction.notes,
         store.resolveAssignedTo(
           personId: transaction.assignedToPersonId,
+          locationId: transaction.assignedToLocationId,
           targetId: transaction.assignedToTargetId,
           text: transaction.assignedToText,
         ),
@@ -215,6 +216,7 @@ class _ActivityCard extends StatelessWidget {
     final toLocation = store.resolveLocationName(transaction.toLocationId);
     final assignedTo = store.resolveAssignedTo(
       personId: transaction.assignedToPersonId,
+      locationId: transaction.assignedToLocationId,
       targetId: transaction.assignedToTargetId,
       text: transaction.assignedToText,
     );
@@ -385,6 +387,7 @@ void _showActivityDetail(
                 label: 'Assigned To',
                 value: store.resolveAssignedTo(
                   personId: transaction.assignedToPersonId,
+                  locationId: transaction.assignedToLocationId,
                   targetId: transaction.assignedToTargetId,
                   text: transaction.assignedToText,
                 ),

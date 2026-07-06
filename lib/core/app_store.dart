@@ -236,6 +236,7 @@ class AppStore extends ChangeNotifier {
         id: 'target-service-truck-1',
         name: 'Service Truck 1',
         targetType: AssignmentTargetType.truck,
+        code: 'TRUCK-1',
         description: null,
         locationId: null,
         isActive: true,
@@ -246,6 +247,7 @@ class AppStore extends ChangeNotifier {
         id: 'target-job-1001',
         name: 'Job 1001',
         targetType: AssignmentTargetType.job,
+        code: 'JOB-1001',
         description: null,
         locationId: null,
         isActive: true,
@@ -256,6 +258,7 @@ class AppStore extends ChangeNotifier {
         id: 'target-maintenance-department',
         name: 'Maintenance Department',
         targetType: AssignmentTargetType.department,
+        code: null,
         description: null,
         locationId: null,
         isActive: true,
@@ -266,6 +269,7 @@ class AppStore extends ChangeNotifier {
         id: 'target-job-box-a',
         name: 'Job Box A',
         targetType: AssignmentTargetType.jobBox,
+        code: 'BOX-A',
         description: null,
         locationId: null,
         isActive: true,
@@ -281,6 +285,9 @@ class AppStore extends ChangeNotifier {
 
   bool addAssignmentTarget(AssignmentTarget target) {
     if (!permissions.canManageSettings) {
+      return false;
+    }
+    if (_hasDuplicateActiveAssignmentTarget(target)) {
       return false;
     }
     _assignmentTargets.add(target);
@@ -299,6 +306,9 @@ class AppStore extends ChangeNotifier {
     if (index == -1) {
       return false;
     }
+    if (_hasDuplicateActiveAssignmentTarget(target)) {
+      return false;
+    }
     _assignmentTargets[index] = target.copyWith(updatedAt: DateTime.now());
     unawaited(
       _database.upsertAssignmentTarget(_assignmentTargets[index].toCompanion()),
@@ -315,6 +325,25 @@ class AppStore extends ChangeNotifier {
     return updateAssignmentTarget(
       target.copyWith(isActive: false, updatedAt: DateTime.now()),
     );
+  }
+
+  bool hasOpenCheckoutForAssignmentTarget(String targetId) {
+    return openCheckoutRecords.any(
+      (record) => record.assignedToTargetId == targetId,
+    );
+  }
+
+  bool _hasDuplicateActiveAssignmentTarget(AssignmentTarget target) {
+    if (!target.isActive) {
+      return false;
+    }
+    final normalizedName = target.name.trim().toLowerCase();
+    return _assignmentTargets.any((existing) {
+      return existing.id != target.id &&
+          existing.isActive &&
+          existing.targetType == target.targetType &&
+          existing.name.trim().toLowerCase() == normalizedName;
+    });
   }
 
   Future<void> _seedSampleDataIfNeeded() async {
@@ -1763,6 +1792,7 @@ class AppStore extends ChangeNotifier {
     required String locationId,
     required double quantity,
     String? assignedToPersonId,
+    String? assignedToLocationId,
     String? assignedToTargetId,
     String? assignedToText,
     String? notes,
@@ -1784,6 +1814,7 @@ class AppStore extends ChangeNotifier {
       quantityDelta: -quantity,
       fromLocationId: locationId,
       assignedToPersonId: assignedToPersonId,
+      assignedToLocationId: assignedToLocationId,
       assignedToTargetId: assignedToTargetId,
       assignedToText: assignedToText,
       notes: notes,
@@ -2425,6 +2456,23 @@ class AppStore extends ChangeNotifier {
     return _assignmentTargetById(targetId);
   }
 
+  String? resolveAssignmentTargetType(String? targetId) {
+    if (targetId == null) {
+      return null;
+    }
+    final target = _assignmentTargetById(targetId);
+    return target == null
+        ? 'Unknown target'
+        : assignmentTargetTypeLabel(target.targetType);
+  }
+
+  String? resolveAssignmentTargetCode(String? targetId) {
+    if (targetId == null) {
+      return null;
+    }
+    return _assignmentTargetById(targetId)?.code;
+  }
+
   String? resolveAssignedTo({
     String? personId,
     String? targetId,
@@ -2437,7 +2485,8 @@ class AppStore extends ChangeNotifier {
     }
     final target = resolveAssignmentTargetName(targetId);
     if (target != null) {
-      return target;
+      final type = resolveAssignmentTargetType(targetId);
+      return type == null ? target : '$target - $type';
     }
     final location = resolveLocationName(locationId);
     if (location != null) {
@@ -2467,8 +2516,11 @@ class AppStore extends ChangeNotifier {
         AssignableDestination(
           id: target.id,
           type: AssignableDestinationType.assignmentTarget,
-          displayName: target.name,
+          displayName: target.code == null
+              ? target.name
+              : '${target.name} (${target.code})',
           subtitle: assignmentTargetTypeLabel(target.targetType),
+          targetType: target.targetType,
         ),
     ];
     destinations.sort((left, right) {
@@ -3230,6 +3282,7 @@ class AppStore extends ChangeNotifier {
     String? fromLocationId,
     String? toLocationId,
     String? assignedToPersonId,
+    String? assignedToLocationId,
     String? assignedToTargetId,
     String? assignedToText,
     String? notes,
@@ -3247,6 +3300,7 @@ class AppStore extends ChangeNotifier {
       fromLocationId: fromLocationId,
       toLocationId: toLocationId,
       assignedToPersonId: assignedToPersonId,
+      assignedToLocationId: assignedToLocationId,
       assignedToTargetId: assignedToTargetId,
       assignedToText: assignedToText,
       performedByUserId: currentUser?.id,

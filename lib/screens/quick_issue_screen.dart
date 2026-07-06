@@ -518,7 +518,6 @@ class _QuickIssueScreenState extends State<QuickIssueScreen> {
 
     final quantity = double.parse(_quantityController.text.trim());
     final notes = _notesController.text.trim();
-    final assignedText = _combinedAssignedText(store, action);
     var success = false;
     var successMessage = '';
 
@@ -529,8 +528,9 @@ class _QuickIssueScreenState extends State<QuickIssueScreen> {
           locationId: _selectedSourceLocationId!,
           quantity: quantity,
           assignedToPersonId: _assignedPersonId,
+          assignedToLocationId: _assignedLocationId,
           assignedToTargetId: _assignedTargetId,
-          assignedToText: assignedText,
+          assignedToText: _emptyToNull(_assignedTextController.text),
           notes: notes,
         );
         successMessage = 'Stock issued.';
@@ -687,21 +687,6 @@ class _QuickIssueScreenState extends State<QuickIssueScreen> {
       }
     }
     return 0;
-  }
-
-  String? _combinedAssignedText(AppStore store, _QuickAction action) {
-    final freeText = _emptyToNull(_assignedTextController.text);
-    if (action == _QuickAction.checkOut || _assignedLocationId == null) {
-      return freeText;
-    }
-    final locationName = store.resolveLocationName(_assignedLocationId);
-    if (locationName == null) {
-      return freeText;
-    }
-    if (freeText == null) {
-      return locationName;
-    }
-    return '$locationName - $freeText';
   }
 
   void _openItemDetail(Item item) {

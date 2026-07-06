@@ -92,6 +92,7 @@ class InventoryTransactions extends Table {
   TextColumn get fromLocationId => text().nullable()();
   TextColumn get toLocationId => text().nullable()();
   TextColumn get assignedToPersonId => text().nullable()();
+  TextColumn get assignedToLocationId => text().nullable()();
   TextColumn get assignedToTargetId => text().nullable()();
   TextColumn get assignedToText => text().nullable()();
   TextColumn get performedByUserId => text().nullable()();
@@ -164,6 +165,7 @@ class AssignmentTargets extends Table {
   TextColumn get id => text()();
   TextColumn get name => text()();
   TextColumn get targetType => text()();
+  TextColumn get code => text().nullable()();
   TextColumn get description => text().nullable()();
   TextColumn get locationId => text().nullable()();
   BoolColumn get isActive => boolean()();

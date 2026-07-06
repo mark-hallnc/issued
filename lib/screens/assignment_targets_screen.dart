@@ -95,6 +95,7 @@ class AssignmentTargetsScreen extends StatelessWidget {
     final parts = [
       assignmentTargetTypeLabel(target.targetType),
       if (!target.isActive) 'Archived',
+      if ((target.code ?? '').trim().isNotEmpty) 'Code: ${target.code}',
       if ((target.description ?? '').trim().isNotEmpty)
         target.description!.trim(),
       if (store.resolveLocationName(target.locationId) != null)
@@ -109,6 +110,7 @@ class AssignmentTargetsScreen extends StatelessWidget {
       AssignmentTargetType.truck => Icons.local_shipping_outlined,
       AssignmentTargetType.department => Icons.apartment_outlined,
       AssignmentTargetType.jobBox => Icons.inventory_2_outlined,
+      AssignmentTargetType.workOrder => Icons.receipt_long_outlined,
       AssignmentTargetType.other => Icons.label_outline,
     };
   }
@@ -118,6 +120,30 @@ class AssignmentTargetsScreen extends StatelessWidget {
     AssignmentTarget target,
   ) async {
     final store = AppStoreScope.of(context);
+    if (store.hasOpenCheckoutForAssignmentTarget(target.id)) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Archive Assignment Target'),
+          content: const Text(
+            'This target has open checkouts. History will keep showing the target name, but workers will not be able to pick it for new actions.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Archive'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !context.mounted) {
+        return;
+      }
+    }
     final archived = store.archiveAssignmentTarget(target.id);
     _showMessage(
       context,
@@ -148,7 +174,9 @@ class AssignmentTargetsScreen extends StatelessWidget {
         : store.updateAssignmentTarget(result);
     _showMessage(
       context,
-      saved ? 'Assignment target saved.' : 'Could not save target.',
+      saved
+          ? 'Assignment target saved.'
+          : 'Could not save target. Check for a duplicate active name and type.',
     );
   }
 
@@ -172,6 +200,7 @@ class _AssignmentTargetDialog extends StatefulWidget {
 class _AssignmentTargetDialogState extends State<_AssignmentTargetDialog> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
+  late final TextEditingController _codeController;
   late final TextEditingController _descriptionController;
   late AssignmentTargetType _type;
   String? _locationId;
@@ -181,6 +210,7 @@ class _AssignmentTargetDialogState extends State<_AssignmentTargetDialog> {
     super.initState();
     final target = widget.target;
     _nameController = TextEditingController(text: target?.name ?? '');
+    _codeController = TextEditingController(text: target?.code ?? '');
     _descriptionController = TextEditingController(
       text: target?.description ?? '',
     );
@@ -191,6 +221,7 @@ class _AssignmentTargetDialogState extends State<_AssignmentTargetDialog> {
   @override
   void dispose() {
     _nameController.dispose();
+    _codeController.dispose();
     _descriptionController.dispose();
     super.dispose();
   }
@@ -233,6 +264,11 @@ class _AssignmentTargetDialogState extends State<_AssignmentTargetDialog> {
                     setState(() => _type = value);
                   }
                 },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _codeController,
+                decoration: const InputDecoration(labelText: 'Code'),
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -284,6 +320,9 @@ class _AssignmentTargetDialogState extends State<_AssignmentTargetDialog> {
         id: existing?.id ?? 'target-${now.microsecondsSinceEpoch}',
         name: _nameController.text.trim(),
         targetType: _type,
+        code: _codeController.text.trim().isEmpty
+            ? null
+            : _codeController.text.trim(),
         description: _descriptionController.text.trim().isEmpty
             ? null
             : _descriptionController.text.trim(),

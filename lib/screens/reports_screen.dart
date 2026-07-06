@@ -905,6 +905,9 @@ String _checkedOutCsv(AppStore store, List<CheckoutRecord> records) {
       'quantity_open',
       'uom',
       'status',
+      'checked_out_to',
+      'checked_out_to_type',
+      'checked_out_to_code',
       'assigned_person',
       'assigned_location',
       'assigned_target',
@@ -926,6 +929,9 @@ String _checkedOutCsv(AppStore store, List<CheckoutRecord> records) {
         record.quantityOpen,
         store.resolveUomAbbreviation(record.unitOfMeasureId),
         checkoutStatusLabel(record.status),
+        store.resolveCheckoutAssigneeName(record),
+        _checkoutAssigneeType(store, record),
+        store.resolveAssignmentTargetCode(record.assignedToTargetId) ?? '',
         store.resolvePersonName(record.assignedToPersonId) ?? '',
         store.resolveLocationName(record.assignedToLocationId) ?? '',
         store.resolveAssignmentTargetName(record.assignedToTargetId) ?? '',
@@ -950,6 +956,17 @@ String _assignmentTargetTypeLabel(AppStore store, String? targetId) {
   }
   final target = store.assignmentTargetById(targetId);
   return target == null ? '' : assignmentTargetTypeLabel(target.targetType);
+}
+
+String _checkoutAssigneeType(AppStore store, CheckoutRecord record) {
+  if (record.assignedToPersonId != null) {
+    return 'Person';
+  }
+  if (record.assignedToLocationId != null) {
+    return 'Location';
+  }
+  return store.resolveAssignmentTargetType(record.assignedToTargetId) ??
+      ((record.assignedToText ?? '').trim().isNotEmpty ? 'Other' : '');
 }
 
 String _usageByItemCsv(AppStore store, List<UsageByItemRow> rows) {

@@ -88,6 +88,7 @@ class DataHealthService {
       usersById,
       targetsById,
     );
+    _checkAssignmentTargets(store, issues);
     _checkCheckouts(store, issues, itemsById, targetsById);
     _checkReorders(store, issues, itemsById);
     _checkCycleCounts(store, issues, itemsById, locationsById);
@@ -239,6 +240,7 @@ class DataHealthService {
       for (final locationId in [
         transaction.fromLocationId,
         transaction.toLocationId,
+        transaction.assignedToLocationId,
       ]) {
         if (locationId != null && !locationsById.containsKey(locationId)) {
           _missingLinkIssue(
@@ -381,6 +383,20 @@ class DataHealthService {
           type: 'checkoutRecord',
           recordId: checkout.id,
         );
+      } else if (targetId != null && targetsById[targetId]?.isActive == false) {
+        issues.add(
+          DataHealthIssue(
+            id: 'checkout-archived-target-${checkout.id}',
+            severity: DataHealthSeverity.warning,
+            title: 'Open checkout is assigned to an archived target',
+            description:
+                'Checkout ${checkout.id} is assigned to archived assignment target ${targetsById[targetId]!.name}.',
+            affectedRecordType: 'checkoutRecord',
+            affectedRecordId: checkout.id,
+            repairAction: null,
+            canRepair: false,
+          ),
+        );
       }
       final item = itemsById[checkout.itemId];
       if (item == null) {
@@ -426,6 +442,34 @@ class DataHealthService {
           ),
         );
       }
+    }
+  }
+
+  void _checkAssignmentTargets(AppStore store, List<DataHealthIssue> issues) {
+    final seen = <String, AssignmentTarget>{};
+    for (final target in store.assignmentTargets.where(
+      (target) => target.isActive,
+    )) {
+      final key =
+          '${target.targetType.name}:${target.name.trim().toLowerCase()}';
+      final existing = seen[key];
+      if (existing == null) {
+        seen[key] = target;
+        continue;
+      }
+      issues.add(
+        DataHealthIssue(
+          id: 'duplicate-assignment-target-${target.id}',
+          severity: DataHealthSeverity.warning,
+          title: 'Duplicate assignment target',
+          description:
+              '${target.name} is duplicated for ${assignmentTargetTypeLabel(target.targetType)} targets.',
+          affectedRecordType: 'assignmentTarget',
+          affectedRecordId: target.id,
+          repairAction: null,
+          canRepair: false,
+        ),
+      );
     }
   }
 
