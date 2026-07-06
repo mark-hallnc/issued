@@ -1,8 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 
 import 'backup/backup_service.dart';
+import 'cloud/cloud_auth_service.dart';
+import 'cloud/supabase_config.dart';
+import 'cloud/workspace_service.dart';
 import 'database/app_database.dart';
 import 'database/model_mappers.dart';
 import 'data_health/data_health_service.dart';
@@ -40,8 +44,24 @@ class AppStore extends ChangeNotifier {
   int _sessionTimeoutMinutes = 10;
   bool _isInitialized = false;
   final PinHashService _pinHashService = PinHashService();
+  final CloudAuthService cloudAuthService = const CloudAuthService();
+  late final WorkspaceService workspaceService = WorkspaceService(
+    authService: cloudAuthService,
+  );
+  supabase.User? _currentCloudUser;
+  final List<CloudWorkspace> _availableWorkspaces = [];
+  CloudWorkspace? _activeWorkspace;
+  bool _cloudModeEnabled = false;
+  StreamSubscription<dynamic>? _cloudAuthSubscription;
 
   bool get isInitialized => _isInitialized;
+  bool get isCloudConfigured => SupabaseConfig.isConfigured;
+  bool get isCloudSignedIn => _currentCloudUser != null;
+  bool get cloudModeEnabled => _cloudModeEnabled;
+  supabase.User? get currentCloudUser => _currentCloudUser;
+  List<CloudWorkspace> get availableWorkspaces =>
+      List.unmodifiable(_availableWorkspaces);
+  CloudWorkspace? get activeWorkspace => _activeWorkspace;
   List<Item> get items => List.unmodifiable(_items);
   List<UnitOfMeasure> get unitsOfMeasure => List.unmodifiable(_unitsOfMeasure);
   List<Location> get locations => List.unmodifiable(_locations);
@@ -144,7 +164,132 @@ class AppStore extends ChangeNotifier {
       await _ensurePinsForMigratedLocalUsers();
     }
     await _seedAssignmentTargetsIfNeeded();
+    initializeCloud();
+    if (_currentCloudUser != null) {
+      await loadMyWorkspaces();
+    }
     _isInitialized = true;
+    notifyListeners();
+  }
+
+  void initializeCloud() {
+    if (!isCloudConfigured) {
+      _currentCloudUser = null;
+      _availableWorkspaces.clear();
+      _activeWorkspace = null;
+      _cloudModeEnabled = false;
+      return;
+    }
+    _currentCloudUser = cloudAuthService.currentUser;
+    _cloudModeEnabled = _currentCloudUser != null;
+    _cloudAuthSubscription ??= cloudAuthService.authStateChanges.listen((
+      authState,
+    ) {
+      _currentCloudUser = authState.session?.user;
+      if (_currentCloudUser == null) {
+        _availableWorkspaces.clear();
+        _activeWorkspace = null;
+        _cloudModeEnabled = false;
+        workspaceService.clearActiveWorkspace();
+      }
+      notifyListeners();
+    });
+  }
+
+  Future<AppActionResult> refreshCloudSession() async {
+    if (!isCloudConfigured) {
+      return AppActionResult.failure(SupabaseConfig.missingConfigMessage);
+    }
+    final result = await cloudAuthService.refreshSession();
+    _currentCloudUser = cloudAuthService.currentUser;
+    _cloudModeEnabled = _currentCloudUser != null;
+    notifyListeners();
+    return result.success
+        ? AppActionResult.success(message: result.message)
+        : AppActionResult.failure(result.message);
+  }
+
+  Future<AppActionResult> signInWithEmailOtp(String email) async {
+    final result = await cloudAuthService.signInWithEmailOtp(email);
+    return result.success
+        ? AppActionResult.success(message: result.message)
+        : AppActionResult.failure(result.message);
+  }
+
+  Future<AppActionResult> verifyEmailOtp(String email, String token) async {
+    final result = await cloudAuthService.verifyOtp(email: email, token: token);
+    _currentCloudUser = cloudAuthService.currentUser;
+    _cloudModeEnabled = _currentCloudUser != null;
+    if (_cloudModeEnabled) {
+      await loadMyWorkspaces();
+    } else {
+      notifyListeners();
+    }
+    return result.success
+        ? AppActionResult.success(message: result.message)
+        : AppActionResult.failure(result.message);
+  }
+
+  Future<AppActionResult> signOutCloud() async {
+    final result = await cloudAuthService.signOut();
+    _currentCloudUser = null;
+    _availableWorkspaces.clear();
+    _activeWorkspace = null;
+    _cloudModeEnabled = false;
+    workspaceService.clearActiveWorkspace();
+    notifyListeners();
+    return result.success
+        ? AppActionResult.success(message: result.message)
+        : AppActionResult.failure(result.message);
+  }
+
+  Future<AppActionResult> loadMyWorkspaces() async {
+    final result = await workspaceService.fetchMyWorkspaces();
+    if (!result.success) {
+      return AppActionResult.failure(result.message);
+    }
+    _availableWorkspaces
+      ..clear()
+      ..addAll(result.data ?? const []);
+    final active = workspaceService.getActiveWorkspace();
+    if (active != null &&
+        _availableWorkspaces.any((workspace) => workspace.id == active.id)) {
+      _activeWorkspace = active;
+    } else if (_availableWorkspaces.length == 1) {
+      _activeWorkspace = _availableWorkspaces.first;
+      workspaceService.setActiveWorkspace(_activeWorkspace!);
+    }
+    notifyListeners();
+    return const AppActionResult.success();
+  }
+
+  Future<AppActionResult> createCloudWorkspace(String name) async {
+    final result = await workspaceService.createWorkspace(name);
+    if (!result.success || result.data == null) {
+      return AppActionResult.failure(result.message);
+    }
+    _activeWorkspace = result.data;
+    if (!_availableWorkspaces.any(
+      (workspace) => workspace.id == result.data!.id,
+    )) {
+      _availableWorkspaces.add(result.data!);
+    }
+    _cloudModeEnabled = true;
+    notifyListeners();
+    return AppActionResult.success(message: result.message);
+  }
+
+  void setActiveCloudWorkspace(CloudWorkspace workspace) {
+    _activeWorkspace = workspace;
+    _cloudModeEnabled = true;
+    workspaceService.setActiveWorkspace(workspace);
+    notifyListeners();
+  }
+
+  void disableCloudModeAndUseLocalOnly() {
+    _cloudModeEnabled = false;
+    _activeWorkspace = null;
+    workspaceService.clearActiveWorkspace();
     notifyListeners();
   }
 
@@ -4844,6 +4989,7 @@ class AppStore extends ChangeNotifier {
 
   @override
   void dispose() {
+    unawaited(_cloudAuthSubscription?.cancel());
     unawaited(_database.close());
     super.dispose();
   }
