@@ -102,7 +102,7 @@ class ReportsScreen extends StatelessWidget {
           _ReportCard(
             title: 'Reorder Status',
             subtitle:
-                '${reorderSummary.needed} needed, ${reorderSummary.ordered} ordered',
+                '${reorderSummary.needed} needed, ${reorderSummary.ordered + reorderSummary.partiallyReceived} awaiting receipt',
             icon: Icons.shopping_cart_outlined,
             onTap: () => _openReport(context, _ReportKind.reorderStatus),
           ),
@@ -285,7 +285,7 @@ class _ReportDetailScreenState extends State<_ReportDetailScreen> {
               'Location: ${store.resolveLocationName(item.locationId) ?? 'Unknown'}',
               if ((item.supplier ?? '').isNotEmpty)
                 'Supplier: ${item.supplier}',
-              'Suggested reorder: ${_quantity(store.getSuggestedReorderQuantity(item))}',
+              'Suggested reorder: ${_quantity(store.getReorderSuggestedQuantity(item))}',
               'Reorder: ${store.getActiveReorderForItem(item.id)?.status.name ?? 'none'}',
             ],
           ),
@@ -508,8 +508,7 @@ class _ReportDetailScreenState extends State<_ReportDetailScreen> {
   List<Widget> _reorderStatus(AppStore store) {
     final summary = store.getReorderStatusSummary();
     final active = store.reorderRequests.where((request) {
-      return request.status == ReorderStatus.needed ||
-          request.status == ReorderStatus.ordered;
+      return request.isOpen;
     }).toList();
 
     return [
@@ -517,8 +516,9 @@ class _ReportDetailScreenState extends State<_ReportDetailScreen> {
         metrics: [
           _Metric('Needed', '${summary.needed}'),
           _Metric('Ordered', '${summary.ordered}'),
+          _Metric('Partially Received', '${summary.partiallyReceived}'),
           _Metric('Received', '${summary.received}'),
-          _Metric('Canceled', '${summary.canceled}'),
+          _Metric('Cancelled', '${summary.canceled}'),
         ],
       ),
       const SizedBox(height: 12),
@@ -532,8 +532,12 @@ class _ReportDetailScreenState extends State<_ReportDetailScreen> {
             title: store.resolveItemName(request.itemId),
             lines: [
               'Requested: ${_quantity(request.requestedQuantity)} ${store.resolveUomAbbreviation(request.unitOfMeasureId)}',
+              'Received: ${_quantity(request.receivedQuantity)} ${store.resolveUomAbbreviation(request.unitOfMeasureId)}',
+              'Remaining: ${_quantity(request.remainingQuantity)} ${store.resolveUomAbbreviation(request.unitOfMeasureId)}',
               if ((request.supplier ?? '').isNotEmpty)
                 'Supplier: ${request.supplier}',
+              if ((request.orderNumber ?? '').isNotEmpty)
+                'Order Number: ${request.orderNumber}',
               'Created: ${_date(request.createdAt)}',
               if (request.orderedAt != null)
                 'Ordered: ${_date(request.orderedAt!)}',
@@ -891,7 +895,7 @@ String _lowStockCsv(AppStore store, List<Item> items) {
         store.resolveUomAbbreviation(item.unitOfMeasureId),
         store.resolveLocationName(item.locationId) ?? '',
         item.supplier ?? '',
-        store.getSuggestedReorderQuantity(item),
+        store.getReorderSuggestedQuantity(item),
       ],
   ]);
 }

@@ -1477,14 +1477,16 @@ class AppStore extends ChangeNotifier {
     }
     final request = _reorderRequests[index];
     if (request.status != ReorderStatus.needed &&
-        request.status != ReorderStatus.ordered) {
+        request.status != ReorderStatus.ordered &&
+        request.status != ReorderStatus.partiallyReceived) {
       return false;
     }
     final updated = request.copyWith(
-      status: ReorderStatus.canceled,
+      status: ReorderStatus.cancelled,
+      cancelledAt: DateTime.now(),
       notes: [
         if (request.notes?.trim().isNotEmpty == true) request.notes!.trim(),
-        'Canceled by Data Health repair because the item is missing.',
+        'Cancelled by Data Health repair because the item is missing.',
       ].join(' '),
     );
     _reorderRequests[index] = updated;
@@ -2043,8 +2045,7 @@ class AppStore extends ChangeNotifier {
       locationCount: _locations.where((location) => location.isActive).length,
       lowStockCount: activeItems.where(isItemLowStock).length,
       activeReorderCount: _reorderRequests.where((request) {
-        return request.status == ReorderStatus.needed ||
-            request.status == ReorderStatus.ordered;
+        return request.isOpen;
       }).length,
       openCheckoutCount: openCheckoutRecords.length,
     );
@@ -2084,7 +2085,11 @@ class AppStore extends ChangeNotifier {
           .where((request) => request.status == ReorderStatus.needed)
           .length,
       orderedReorderCount: _reorderRequests
-          .where((request) => request.status == ReorderStatus.ordered)
+          .where(
+            (request) =>
+                request.status == ReorderStatus.ordered ||
+                request.status == ReorderStatus.partiallyReceived,
+          )
           .length,
       lowStockWithoutReorderCount: activeItems.where((item) {
         return isItemLowStock(item) && getActiveReorderForItem(item.id) == null;
@@ -2335,12 +2340,13 @@ class AppStore extends ChangeNotifier {
       ordered: _reorderRequests
           .where((request) => request.status == ReorderStatus.ordered)
           .length,
+      partiallyReceived: _reorderRequests
+          .where((request) => request.status == ReorderStatus.partiallyReceived)
+          .length,
       received: _reorderRequests
           .where((request) => request.status == ReorderStatus.received)
           .length,
-      canceled: _reorderRequests
-          .where((request) => request.status == ReorderStatus.canceled)
-          .length,
+      canceled: _reorderRequests.where((request) => request.isCancelled).length,
     );
   }
 
@@ -2967,7 +2973,7 @@ class AppStore extends ChangeNotifier {
   double getSuggestedReorderQuantity(Item item) {
     var quantity = item.minimumQuantity - item.quantityOnHand;
     if (quantity <= 0) {
-      quantity = 1;
+      quantity = 0;
     }
 
     final unit = _unitById(item.unitOfMeasureId);
@@ -2978,16 +2984,62 @@ class AppStore extends ChangeNotifier {
     return quantity;
   }
 
+  double getReorderSuggestedQuantity(Item item) {
+    final suggested = getSuggestedReorderQuantity(item);
+    if (suggested > 0) {
+      return suggested;
+    }
+    final unit = _unitById(item.unitOfMeasureId);
+    return unit == null || !unit.allowsDecimal || !item.allowFractionalQuantity
+        ? 1
+        : 1.0;
+  }
+
   ReorderRequest? getActiveReorderForItem(String itemId) {
     for (final request in _reorderRequests) {
-      if (request.itemId == itemId &&
-          (request.status == ReorderStatus.needed ||
-              request.status == ReorderStatus.ordered)) {
+      if (request.itemId == itemId && request.isOpen) {
         return request;
       }
     }
 
     return null;
+  }
+
+  List<ReorderRequest> getOpenReorderRequestsForItem(String itemId) {
+    return _sortedReorders(
+      _reorderRequests
+          .where((request) => request.itemId == itemId && request.isOpen)
+          .toList(),
+    );
+  }
+
+  List<ReorderRequest> getPendingReorderRequests() {
+    return _sortedReorders(
+      _reorderRequests
+          .where((request) => request.status == ReorderStatus.needed)
+          .toList(),
+    );
+  }
+
+  List<ReorderRequest> getOrderedReorderRequests() {
+    return _sortedReorders(
+      _reorderRequests
+          .where((request) => request.status == ReorderStatus.ordered)
+          .toList(),
+    );
+  }
+
+  List<ReorderRequest> getPartiallyReceivedReorderRequests() {
+    return _sortedReorders(
+      _reorderRequests
+          .where((request) => request.status == ReorderStatus.partiallyReceived)
+          .toList(),
+    );
+  }
+
+  List<ReorderRequest> _sortedReorders(List<ReorderRequest> requests) {
+    requests.sort((left, right) => right.createdAt.compareTo(left.createdAt));
+    return requests;
   }
 
   ReorderRequest? reorderRequestById(String reorderId) {
@@ -3004,24 +3056,43 @@ class AppStore extends ChangeNotifier {
   bool get canReceiveReorders =>
       canManageReorders || permissions.canReceiveStock;
 
-  bool createReorderRequest(String itemId, double quantity, String? notes) {
+  bool createReorderRequest(
+    String itemId,
+    double quantity,
+    String? notes, {
+    String? supplier,
+    String? destinationLocationId,
+    String? orderNumber,
+    bool allowDuplicateOpen = false,
+  }) {
     if (!canManageReorders || quantity <= 0) {
       return false;
     }
 
     final item = _itemById(itemId);
-    if (item == null || getActiveReorderForItem(itemId) != null) {
+    if (item == null || !item.isActive) {
+      return false;
+    }
+    if (!allowDuplicateOpen && getActiveReorderForItem(itemId) != null) {
+      return false;
+    }
+    if (!_isWholeQuantityAllowed(item.id, quantity)) {
       return false;
     }
 
     final now = DateTime.now();
     final normalizedNotes = notes?.trim();
+    final normalizedSupplier = supplier?.trim();
+    final normalizedOrderNumber = orderNumber?.trim();
     final request = ReorderRequest(
       id: 'reorder-${now.microsecondsSinceEpoch}',
       itemId: item.id,
       requestedQuantity: quantity,
+      receivedQuantity: 0,
       unitOfMeasureId: item.unitOfMeasureId,
-      supplier: item.supplier,
+      supplier: normalizedSupplier == null || normalizedSupplier.isEmpty
+          ? item.supplier
+          : normalizedSupplier,
       status: ReorderStatus.needed,
       notes: normalizedNotes == null || normalizedNotes.isEmpty
           ? null
@@ -3029,7 +3100,21 @@ class AppStore extends ChangeNotifier {
       createdAt: now,
       orderedAt: null,
       receivedAt: null,
+      cancelledAt: null,
       createdByUserId: currentUser?.id,
+      orderedByUserId: null,
+      receivedByUserId: null,
+      destinationLocationId: destinationLocationId ?? item.locationId,
+      purchaseUnitOfMeasureId: item.purchaseUnitOfMeasureId,
+      purchaseQuantity: hasPurchaseConversion(item)
+          ? quantity / item.purchaseToStockConversionFactor!
+          : null,
+      purchaseToStockConversionFactor: item.purchaseToStockConversionFactor,
+      expectedCost: item.unitCost == null ? null : item.unitCost! * quantity,
+      orderNumber:
+          normalizedOrderNumber == null || normalizedOrderNumber.isEmpty
+          ? null
+          : normalizedOrderNumber,
     );
 
     _reorderRequests.add(request);
@@ -3038,7 +3123,71 @@ class AppStore extends ChangeNotifier {
     return true;
   }
 
-  bool markReorderOrdered(String reorderId) {
+  bool updateReorderRequest(
+    String reorderId, {
+    double? requestedQuantity,
+    String? supplier,
+    String? destinationLocationId,
+    String? notes,
+    String? orderNumber,
+  }) {
+    if (!canManageReorders) {
+      return false;
+    }
+
+    final requestIndex = _reorderRequests.indexWhere(
+      (request) => request.id == reorderId,
+    );
+    if (requestIndex == -1) {
+      return false;
+    }
+
+    final request = _reorderRequests[requestIndex];
+    if (!request.isOpen) {
+      return false;
+    }
+    final item = _itemById(request.itemId);
+    if (item == null) {
+      return false;
+    }
+
+    final updatedQuantity = requestedQuantity ?? request.requestedQuantity;
+    if (updatedQuantity <= 0 ||
+        !_isWholeQuantityAllowed(item.id, updatedQuantity)) {
+      return false;
+    }
+    final trimmedSupplier = supplier?.trim();
+    final trimmedNotes = notes?.trim();
+    final trimmedOrderNumber = orderNumber?.trim();
+    final updatedRequest = request.copyWith(
+      requestedQuantity: updatedQuantity,
+      supplier: trimmedSupplier,
+      clearSupplier: trimmedSupplier != null && trimmedSupplier.isEmpty,
+      destinationLocationId:
+          destinationLocationId ?? request.destinationLocationId,
+      notes: trimmedNotes,
+      clearNotes: trimmedNotes != null && trimmedNotes.isEmpty,
+      orderNumber: trimmedOrderNumber,
+      clearOrderNumber:
+          trimmedOrderNumber != null && trimmedOrderNumber.isEmpty,
+      purchaseQuantity: hasPurchaseConversion(item)
+          ? updatedQuantity / item.purchaseToStockConversionFactor!
+          : request.purchaseQuantity,
+      expectedCost: item.unitCost == null
+          ? null
+          : item.unitCost! * updatedQuantity,
+    );
+    _reorderRequests[requestIndex] = updatedRequest;
+    unawaited(_database.upsertReorderRequest(updatedRequest.toCompanion()));
+    notifyListeners();
+    return true;
+  }
+
+  bool markReorderOrdered(
+    String reorderId, {
+    String? orderNumber,
+    String? notes,
+  }) {
     if (!canManageReorders) {
       return false;
     }
@@ -3055,10 +3204,18 @@ class AppStore extends ChangeNotifier {
       return false;
     }
 
+    final normalizedNotes = notes?.trim();
+    final normalizedOrderNumber = orderNumber?.trim();
     final now = DateTime.now();
     final updatedRequest = request.copyWith(
       status: ReorderStatus.ordered,
       orderedAt: now,
+      orderedByUserId: currentUser?.id,
+      orderNumber:
+          normalizedOrderNumber == null || normalizedOrderNumber.isEmpty
+          ? request.orderNumber
+          : normalizedOrderNumber,
+      notes: _combineNotes(request.notes, normalizedNotes),
     );
     _reorderRequests[requestIndex] = updatedRequest;
     unawaited(_database.upsertReorderRequest(updatedRequest.toCompanion()));
@@ -3069,8 +3226,10 @@ class AppStore extends ChangeNotifier {
   bool receiveReorder(
     String reorderId,
     double receivedQuantity,
-    String? notes,
-  ) {
+    String? notes, {
+    String? destinationLocationId,
+    bool allowOverReceipt = false,
+  }) {
     if (!canReceiveReorders || receivedQuantity <= 0) {
       return false;
     }
@@ -3084,7 +3243,8 @@ class AppStore extends ChangeNotifier {
 
     final request = _reorderRequests[requestIndex];
     if (request.status != ReorderStatus.needed &&
-        request.status != ReorderStatus.ordered) {
+        request.status != ReorderStatus.ordered &&
+        request.status != ReorderStatus.partiallyReceived) {
       return false;
     }
 
@@ -3092,14 +3252,32 @@ class AppStore extends ChangeNotifier {
     if (item == null) {
       return false;
     }
+    if (!_isWholeQuantityAllowed(item.id, receivedQuantity)) {
+      return false;
+    }
+    if (!allowOverReceipt && receivedQuantity > request.remainingQuantity) {
+      return false;
+    }
 
     final now = DateTime.now();
-    final locationId = primaryLocationForItem(item.id)?.id ?? item.locationId;
+    final locationId =
+        destinationLocationId ??
+        request.destinationLocationId ??
+        primaryLocationForItem(item.id)?.id ??
+        item.locationId;
     final current = _balanceFor(item.id, locationId)?.quantityOnHand ?? 0;
     _setBalanceQuantity(item.id, locationId, current + receivedQuantity, now);
     _syncItemCachedQuantity(item.id, now);
 
     final normalizedNotes = notes?.trim();
+    final newReceivedQuantity = request.receivedQuantity + receivedQuantity;
+    final overReceipt = newReceivedQuantity > request.requestedQuantity;
+    final nextStatus = newReceivedQuantity >= request.requestedQuantity
+        ? ReorderStatus.received
+        : ReorderStatus.partiallyReceived;
+    final receiveLabel = nextStatus == ReorderStatus.partiallyReceived
+        ? 'Partially received from reorder request.'
+        : 'Received from reorder request.';
     final transaction = InventoryTransaction(
       id: 'txn-reorder-${now.microsecondsSinceEpoch}',
       itemId: item.id,
@@ -3112,17 +3290,30 @@ class AppStore extends ChangeNotifier {
       assignedToTargetId: null,
       assignedToText: null,
       performedByUserId: currentUser?.id,
-      notes: normalizedNotes == null || normalizedNotes.isEmpty
-          ? 'Received from reorder'
-          : 'Received from reorder: $normalizedNotes',
+      notes: [
+        receiveLabel,
+        if (overReceipt) 'Over-receipt.',
+        if (normalizedNotes != null && normalizedNotes.isNotEmpty)
+          normalizedNotes,
+      ].join(' '),
       createdAt: now,
     );
     _transactions.add(transaction);
     unawaited(_database.upsertTransaction(transaction.toCompanion()));
 
     final updatedRequest = request.copyWith(
-      status: ReorderStatus.received,
-      receivedAt: now,
+      status: nextStatus,
+      receivedQuantity: newReceivedQuantity,
+      receivedAt: nextStatus == ReorderStatus.received ? now : null,
+      clearReceivedAt: nextStatus != ReorderStatus.received,
+      receivedByUserId: currentUser?.id,
+      destinationLocationId: locationId,
+      notes: _combineNotes(
+        request.notes,
+        overReceipt
+            ? 'Over-received by ${_formatQuantity(newReceivedQuantity - request.requestedQuantity)}.'
+            : null,
+      ),
     );
     _reorderRequests[requestIndex] = updatedRequest;
     unawaited(_database.upsertReorderRequest(updatedRequest.toCompanion()));
@@ -3130,7 +3321,7 @@ class AppStore extends ChangeNotifier {
     return true;
   }
 
-  bool cancelReorder(String reorderId) {
+  bool cancelReorder(String reorderId, {String? notes}) {
     if (!canManageReorders) {
       return false;
     }
@@ -3144,15 +3335,63 @@ class AppStore extends ChangeNotifier {
 
     final request = _reorderRequests[requestIndex];
     if (request.status != ReorderStatus.needed &&
-        request.status != ReorderStatus.ordered) {
+        request.status != ReorderStatus.ordered &&
+        request.status != ReorderStatus.partiallyReceived) {
       return false;
     }
 
-    final updatedRequest = request.copyWith(status: ReorderStatus.canceled);
+    final normalizedNotes = notes?.trim();
+    final updatedRequest = request.copyWith(
+      status: ReorderStatus.cancelled,
+      cancelledAt: DateTime.now(),
+      notes: _combineNotes(request.notes, normalizedNotes),
+    );
     _reorderRequests[requestIndex] = updatedRequest;
     unawaited(_database.upsertReorderRequest(updatedRequest.toCompanion()));
     notifyListeners();
     return true;
+  }
+
+  bool reopenReorderRequest(String reorderId) {
+    if (!canManageReorders) {
+      return false;
+    }
+    final requestIndex = _reorderRequests.indexWhere(
+      (request) => request.id == reorderId,
+    );
+    if (requestIndex == -1) {
+      return false;
+    }
+    final request = _reorderRequests[requestIndex];
+    if (!request.isCancelled) {
+      return false;
+    }
+    final updatedRequest = request.copyWith(
+      status: request.receivedQuantity > 0
+          ? ReorderStatus.partiallyReceived
+          : ReorderStatus.needed,
+      clearCancelledAt: true,
+    );
+    _reorderRequests[requestIndex] = updatedRequest;
+    unawaited(_database.upsertReorderRequest(updatedRequest.toCompanion()));
+    notifyListeners();
+    return true;
+  }
+
+  String? _combineNotes(String? existing, String? added) {
+    final first = existing?.trim();
+    final second = added?.trim();
+    if ((first == null || first.isEmpty) &&
+        (second == null || second.isEmpty)) {
+      return null;
+    }
+    if (first == null || first.isEmpty) {
+      return second;
+    }
+    if (second == null || second.isEmpty) {
+      return first;
+    }
+    return '$first $second';
   }
 
   Item? _itemById(String itemId) {
@@ -4027,12 +4266,14 @@ class ReorderStatusSummary {
   const ReorderStatusSummary({
     required this.needed,
     required this.ordered,
+    required this.partiallyReceived,
     required this.received,
     required this.canceled,
   });
 
   final int needed;
   final int ordered;
+  final int partiallyReceived;
   final int received;
   final int canceled;
 }

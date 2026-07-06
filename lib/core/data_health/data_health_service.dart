@@ -90,7 +90,7 @@ class DataHealthService {
     );
     _checkAssignmentTargets(store, issues);
     _checkCheckouts(store, issues, itemsById, targetsById);
-    _checkReorders(store, issues, itemsById);
+    _checkReorders(store, issues, itemsById, locationsById);
     _checkCycleCounts(store, issues, itemsById, locationsById);
     _checkCustomFields(store, issues, customDefinitionsById);
     _checkDuplicates(store, issues);
@@ -477,27 +477,151 @@ class DataHealthService {
     AppStore store,
     List<DataHealthIssue> issues,
     Map<String, Item> itemsById,
+    Map<String, Location> locationsById,
   ) {
+    final openByItemId = <String, int>{};
     for (final request in store.reorderRequests) {
-      if (itemsById.containsKey(request.itemId)) {
+      final item = itemsById[request.itemId];
+      if (request.isOpen) {
+        openByItemId[request.itemId] = (openByItemId[request.itemId] ?? 0) + 1;
+      }
+      if (item == null) {
+        issues.add(
+          DataHealthIssue(
+            id: 'reorder-missing-item-${request.id}',
+            severity: request.isOpen
+                ? DataHealthSeverity.warning
+                : DataHealthSeverity.info,
+            title: 'Reorder request references a missing item',
+            description:
+                'Reorder request ${request.id} references item ${request.itemId}, which is not in local data.',
+            affectedRecordType: 'reorderRequest',
+            affectedRecordId: request.id,
+            repairAction: DataHealthRepairAction.cancelOrphanReorderRequest,
+            canRepair: request.isOpen,
+          ),
+        );
+      } else if (request.isOpen && !item.isActive) {
+        issues.add(
+          DataHealthIssue(
+            id: 'reorder-archived-item-${request.id}',
+            severity: DataHealthSeverity.warning,
+            title: 'Open reorder is for an archived item',
+            description:
+                'Reorder request ${request.id} is still open for archived item ${item.name}.',
+            affectedRecordType: 'reorderRequest',
+            affectedRecordId: request.id,
+            repairAction: null,
+            canRepair: false,
+          ),
+        );
+      }
+      if (request.requestedQuantity < 0) {
+        issues.add(
+          DataHealthIssue(
+            id: 'reorder-negative-requested-${request.id}',
+            severity: DataHealthSeverity.error,
+            title: 'Reorder has negative requested quantity',
+            description:
+                'Reorder request ${request.id} has requested quantity ${request.requestedQuantity}.',
+            affectedRecordType: 'reorderRequest',
+            affectedRecordId: request.id,
+            repairAction: null,
+            canRepair: false,
+          ),
+        );
+      }
+      if (request.receivedQuantity < 0) {
+        issues.add(
+          DataHealthIssue(
+            id: 'reorder-negative-received-${request.id}',
+            severity: DataHealthSeverity.error,
+            title: 'Reorder has negative received quantity',
+            description:
+                'Reorder request ${request.id} has received quantity ${request.receivedQuantity}.',
+            affectedRecordType: 'reorderRequest',
+            affectedRecordId: request.id,
+            repairAction: null,
+            canRepair: false,
+          ),
+        );
+      }
+      if (request.receivedQuantity > request.requestedQuantity) {
+        issues.add(
+          DataHealthIssue(
+            id: 'reorder-over-received-${request.id}',
+            severity: DataHealthSeverity.warning,
+            title: 'Reorder received more than requested',
+            description:
+                'Reorder request ${request.id} received ${request.receivedQuantity} against ${request.requestedQuantity} requested.',
+            affectedRecordType: 'reorderRequest',
+            affectedRecordId: request.id,
+            repairAction: null,
+            canRepair: false,
+          ),
+        );
+      }
+      if (request.status == ReorderStatus.received &&
+          request.receivedQuantity <= 0) {
+        issues.add(
+          DataHealthIssue(
+            id: 'reorder-received-without-quantity-${request.id}',
+            severity: DataHealthSeverity.warning,
+            title: 'Received reorder has no received quantity',
+            description:
+                'Reorder request ${request.id} is marked received but has no received quantity.',
+            affectedRecordType: 'reorderRequest',
+            affectedRecordId: request.id,
+            repairAction: null,
+            canRepair: false,
+          ),
+        );
+      }
+      if (request.status == ReorderStatus.ordered &&
+          request.orderedAt == null) {
+        issues.add(
+          DataHealthIssue(
+            id: 'reorder-ordered-missing-date-${request.id}',
+            severity: DataHealthSeverity.warning,
+            title: 'Ordered reorder is missing ordered date',
+            description:
+                'Reorder request ${request.id} is marked ordered but has no ordered date.',
+            affectedRecordType: 'reorderRequest',
+            affectedRecordId: request.id,
+            repairAction: null,
+            canRepair: false,
+          ),
+        );
+      }
+      final destinationId = request.destinationLocationId;
+      if (destinationId != null && !locationsById.containsKey(destinationId)) {
+        _missingLinkIssue(
+          issues,
+          id: 'reorder-missing-destination-${request.id}',
+          title: 'Reorder references a missing destination location',
+          description:
+              'Reorder request ${request.id} references location $destinationId.',
+          type: 'reorderRequest',
+          recordId: request.id,
+        );
+      }
+    }
+    for (final entry in openByItemId.entries) {
+      if (entry.value <= 1) {
         continue;
       }
-      final active =
-          request.status == ReorderStatus.needed ||
-          request.status == ReorderStatus.ordered;
+      final item = itemsById[entry.key];
       issues.add(
         DataHealthIssue(
-          id: 'reorder-missing-item-${request.id}',
-          severity: active
-              ? DataHealthSeverity.warning
-              : DataHealthSeverity.info,
-          title: 'Reorder request references a missing item',
+          id: 'reorder-duplicate-open-${entry.key}',
+          severity: DataHealthSeverity.warning,
+          title: 'Duplicate open reorder requests',
           description:
-              'Reorder request ${request.id} references item ${request.itemId}, which is not in local data.',
+              '${item?.name ?? entry.key} has ${entry.value} open reorder requests.',
           affectedRecordType: 'reorderRequest',
-          affectedRecordId: request.id,
-          repairAction: DataHealthRepairAction.cancelOrphanReorderRequest,
-          canRepair: active,
+          affectedRecordId: entry.key,
+          repairAction: null,
+          canRepair: false,
         ),
       );
     }

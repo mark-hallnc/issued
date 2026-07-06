@@ -380,6 +380,7 @@ class BackupService {
       'id': request.id,
       'itemId': request.itemId,
       'requestedQuantity': request.requestedQuantity,
+      'receivedQuantity': request.receivedQuantity,
       'unitOfMeasureId': request.unitOfMeasureId,
       'supplier': request.supplier,
       'status': request.status.name,
@@ -387,7 +388,17 @@ class BackupService {
       'createdAt': request.createdAt.toIso8601String(),
       'orderedAt': request.orderedAt?.toIso8601String(),
       'receivedAt': request.receivedAt?.toIso8601String(),
+      'cancelledAt': request.cancelledAt?.toIso8601String(),
       'createdByUserId': request.createdByUserId,
+      'orderedByUserId': request.orderedByUserId,
+      'receivedByUserId': request.receivedByUserId,
+      'destinationLocationId': request.destinationLocationId,
+      'purchaseUnitOfMeasureId': request.purchaseUnitOfMeasureId,
+      'purchaseQuantity': request.purchaseQuantity,
+      'purchaseToStockConversionFactor':
+          request.purchaseToStockConversionFactor,
+      'expectedCost': request.expectedCost,
+      'orderNumber': request.orderNumber,
     };
   }
 
@@ -480,6 +491,17 @@ class BackupService {
       return value.toDouble();
     }
     return double.tryParse('$value') ?? fallback;
+  }
+
+  static double? _nullableDouble(Map<String, dynamic> row, String key) {
+    final value = row[key];
+    if (value == null) {
+      return null;
+    }
+    if (value is num) {
+      return value.toDouble();
+    }
+    return double.tryParse('$value');
   }
 
   static int _int(Map<String, dynamic> row, String key, [int fallback = 0]) {
@@ -821,6 +843,7 @@ class BackupService {
       id: id,
       itemId: _string(row, 'itemId', ''),
       requestedQuantity: _double(row, 'requestedQuantity'),
+      receivedQuantity: _double(row, 'receivedQuantity'),
       unitOfMeasureId: _string(row, 'unitOfMeasureId', ''),
       supplier: row['supplier']?.toString(),
       status: status,
@@ -828,7 +851,19 @@ class BackupService {
       createdAt: _date(row['createdAt']) ?? DateTime.now(),
       orderedAt: _date(row['orderedAt']),
       receivedAt: _date(row['receivedAt']),
+      cancelledAt: _date(row['cancelledAt']),
       createdByUserId: row['createdByUserId']?.toString(),
+      orderedByUserId: row['orderedByUserId']?.toString(),
+      receivedByUserId: row['receivedByUserId']?.toString(),
+      destinationLocationId: row['destinationLocationId']?.toString(),
+      purchaseUnitOfMeasureId: row['purchaseUnitOfMeasureId']?.toString(),
+      purchaseQuantity: _nullableDouble(row, 'purchaseQuantity'),
+      purchaseToStockConversionFactor: _nullableDouble(
+        row,
+        'purchaseToStockConversionFactor',
+      ),
+      expectedCost: _nullableDouble(row, 'expectedCost'),
+      orderNumber: row['orderNumber']?.toString(),
     );
   }
 

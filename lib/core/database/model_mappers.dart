@@ -247,6 +247,7 @@ extension ReorderRequestRecordMapper on ReorderRequestRecord {
       id: id,
       itemId: itemId,
       requestedQuantity: requestedQuantity,
+      receivedQuantity: receivedQuantity,
       unitOfMeasureId: unitOfMeasureId,
       supplier: supplier,
       status: _enumByName(domain.ReorderStatus.values, status),
@@ -254,7 +255,16 @@ extension ReorderRequestRecordMapper on ReorderRequestRecord {
       createdAt: createdAt,
       orderedAt: orderedAt,
       receivedAt: receivedAt,
+      cancelledAt: cancelledAt,
       createdByUserId: createdByUserId,
+      orderedByUserId: orderedByUserId,
+      receivedByUserId: receivedByUserId,
+      destinationLocationId: destinationLocationId,
+      purchaseUnitOfMeasureId: purchaseUnitOfMeasureId,
+      purchaseQuantity: purchaseQuantity,
+      purchaseToStockConversionFactor: purchaseToStockConversionFactor,
+      expectedCost: expectedCost,
+      orderNumber: orderNumber,
     );
   }
 }
@@ -265,6 +275,7 @@ extension ReorderRequestDomainMapper on domain.ReorderRequest {
       id: Value(id),
       itemId: Value(itemId),
       requestedQuantity: Value(requestedQuantity),
+      receivedQuantity: Value(receivedQuantity),
       unitOfMeasureId: Value(unitOfMeasureId),
       supplier: Value(supplier),
       status: Value(status.name),
@@ -272,7 +283,16 @@ extension ReorderRequestDomainMapper on domain.ReorderRequest {
       createdAt: Value(createdAt),
       orderedAt: Value(orderedAt),
       receivedAt: Value(receivedAt),
+      cancelledAt: Value(cancelledAt),
       createdByUserId: Value(createdByUserId),
+      orderedByUserId: Value(orderedByUserId),
+      receivedByUserId: Value(receivedByUserId),
+      destinationLocationId: Value(destinationLocationId),
+      purchaseUnitOfMeasureId: Value(purchaseUnitOfMeasureId),
+      purchaseQuantity: Value(purchaseQuantity),
+      purchaseToStockConversionFactor: Value(purchaseToStockConversionFactor),
+      expectedCost: Value(expectedCost),
+      orderNumber: Value(orderNumber),
     );
   }
 }

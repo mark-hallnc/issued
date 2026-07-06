@@ -31,7 +31,7 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? openDatabaseConnection());
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration {
@@ -118,6 +118,48 @@ class AppDatabase extends _$AppDatabase {
           if (from >= 8) {
             await migrator.addColumn(assignmentTargets, assignmentTargets.code);
           }
+        }
+        if (from < 12) {
+          await migrator.addColumn(
+            reorderRequests,
+            reorderRequests.receivedQuantity,
+          );
+          await migrator.addColumn(
+            reorderRequests,
+            reorderRequests.cancelledAt,
+          );
+          await migrator.addColumn(
+            reorderRequests,
+            reorderRequests.orderedByUserId,
+          );
+          await migrator.addColumn(
+            reorderRequests,
+            reorderRequests.receivedByUserId,
+          );
+          await migrator.addColumn(
+            reorderRequests,
+            reorderRequests.destinationLocationId,
+          );
+          await migrator.addColumn(
+            reorderRequests,
+            reorderRequests.purchaseUnitOfMeasureId,
+          );
+          await migrator.addColumn(
+            reorderRequests,
+            reorderRequests.purchaseQuantity,
+          );
+          await migrator.addColumn(
+            reorderRequests,
+            reorderRequests.purchaseToStockConversionFactor,
+          );
+          await migrator.addColumn(
+            reorderRequests,
+            reorderRequests.expectedCost,
+          );
+          await migrator.addColumn(
+            reorderRequests,
+            reorderRequests.orderNumber,
+          );
         }
       },
     );

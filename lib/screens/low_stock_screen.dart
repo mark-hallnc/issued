@@ -12,7 +12,14 @@ enum _LowStockFilter {
   alreadyOnReorder,
 }
 
-enum _ReorderListFilter { needed, ordered, history }
+enum _ReorderListFilter {
+  needed,
+  ordered,
+  partiallyReceived,
+  received,
+  cancelled,
+  all,
+}
 
 class LowStockScreen extends StatefulWidget {
   const LowStockScreen({super.key});
@@ -126,9 +133,12 @@ class _ReorderListScreenState extends State<ReorderListScreen> {
             _ReorderListFilter.needed => request.status == ReorderStatus.needed,
             _ReorderListFilter.ordered =>
               request.status == ReorderStatus.ordered,
-            _ReorderListFilter.history =>
-              request.status == ReorderStatus.received ||
-                  request.status == ReorderStatus.canceled,
+            _ReorderListFilter.partiallyReceived =>
+              request.status == ReorderStatus.partiallyReceived,
+            _ReorderListFilter.received =>
+              request.status == ReorderStatus.received,
+            _ReorderListFilter.cancelled => request.isCancelled,
+            _ReorderListFilter.all => true,
           };
         }).toList()..sort(
           (left, right) => right.createdAt.compareTo(left.createdAt),
@@ -139,24 +149,43 @@ class _ReorderListScreenState extends State<ReorderListScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Row(
-            children: [
-              _FilterChip(
-                label: 'Needed',
-                selected: _filter == _ReorderListFilter.needed,
-                onSelected: () => _setFilter(_ReorderListFilter.needed),
-              ),
-              _FilterChip(
-                label: 'Ordered',
-                selected: _filter == _ReorderListFilter.ordered,
-                onSelected: () => _setFilter(_ReorderListFilter.ordered),
-              ),
-              _FilterChip(
-                label: 'History',
-                selected: _filter == _ReorderListFilter.history,
-                onSelected: () => _setFilter(_ReorderListFilter.history),
-              ),
-            ],
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _FilterChip(
+                  label: 'Needed',
+                  selected: _filter == _ReorderListFilter.needed,
+                  onSelected: () => _setFilter(_ReorderListFilter.needed),
+                ),
+                _FilterChip(
+                  label: 'Ordered',
+                  selected: _filter == _ReorderListFilter.ordered,
+                  onSelected: () => _setFilter(_ReorderListFilter.ordered),
+                ),
+                _FilterChip(
+                  label: 'Partially Received',
+                  selected: _filter == _ReorderListFilter.partiallyReceived,
+                  onSelected: () =>
+                      _setFilter(_ReorderListFilter.partiallyReceived),
+                ),
+                _FilterChip(
+                  label: 'Received',
+                  selected: _filter == _ReorderListFilter.received,
+                  onSelected: () => _setFilter(_ReorderListFilter.received),
+                ),
+                _FilterChip(
+                  label: 'Cancelled',
+                  selected: _filter == _ReorderListFilter.cancelled,
+                  onSelected: () => _setFilter(_ReorderListFilter.cancelled),
+                ),
+                _FilterChip(
+                  label: 'All',
+                  selected: _filter == _ReorderListFilter.all,
+                  onSelected: () => _setFilter(_ReorderListFilter.all),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 16),
           if (requests.isEmpty)
@@ -189,7 +218,7 @@ class _LowStockItemCard extends StatelessWidget {
     final unit = _unitById(store, item.unitOfMeasureId);
     final location = _locationById(store, item.locationId);
     final activeReorder = store.getActiveReorderForItem(item.id);
-    final suggestedQuantity = store.getSuggestedReorderQuantity(item);
+    final suggestedQuantity = store.getReorderSuggestedQuantity(item);
     final canManageReorders = store.canManageReorders;
 
     return Card(
@@ -268,7 +297,8 @@ class _ReorderRequestCard extends StatelessWidget {
     final canReceiveReorders = store.canReceiveReorders;
     final canMutate =
         request.status == ReorderStatus.needed ||
-        request.status == ReorderStatus.ordered;
+        request.status == ReorderStatus.ordered ||
+        request.status == ReorderStatus.partiallyReceived;
 
     return Card(
       child: Padding(
@@ -285,7 +315,13 @@ class _ReorderRequestCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Quantity: ${_formatQuantity(request.requestedQuantity)} ${unit?.abbreviation ?? ''}',
+              'Requested: ${_formatQuantity(request.requestedQuantity)} ${unit?.abbreviation ?? ''}',
+            ),
+            Text(
+              'Received: ${_formatQuantity(request.receivedQuantity)} ${unit?.abbreviation ?? ''}',
+            ),
+            Text(
+              'Remaining: ${_formatQuantity(request.remainingQuantity)} ${unit?.abbreviation ?? ''}',
             ),
             if (item != null &&
                 _purchaseEquivalentText(
@@ -303,12 +339,18 @@ class _ReorderRequestCard extends StatelessWidget {
               ),
             if ((request.supplier ?? '').trim().isNotEmpty)
               Text('Supplier: ${request.supplier}'),
+            if (_destinationText(store, request) != null)
+              Text(_destinationText(store, request)!),
+            if ((request.orderNumber ?? '').trim().isNotEmpty)
+              Text('Order Number: ${request.orderNumber}'),
             Text('Status: ${reorderStatusLabel(request.status)}'),
             Text('Created: ${_formatDate(request.createdAt)}'),
             if (request.orderedAt != null)
               Text('Ordered: ${_formatDate(request.orderedAt!)}'),
             if (request.receivedAt != null)
               Text('Received: ${_formatDate(request.receivedAt!)}'),
+            if (request.cancelledAt != null)
+              Text('Cancelled: ${_formatDate(request.cancelledAt!)}'),
             if ((request.notes ?? '').trim().isNotEmpty)
               Text('Notes: ${request.notes}'),
             const SizedBox(height: 12),
@@ -408,7 +450,7 @@ Future<void> _showAddToReorderDialog(BuildContext context, Item item) async {
   }
 
   if (store.getActiveReorderForItem(item.id) != null) {
-    _showMessage(context, 'This item is already on the reorder list.');
+    _showMessage(context, 'This item already has an open reorder request.');
     return;
   }
 
@@ -416,7 +458,7 @@ Future<void> _showAddToReorderDialog(BuildContext context, Item item) async {
     context,
     title: 'Add to Reorder',
     quantityLabel: 'Requested quantity',
-    initialQuantity: store.getSuggestedReorderQuantity(item),
+    initialQuantity: store.getReorderSuggestedQuantity(item),
   );
   if (result == null || !context.mounted) {
     return;
@@ -449,7 +491,9 @@ Future<void> _showReceiveDialog(
     context,
     title: 'Receive Reorder',
     quantityLabel: 'Received quantity',
-    initialQuantity: request.requestedQuantity,
+    initialQuantity: request.remainingQuantity > 0
+        ? request.remainingQuantity
+        : request.requestedQuantity,
     item: store.itemById(request.itemId),
     allowPurchaseMode: true,
   );
@@ -652,7 +696,7 @@ void _cancelReorder(BuildContext context, String reorderId) {
   _showMessage(
     context,
     store.cancelReorder(reorderId)
-        ? 'Reorder canceled.'
+        ? 'Reorder cancelled.'
         : 'Could not cancel this reorder.',
   );
 }
@@ -718,6 +762,15 @@ Location? _locationById(AppStore store, String locationId) {
   }
 
   return null;
+}
+
+String? _destinationText(AppStore store, ReorderRequest request) {
+  final locationId = request.destinationLocationId;
+  if (locationId == null) {
+    return null;
+  }
+  final location = _locationById(store, locationId);
+  return 'Destination: ${location?.name ?? 'Unknown location'}';
 }
 
 String _formatQuantity(double quantity) {

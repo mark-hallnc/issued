@@ -121,6 +121,7 @@ class ReorderRequests extends Table {
   TextColumn get id => text()();
   TextColumn get itemId => text()();
   RealColumn get requestedQuantity => real()();
+  RealColumn get receivedQuantity => real().withDefault(const Constant(0))();
   TextColumn get unitOfMeasureId => text()();
   TextColumn get supplier => text().nullable()();
   TextColumn get status => text()();
@@ -128,7 +129,16 @@ class ReorderRequests extends Table {
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get orderedAt => dateTime().nullable()();
   DateTimeColumn get receivedAt => dateTime().nullable()();
+  DateTimeColumn get cancelledAt => dateTime().nullable()();
   TextColumn get createdByUserId => text().nullable()();
+  TextColumn get orderedByUserId => text().nullable()();
+  TextColumn get receivedByUserId => text().nullable()();
+  TextColumn get destinationLocationId => text().nullable()();
+  TextColumn get purchaseUnitOfMeasureId => text().nullable()();
+  RealColumn get purchaseQuantity => real().nullable()();
+  RealColumn get purchaseToStockConversionFactor => real().nullable()();
+  RealColumn get expectedCost => real().nullable()();
+  TextColumn get orderNumber => text().nullable()();
 
   @override
   Set<Column<Object>> get primaryKey => {id};
