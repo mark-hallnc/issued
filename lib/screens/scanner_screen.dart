@@ -113,6 +113,20 @@ class _ScannerScreenState extends State<ScannerScreen> {
       return;
     }
 
+    final location = _findLocation(store, code);
+    if (location != null) {
+      _showMessage('Location label scanned: ${location.name}.');
+      await _resumeScanning();
+      return;
+    }
+
+    final target = _findAssignmentTarget(store, code);
+    if (target != null) {
+      _showMessage('Assignment target label scanned: ${target.name}.');
+      await _resumeScanning();
+      return;
+    }
+
     if (!mounted) {
       return;
     }
@@ -210,6 +224,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
         item.sku,
         item.id,
         itemQrValue(item),
+        legacyItemQrValue(item),
         'issued:item:${item.id}',
       ].whereType<String>();
 
@@ -223,7 +238,35 @@ class _ScannerScreenState extends State<ScannerScreen> {
     return null;
   }
 
+  Location? _findLocation(AppStore store, String scannedCode) {
+    final normalizedCode = _normalize(scannedCode);
+    for (final location in store.locations) {
+      if (_normalize(locationQrValue(location)) == normalizedCode ||
+          _normalize('issued:location:${location.id}') == normalizedCode) {
+        return location;
+      }
+    }
+    return null;
+  }
+
+  AssignmentTarget? _findAssignmentTarget(AppStore store, String scannedCode) {
+    final normalizedCode = _normalize(scannedCode);
+    for (final target in store.assignmentTargets) {
+      if (_normalize(assignmentTargetQrValue(target)) == normalizedCode ||
+          _normalize('issued:target:${target.id}') == normalizedCode) {
+        return target;
+      }
+    }
+    return null;
+  }
+
   String _normalize(String value) => value.trim().toLowerCase();
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
 
   void _showPermissionDenied() {
     ScaffoldMessenger.of(context).showSnackBar(

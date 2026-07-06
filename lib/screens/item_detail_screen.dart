@@ -11,6 +11,7 @@ import '../core/models/models.dart';
 import '../core/photos/item_photo_service.dart';
 import 'activity_screen.dart';
 import 'edit_item_screen.dart';
+import 'label_center_screen.dart';
 import 'plan_screens.dart';
 import 'settings_detail_screens.dart';
 
@@ -230,6 +231,11 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                           icon: const Icon(Icons.print),
                           label: const Text('Print/Export Label'),
                         ),
+                        OutlinedButton.icon(
+                          onPressed: _openLabelCenter,
+                          icon: const Icon(Icons.qr_code_2),
+                          label: const Text('Label Center'),
+                        ),
                       ],
                     ],
                   ),
@@ -400,6 +406,17 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     if (didPrint && mounted) {
       store.recordLabelExport();
     }
+  }
+
+  Future<void> _openLabelCenter() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => LabelCenterScreen(
+          initialMode: LabelCenterMode.items,
+          initialItemIds: {_item.id},
+        ),
+      ),
+    );
   }
 
   Future<void> _showLabelLimitReached(AppStore store) async {

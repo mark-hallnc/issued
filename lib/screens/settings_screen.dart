@@ -6,6 +6,7 @@ import 'assignment_targets_screen.dart';
 import 'backup_restore_screen.dart';
 import 'data_health_screen.dart';
 import 'import_export_screen.dart';
+import 'label_center_screen.dart';
 import 'reports_screen.dart';
 import 'settings_detail_screens.dart';
 
@@ -64,6 +65,12 @@ class SettingsScreen extends StatelessWidget {
         icon: Icons.assessment_outlined,
         screen: ReportsScreen(),
       ),
+      if (permissions.canImportExport)
+        const _SettingsRow(
+          title: 'Label Center',
+          icon: Icons.qr_code_2,
+          screen: LabelCenterScreen(),
+        ),
       if (permissions.isAdmin || permissions.isManager)
         const _SettingsRow(
           title: 'Backup & Restore',

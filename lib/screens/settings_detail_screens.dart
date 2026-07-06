@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/app_store.dart';
 import '../core/models/models.dart';
 import '../core/permissions/app_permissions.dart';
+import 'label_center_screen.dart';
 import 'plan_screens.dart';
 
 class CompanySettingsScreen extends StatefulWidget {
@@ -441,11 +442,33 @@ class _LocationsSettingsScreenState extends State<LocationsSettingsScreen> {
 
     return _SettingsScaffold(
       title: 'Locations',
-      action: store.permissions.canManageSettings
-          ? FilledButton.icon(
-              onPressed: _showAddLocationForm,
-              icon: const Icon(Icons.add_location_alt),
-              label: const Text('Add Location'),
+      action:
+          store.permissions.canManageSettings ||
+              store.locations.any((location) => location.isActive)
+          ? Wrap(
+              spacing: 8,
+              children: [
+                if (store.locations.any((location) => location.isActive))
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (context) => const LabelCenterScreen(
+                            initialMode: LabelCenterMode.locations,
+                          ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.qr_code_2),
+                    label: const Text('Print Location Labels'),
+                  ),
+                if (store.permissions.canManageSettings)
+                  FilledButton.icon(
+                    onPressed: _showAddLocationForm,
+                    icon: const Icon(Icons.add_location_alt),
+                    label: const Text('Add Location'),
+                  ),
+              ],
             )
           : null,
       children: [

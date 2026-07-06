@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/app_store.dart';
 import '../core/models/models.dart';
+import 'label_center_screen.dart';
 
 class AssignmentTargetsScreen extends StatelessWidget {
   const AssignmentTargetsScreen({super.key});
@@ -22,7 +23,25 @@ class AssignmentTargetsScreen extends StatelessWidget {
       });
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Assignment Targets')),
+      appBar: AppBar(
+        title: const Text('Assignment Targets'),
+        actions: [
+          if (targets.any((target) => target.isActive))
+            IconButton(
+              tooltip: 'Print Target Labels',
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (context) => const LabelCenterScreen(
+                      initialMode: LabelCenterMode.targets,
+                    ),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.qr_code_2),
+            ),
+        ],
+      ),
       floatingActionButton: canManage
           ? FloatingActionButton.extended(
               onPressed: () => _showTargetForm(context),
