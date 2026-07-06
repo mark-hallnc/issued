@@ -2527,6 +2527,44 @@ class AppStore extends ChangeNotifier {
     return _itemById(itemId);
   }
 
+  Item? findItemById(String itemId) {
+    return _itemById(itemId.trim());
+  }
+
+  Location? findLocationById(String locationId) {
+    return _locationById(locationId.trim());
+  }
+
+  AssignmentTarget? findAssignmentTargetById(String targetId) {
+    return _assignmentTargetById(targetId.trim());
+  }
+
+  CheckoutRecord? findCheckoutById(String checkoutId) {
+    return _checkoutRecordById(checkoutId.trim());
+  }
+
+  ReorderRequest? findReorderById(String reorderId) {
+    return reorderRequestById(reorderId.trim());
+  }
+
+  List<Item> findItemsByBarcodeOrSku(String code) {
+    final normalized = code.trim().toLowerCase();
+    if (normalized.isEmpty) {
+      return const [];
+    }
+
+    final barcodeMatches = _items.where((item) {
+      return item.barcode?.trim().toLowerCase() == normalized;
+    }).toList();
+    if (barcodeMatches.isNotEmpty) {
+      return barcodeMatches;
+    }
+
+    return _items.where((item) {
+      return item.sku?.trim().toLowerCase() == normalized;
+    }).toList();
+  }
+
   String resolveUomAbbreviation(String uomId) {
     return _unitById(uomId)?.abbreviation ?? '';
   }

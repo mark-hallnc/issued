@@ -19,7 +19,9 @@ enum _CheckedOutFilter {
 }
 
 class CheckedOutScreen extends StatefulWidget {
-  const CheckedOutScreen({super.key});
+  const CheckedOutScreen({super.key, this.initialTargetId});
+
+  final String? initialTargetId;
 
   @override
   State<CheckedOutScreen> createState() => _CheckedOutScreenState();
@@ -27,6 +29,14 @@ class CheckedOutScreen extends StatefulWidget {
 
 class _CheckedOutScreenState extends State<CheckedOutScreen> {
   _CheckedOutFilter _filter = _CheckedOutFilter.open;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialTargetId != null) {
+      _filter = _CheckedOutFilter.byTarget;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -46,7 +56,10 @@ class _CheckedOutScreenState extends State<CheckedOutScreen> {
         _CheckedOutFilter.overdue => _isOverdue(record),
         _CheckedOutFilter.byPerson => record.assignedToPersonId != null,
         _CheckedOutFilter.byLocation => record.assignedToLocationId != null,
-        _CheckedOutFilter.byTarget => record.assignedToTargetId != null,
+        _CheckedOutFilter.byTarget =>
+          widget.initialTargetId == null
+              ? record.assignedToTargetId != null
+              : record.assignedToTargetId == widget.initialTargetId,
         _CheckedOutFilter.assets => item?.itemType == ItemType.asset,
         _CheckedOutFilter.returnables => item?.itemType == ItemType.returnable,
       };

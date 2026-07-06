@@ -2,13 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../core/app_store.dart';
-import '../core/labels/label_service.dart';
 import '../core/models/models.dart';
 import '../core/permissions/app_permissions.dart';
+import '../core/scanner/scan_parser.dart';
 import 'item_detail_screen.dart';
 
 class QuickIssueScreen extends StatefulWidget {
-  const QuickIssueScreen({super.key});
+  const QuickIssueScreen({
+    super.key,
+    this.initialItemId,
+    this.initialSourceLocationId,
+    this.initialAssignmentTargetId,
+  });
+
+  final String? initialItemId;
+  final String? initialSourceLocationId;
+  final String? initialAssignmentTargetId;
 
   @override
   State<QuickIssueScreen> createState() => _QuickIssueScreenState();
@@ -33,6 +42,27 @@ class _QuickIssueScreenState extends State<QuickIssueScreen> {
   bool _receiveByPurchaseUnit = false;
   String? _message;
   String? _successMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedSourceLocationId = widget.initialSourceLocationId;
+    _selectedDestinationLocationId = widget.initialSourceLocationId;
+    _assignedTargetId = widget.initialAssignmentTargetId;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_selectedItem == null && widget.initialItemId != null) {
+      final item = AppStoreScope.of(
+        context,
+      ).findItemById(widget.initialItemId!);
+      if (item != null) {
+        _selectedItem = item;
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -103,21 +133,57 @@ class _QuickIssueScreenState extends State<QuickIssueScreen> {
       return;
     }
 
-    final matches = _findCodeMatches(AppStoreScope.of(context), code);
-    if (matches.length == 1) {
-      _selectItem(matches.first);
-      return;
+    await _handleScannedCode(code);
+  }
+
+  Future<void> _handleScannedCode(String code) async {
+    final store = AppStoreScope.of(context);
+    final resolved = const ScanResolver().resolveScan(code, store);
+    switch (resolved.resolutionType) {
+      case ScanResolutionType.item:
+        final item = resolved.item;
+        if (item != null) {
+          _selectItem(item);
+        }
+      case ScanResolutionType.multipleItems:
+        await _showDuplicateMatches(resolved.itemMatches);
+      case ScanResolutionType.location:
+        final location = resolved.location;
+        setState(() {
+          _selectedSourceLocationId = location?.id;
+          _selectedDestinationLocationId = location?.id;
+          _message = location == null
+              ? 'Location label scanned.'
+              : 'Using ${location.name} as the source location.';
+        });
+      case ScanResolutionType.assignmentTarget:
+        final target = resolved.assignmentTarget;
+        setState(() {
+          _assignedPersonId = null;
+          _assignedLocationId = null;
+          _assignedTargetId = target?.id;
+          _assignedTextController.clear();
+          _message = target == null
+              ? 'Assignment target label scanned.'
+              : 'Assigning to ${target.name}.';
+        });
+      case ScanResolutionType.malformed:
+        setState(() {
+          _selectedItem = null;
+          _selectedAction = null;
+          _message = 'This Issued label could not be read.';
+          _searchController.text = code.trim();
+        });
+      case ScanResolutionType.checkout:
+      case ScanResolutionType.reorder:
+      case ScanResolutionType.notFound:
+        setState(() {
+          _selectedItem = null;
+          _selectedAction = null;
+          _message = 'No item found for this code.';
+          _searchController.text = code.trim();
+        });
     }
-    if (matches.length > 1) {
-      await _showDuplicateMatches(matches);
-      return;
-    }
-    setState(() {
-      _selectedItem = null;
-      _selectedAction = null;
-      _message = 'No item found for this code.';
-      _searchController.text = code.trim();
-    });
   }
 
   Future<void> _showDuplicateMatches(List<Item> matches) async {
@@ -151,7 +217,7 @@ class _QuickIssueScreenState extends State<QuickIssueScreen> {
       _message = null;
       _successMessage = null;
       _searchController.clear();
-      _resetFormFields();
+      _resetFormFields(preserveScanContext: true);
     });
   }
 
@@ -172,7 +238,7 @@ class _QuickIssueScreenState extends State<QuickIssueScreen> {
     setState(() {
       _selectedAction = action;
       _message = null;
-      _resetFormFields();
+      _resetFormFields(preserveScanContext: true);
       _seedDefaults(store, item, action);
     });
   }
@@ -192,12 +258,12 @@ class _QuickIssueScreenState extends State<QuickIssueScreen> {
     switch (action) {
       case _QuickAction.issue:
         _quantityController.text = '1';
-        _selectedSourceLocationId = stockLocations.isNotEmpty
+        _selectedSourceLocationId ??= stockLocations.isNotEmpty
             ? stockLocations.first.locationId
             : null;
       case _QuickAction.checkOut:
         _quantityController.text = '1';
-        _selectedSourceLocationId = stockLocations.isNotEmpty
+        _selectedSourceLocationId ??= stockLocations.isNotEmpty
             ? stockLocations.first.locationId
             : null;
       case _QuickAction.returnItem:
@@ -206,12 +272,12 @@ class _QuickIssueScreenState extends State<QuickIssueScreen> {
         _quantityController.text = _selectedCheckout == null
             ? ''
             : _formatQuantity(_selectedCheckout!.quantityOpen);
-        _selectedDestinationLocationId = activeLocations.isNotEmpty
+        _selectedDestinationLocationId ??= activeLocations.isNotEmpty
             ? activeLocations.first.id
             : null;
       case _QuickAction.receive:
         _quantityController.text = '1';
-        _selectedDestinationLocationId = activeLocations.isNotEmpty
+        _selectedDestinationLocationId ??= activeLocations.isNotEmpty
             ? activeLocations.first.id
             : null;
         _receiveByPurchaseUnit = store.hasPurchaseConversion(item);
@@ -655,20 +721,6 @@ class _QuickIssueScreenState extends State<QuickIssueScreen> {
     return null;
   }
 
-  List<Item> _findCodeMatches(AppStore store, String scannedCode) {
-    final normalizedCode = _normalize(scannedCode);
-    return store.items.where((item) {
-      final values = [
-        item.barcode,
-        item.sku,
-        item.id,
-        itemQrValue(item),
-        'issued:item:${item.id}',
-      ].whereType<String>();
-      return values.any((value) => _normalize(value) == normalizedCode);
-    }).toList();
-  }
-
   List<ItemLocationBalance> _stockLocations(AppStore store, Item item) {
     return store
         .itemBalancesForItem(item.id)
@@ -709,7 +761,10 @@ class _QuickIssueScreenState extends State<QuickIssueScreen> {
     });
   }
 
-  void _resetFormFields() {
+  void _resetFormFields({bool preserveScanContext = false}) {
+    final sourceLocationId = _selectedSourceLocationId;
+    final destinationLocationId = _selectedDestinationLocationId;
+    final assignmentTargetId = _assignedTargetId;
     _quantityController.clear();
     _notesController.clear();
     _assignedTextController.clear();
@@ -721,6 +776,11 @@ class _QuickIssueScreenState extends State<QuickIssueScreen> {
     _selectedCheckout = null;
     _returnCondition = _ReturnCondition.good;
     _receiveByPurchaseUnit = false;
+    if (preserveScanContext) {
+      _selectedSourceLocationId = sourceLocationId;
+      _selectedDestinationLocationId = destinationLocationId;
+      _assignedTargetId = assignmentTargetId;
+    }
   }
 
   void _showPermissionMessage() {
@@ -1300,8 +1360,6 @@ String _formatQuantity(double quantity) {
   }
   return quantity.toStringAsFixed(2);
 }
-
-String _normalize(String value) => value.trim().toLowerCase();
 
 String? _emptyToNull(String? value) {
   final trimmed = value?.trim();

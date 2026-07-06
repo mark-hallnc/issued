@@ -38,7 +38,9 @@ enum _PhotoFilter { any, hasPhoto, noPhoto }
 enum _BarcodeFilter { any, hasBarcode, missingBarcode }
 
 class ItemsScreen extends StatefulWidget {
-  const ItemsScreen({super.key});
+  const ItemsScreen({super.key, this.initialLocationId});
+
+  final String? initialLocationId;
 
   @override
   State<ItemsScreen> createState() => _ItemsScreenState();
@@ -56,6 +58,12 @@ class _ItemsScreenState extends State<ItemsScreen> {
   _ActiveStatusFilter _activeStatus = _ActiveStatusFilter.active;
   _PhotoFilter _photoFilter = _PhotoFilter.any;
   _BarcodeFilter _barcodeFilter = _BarcodeFilter.any;
+
+  @override
+  void initState() {
+    super.initState();
+    _locationId = widget.initialLocationId;
+  }
 
   @override
   void dispose() {
