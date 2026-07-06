@@ -45,7 +45,7 @@ class ReportsScreen extends StatelessWidget {
     final store = AppStoreScope.of(context);
     if (!(store.permissions.isAdmin || store.permissions.isManager)) {
       return Scaffold(
-        appBar: AppBar(title: Text('Reports')),
+        appBar: AppBar(title: const Text('Reports')),
         body: const Center(
           child: Text('Your current role does not allow this action.'),
         ),
@@ -1428,6 +1428,10 @@ String _activityCsv(AppStore store, List<reports.ActivityReportRow> rows) {
       'assigned_to',
       'performed_by',
       'notes',
+      'is_reversed',
+      'reverses_transaction_id',
+      'reversed_by_transaction_id',
+      'correction_reason',
     ],
     for (final row in rows)
       [
@@ -1441,6 +1445,10 @@ String _activityCsv(AppStore store, List<reports.ActivityReportRow> rows) {
         row.assignedTo ?? '',
         row.performedBy ?? '',
         row.transaction.notes ?? '',
+        row.transaction.isReversed,
+        row.transaction.reversesTransactionId ?? '',
+        row.transaction.reversedByTransactionId ?? '',
+        row.transaction.correctionReason ?? '',
       ],
   ]);
 }
@@ -1578,6 +1586,7 @@ String _transactionTypeLabel(InventoryTransactionType type) {
     InventoryTransactionType.markLost => 'Lost',
     InventoryTransactionType.markDamaged => 'Damaged',
     InventoryTransactionType.cycleCountAdjustment => 'Cycle Count',
+    InventoryTransactionType.correction => 'Correction',
   };
 }
 

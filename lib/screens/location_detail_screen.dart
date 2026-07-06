@@ -186,6 +186,7 @@ class LocationDetailScreen extends StatelessWidget {
       InventoryTransactionType.markLost => 'Lost',
       InventoryTransactionType.markDamaged => 'Damaged',
       InventoryTransactionType.cycleCountAdjustment => 'Cycle Count',
+      InventoryTransactionType.correction => 'Correction',
     };
   }
 }

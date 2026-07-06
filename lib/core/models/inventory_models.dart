@@ -10,6 +10,7 @@ enum InventoryTransactionType {
   markLost,
   markDamaged,
   cycleCountAdjustment,
+  correction,
 }
 
 class Item {
@@ -224,6 +225,10 @@ class InventoryTransaction {
     required this.assignedToText,
     required this.performedByUserId,
     required this.notes,
+    this.reversedByTransactionId,
+    this.reversesTransactionId,
+    this.correctionReason,
+    this.correctedAt,
     required this.createdAt,
   });
 
@@ -240,7 +245,14 @@ class InventoryTransaction {
   final String? assignedToText;
   final String? performedByUserId;
   final String? notes;
+  final String? reversedByTransactionId;
+  final String? reversesTransactionId;
+  final String? correctionReason;
+  final DateTime? correctedAt;
   final DateTime createdAt;
+
+  bool get isReversal => reversesTransactionId != null;
+  bool get isReversed => reversedByTransactionId != null;
 
   InventoryTransaction copyWith({
     String? id,
@@ -256,6 +268,10 @@ class InventoryTransaction {
     String? assignedToText,
     String? performedByUserId,
     String? notes,
+    String? reversedByTransactionId,
+    String? reversesTransactionId,
+    String? correctionReason,
+    DateTime? correctedAt,
     DateTime? createdAt,
   }) {
     return InventoryTransaction(
@@ -272,6 +288,12 @@ class InventoryTransaction {
       assignedToText: assignedToText ?? this.assignedToText,
       performedByUserId: performedByUserId ?? this.performedByUserId,
       notes: notes ?? this.notes,
+      reversedByTransactionId:
+          reversedByTransactionId ?? this.reversedByTransactionId,
+      reversesTransactionId:
+          reversesTransactionId ?? this.reversesTransactionId,
+      correctionReason: correctionReason ?? this.correctionReason,
+      correctedAt: correctedAt ?? this.correctedAt,
       createdAt: createdAt ?? this.createdAt,
     );
   }

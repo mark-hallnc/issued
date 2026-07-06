@@ -199,6 +199,10 @@ extension InventoryTransactionRecordMapper on InventoryTransactionRecord {
       assignedToText: assignedToText,
       performedByUserId: performedByUserId,
       notes: notes,
+      reversedByTransactionId: reversedByTransactionId,
+      reversesTransactionId: reversesTransactionId,
+      correctionReason: correctionReason,
+      correctedAt: correctedAt,
       createdAt: createdAt,
     );
   }
@@ -220,6 +224,10 @@ extension InventoryTransactionDomainMapper on domain.InventoryTransaction {
       assignedToText: Value(assignedToText),
       performedByUserId: Value(performedByUserId),
       notes: Value(notes),
+      reversedByTransactionId: Value(reversedByTransactionId),
+      reversesTransactionId: Value(reversesTransactionId),
+      correctionReason: Value(correctionReason),
+      correctedAt: Value(correctedAt),
       createdAt: Value(createdAt),
     );
   }

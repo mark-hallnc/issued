@@ -2756,6 +2756,7 @@ class _TransactionRow extends StatelessWidget {
       InventoryTransactionType.markLost => 'Lost',
       InventoryTransactionType.markDamaged => 'Lost/Damaged',
       InventoryTransactionType.cycleCountAdjustment => 'Cycle Count',
+      InventoryTransactionType.correction => 'Correction',
     };
   }
 }

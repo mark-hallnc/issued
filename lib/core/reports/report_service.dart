@@ -231,7 +231,8 @@ class ReportService {
           accumulator.damagedCount++;
           break;
         case InventoryTransactionType.returnItem ||
-            InventoryTransactionType.transfer:
+            InventoryTransactionType.transfer ||
+            InventoryTransactionType.correction:
           break;
       }
     }
@@ -413,7 +414,11 @@ class ReportService {
     ReportDateRange range,
   ) {
     final rows = [
-      for (final transaction in _transactionsInRange(store, range))
+      for (final transaction in _transactionsInRange(
+        store,
+        range,
+        includeReversedOriginals: true,
+      ))
         ActivityReportRow(
           transaction: transaction,
           itemName: store.resolveItemName(transaction.itemId),
@@ -441,10 +446,15 @@ class ReportService {
 
   List<InventoryTransaction> _transactionsInRange(
     AppStore store,
-    ReportDateRange range,
-  ) {
+    ReportDateRange range, {
+    bool includeReversedOriginals = false,
+  }) {
     return store.transactions
-        .where((transaction) => range.contains(transaction.createdAt))
+        .where(
+          (transaction) =>
+              range.contains(transaction.createdAt) &&
+              (includeReversedOriginals || !transaction.isReversed),
+        )
         .toList();
   }
 }
@@ -716,7 +726,8 @@ class _UsageByPersonAccumulator {
           InventoryTransactionType.adjustment ||
           InventoryTransactionType.markLost ||
           InventoryTransactionType.markDamaged ||
-          InventoryTransactionType.cycleCountAdjustment:
+          InventoryTransactionType.cycleCountAdjustment ||
+          InventoryTransactionType.correction:
         break;
     }
     itemCounts[transaction.itemId] = (itemCounts[transaction.itemId] ?? 0) + 1;
@@ -770,7 +781,8 @@ class _UsageByTargetAccumulator {
           InventoryTransactionType.returnItem ||
           InventoryTransactionType.transfer ||
           InventoryTransactionType.adjustment ||
-          InventoryTransactionType.cycleCountAdjustment:
+          InventoryTransactionType.cycleCountAdjustment ||
+          InventoryTransactionType.correction:
         break;
     }
     itemCounts[transaction.itemId] = (itemCounts[transaction.itemId] ?? 0) + 1;

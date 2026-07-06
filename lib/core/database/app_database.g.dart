@@ -3418,6 +3418,50 @@ class $InventoryTransactionsTable extends InventoryTransactions
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _reversedByTransactionIdMeta =
+      const VerificationMeta('reversedByTransactionId');
+  @override
+  late final GeneratedColumn<String> reversedByTransactionId =
+      GeneratedColumn<String>(
+        'reversed_by_transaction_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _reversesTransactionIdMeta =
+      const VerificationMeta('reversesTransactionId');
+  @override
+  late final GeneratedColumn<String> reversesTransactionId =
+      GeneratedColumn<String>(
+        'reverses_transaction_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _correctionReasonMeta = const VerificationMeta(
+    'correctionReason',
+  );
+  @override
+  late final GeneratedColumn<String> correctionReason = GeneratedColumn<String>(
+    'correction_reason',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _correctedAtMeta = const VerificationMeta(
+    'correctedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> correctedAt = GeneratedColumn<DateTime>(
+    'corrected_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -3444,6 +3488,10 @@ class $InventoryTransactionsTable extends InventoryTransactions
     assignedToText,
     performedByUserId,
     notes,
+    reversedByTransactionId,
+    reversesTransactionId,
+    correctionReason,
+    correctedAt,
     createdAt,
   ];
   @override
@@ -3573,6 +3621,42 @@ class $InventoryTransactionsTable extends InventoryTransactions
         notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
       );
     }
+    if (data.containsKey('reversed_by_transaction_id')) {
+      context.handle(
+        _reversedByTransactionIdMeta,
+        reversedByTransactionId.isAcceptableOrUnknown(
+          data['reversed_by_transaction_id']!,
+          _reversedByTransactionIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('reverses_transaction_id')) {
+      context.handle(
+        _reversesTransactionIdMeta,
+        reversesTransactionId.isAcceptableOrUnknown(
+          data['reverses_transaction_id']!,
+          _reversesTransactionIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('correction_reason')) {
+      context.handle(
+        _correctionReasonMeta,
+        correctionReason.isAcceptableOrUnknown(
+          data['correction_reason']!,
+          _correctionReasonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('corrected_at')) {
+      context.handle(
+        _correctedAtMeta,
+        correctedAt.isAcceptableOrUnknown(
+          data['corrected_at']!,
+          _correctedAtMeta,
+        ),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -3645,6 +3729,22 @@ class $InventoryTransactionsTable extends InventoryTransactions
         DriftSqlType.string,
         data['${effectivePrefix}notes'],
       ),
+      reversedByTransactionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reversed_by_transaction_id'],
+      ),
+      reversesTransactionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reverses_transaction_id'],
+      ),
+      correctionReason: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}correction_reason'],
+      ),
+      correctedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}corrected_at'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -3673,6 +3773,10 @@ class InventoryTransactionRecord extends DataClass
   final String? assignedToText;
   final String? performedByUserId;
   final String? notes;
+  final String? reversedByTransactionId;
+  final String? reversesTransactionId;
+  final String? correctionReason;
+  final DateTime? correctedAt;
   final DateTime createdAt;
   const InventoryTransactionRecord({
     required this.id,
@@ -3688,6 +3792,10 @@ class InventoryTransactionRecord extends DataClass
     this.assignedToText,
     this.performedByUserId,
     this.notes,
+    this.reversedByTransactionId,
+    this.reversesTransactionId,
+    this.correctionReason,
+    this.correctedAt,
     required this.createdAt,
   });
   @override
@@ -3721,6 +3829,20 @@ class InventoryTransactionRecord extends DataClass
     }
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
+    }
+    if (!nullToAbsent || reversedByTransactionId != null) {
+      map['reversed_by_transaction_id'] = Variable<String>(
+        reversedByTransactionId,
+      );
+    }
+    if (!nullToAbsent || reversesTransactionId != null) {
+      map['reverses_transaction_id'] = Variable<String>(reversesTransactionId);
+    }
+    if (!nullToAbsent || correctionReason != null) {
+      map['correction_reason'] = Variable<String>(correctionReason);
+    }
+    if (!nullToAbsent || correctedAt != null) {
+      map['corrected_at'] = Variable<DateTime>(correctedAt);
     }
     map['created_at'] = Variable<DateTime>(createdAt);
     return map;
@@ -3757,6 +3879,18 @@ class InventoryTransactionRecord extends DataClass
       notes: notes == null && nullToAbsent
           ? const Value.absent()
           : Value(notes),
+      reversedByTransactionId: reversedByTransactionId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reversedByTransactionId),
+      reversesTransactionId: reversesTransactionId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reversesTransactionId),
+      correctionReason: correctionReason == null && nullToAbsent
+          ? const Value.absent()
+          : Value(correctionReason),
+      correctedAt: correctedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(correctedAt),
       createdAt: Value(createdAt),
     );
   }
@@ -3788,6 +3922,14 @@ class InventoryTransactionRecord extends DataClass
         json['performedByUserId'],
       ),
       notes: serializer.fromJson<String?>(json['notes']),
+      reversedByTransactionId: serializer.fromJson<String?>(
+        json['reversedByTransactionId'],
+      ),
+      reversesTransactionId: serializer.fromJson<String?>(
+        json['reversesTransactionId'],
+      ),
+      correctionReason: serializer.fromJson<String?>(json['correctionReason']),
+      correctedAt: serializer.fromJson<DateTime?>(json['correctedAt']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
   }
@@ -3808,6 +3950,14 @@ class InventoryTransactionRecord extends DataClass
       'assignedToText': serializer.toJson<String?>(assignedToText),
       'performedByUserId': serializer.toJson<String?>(performedByUserId),
       'notes': serializer.toJson<String?>(notes),
+      'reversedByTransactionId': serializer.toJson<String?>(
+        reversedByTransactionId,
+      ),
+      'reversesTransactionId': serializer.toJson<String?>(
+        reversesTransactionId,
+      ),
+      'correctionReason': serializer.toJson<String?>(correctionReason),
+      'correctedAt': serializer.toJson<DateTime?>(correctedAt),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
   }
@@ -3826,6 +3976,10 @@ class InventoryTransactionRecord extends DataClass
     Value<String?> assignedToText = const Value.absent(),
     Value<String?> performedByUserId = const Value.absent(),
     Value<String?> notes = const Value.absent(),
+    Value<String?> reversedByTransactionId = const Value.absent(),
+    Value<String?> reversesTransactionId = const Value.absent(),
+    Value<String?> correctionReason = const Value.absent(),
+    Value<DateTime?> correctedAt = const Value.absent(),
     DateTime? createdAt,
   }) => InventoryTransactionRecord(
     id: id ?? this.id,
@@ -3853,6 +4007,16 @@ class InventoryTransactionRecord extends DataClass
         ? performedByUserId.value
         : this.performedByUserId,
     notes: notes.present ? notes.value : this.notes,
+    reversedByTransactionId: reversedByTransactionId.present
+        ? reversedByTransactionId.value
+        : this.reversedByTransactionId,
+    reversesTransactionId: reversesTransactionId.present
+        ? reversesTransactionId.value
+        : this.reversesTransactionId,
+    correctionReason: correctionReason.present
+        ? correctionReason.value
+        : this.correctionReason,
+    correctedAt: correctedAt.present ? correctedAt.value : this.correctedAt,
     createdAt: createdAt ?? this.createdAt,
   );
   InventoryTransactionRecord copyWithCompanion(
@@ -3892,6 +4056,18 @@ class InventoryTransactionRecord extends DataClass
           ? data.performedByUserId.value
           : this.performedByUserId,
       notes: data.notes.present ? data.notes.value : this.notes,
+      reversedByTransactionId: data.reversedByTransactionId.present
+          ? data.reversedByTransactionId.value
+          : this.reversedByTransactionId,
+      reversesTransactionId: data.reversesTransactionId.present
+          ? data.reversesTransactionId.value
+          : this.reversesTransactionId,
+      correctionReason: data.correctionReason.present
+          ? data.correctionReason.value
+          : this.correctionReason,
+      correctedAt: data.correctedAt.present
+          ? data.correctedAt.value
+          : this.correctedAt,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
   }
@@ -3912,6 +4088,10 @@ class InventoryTransactionRecord extends DataClass
           ..write('assignedToText: $assignedToText, ')
           ..write('performedByUserId: $performedByUserId, ')
           ..write('notes: $notes, ')
+          ..write('reversedByTransactionId: $reversedByTransactionId, ')
+          ..write('reversesTransactionId: $reversesTransactionId, ')
+          ..write('correctionReason: $correctionReason, ')
+          ..write('correctedAt: $correctedAt, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -3932,6 +4112,10 @@ class InventoryTransactionRecord extends DataClass
     assignedToText,
     performedByUserId,
     notes,
+    reversedByTransactionId,
+    reversesTransactionId,
+    correctionReason,
+    correctedAt,
     createdAt,
   );
   @override
@@ -3951,6 +4135,10 @@ class InventoryTransactionRecord extends DataClass
           other.assignedToText == this.assignedToText &&
           other.performedByUserId == this.performedByUserId &&
           other.notes == this.notes &&
+          other.reversedByTransactionId == this.reversedByTransactionId &&
+          other.reversesTransactionId == this.reversesTransactionId &&
+          other.correctionReason == this.correctionReason &&
+          other.correctedAt == this.correctedAt &&
           other.createdAt == this.createdAt);
 }
 
@@ -3969,6 +4157,10 @@ class InventoryTransactionsCompanion
   final Value<String?> assignedToText;
   final Value<String?> performedByUserId;
   final Value<String?> notes;
+  final Value<String?> reversedByTransactionId;
+  final Value<String?> reversesTransactionId;
+  final Value<String?> correctionReason;
+  final Value<DateTime?> correctedAt;
   final Value<DateTime> createdAt;
   final Value<int> rowid;
   const InventoryTransactionsCompanion({
@@ -3985,6 +4177,10 @@ class InventoryTransactionsCompanion
     this.assignedToText = const Value.absent(),
     this.performedByUserId = const Value.absent(),
     this.notes = const Value.absent(),
+    this.reversedByTransactionId = const Value.absent(),
+    this.reversesTransactionId = const Value.absent(),
+    this.correctionReason = const Value.absent(),
+    this.correctedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -4002,6 +4198,10 @@ class InventoryTransactionsCompanion
     this.assignedToText = const Value.absent(),
     this.performedByUserId = const Value.absent(),
     this.notes = const Value.absent(),
+    this.reversedByTransactionId = const Value.absent(),
+    this.reversesTransactionId = const Value.absent(),
+    this.correctionReason = const Value.absent(),
+    this.correctedAt = const Value.absent(),
     required DateTime createdAt,
     this.rowid = const Value.absent(),
   }) : id = Value(id),
@@ -4024,6 +4224,10 @@ class InventoryTransactionsCompanion
     Expression<String>? assignedToText,
     Expression<String>? performedByUserId,
     Expression<String>? notes,
+    Expression<String>? reversedByTransactionId,
+    Expression<String>? reversesTransactionId,
+    Expression<String>? correctionReason,
+    Expression<DateTime>? correctedAt,
     Expression<DateTime>? createdAt,
     Expression<int>? rowid,
   }) {
@@ -4044,6 +4248,12 @@ class InventoryTransactionsCompanion
       if (assignedToText != null) 'assigned_to_text': assignedToText,
       if (performedByUserId != null) 'performed_by_user_id': performedByUserId,
       if (notes != null) 'notes': notes,
+      if (reversedByTransactionId != null)
+        'reversed_by_transaction_id': reversedByTransactionId,
+      if (reversesTransactionId != null)
+        'reverses_transaction_id': reversesTransactionId,
+      if (correctionReason != null) 'correction_reason': correctionReason,
+      if (correctedAt != null) 'corrected_at': correctedAt,
       if (createdAt != null) 'created_at': createdAt,
       if (rowid != null) 'rowid': rowid,
     });
@@ -4063,6 +4273,10 @@ class InventoryTransactionsCompanion
     Value<String?>? assignedToText,
     Value<String?>? performedByUserId,
     Value<String?>? notes,
+    Value<String?>? reversedByTransactionId,
+    Value<String?>? reversesTransactionId,
+    Value<String?>? correctionReason,
+    Value<DateTime?>? correctedAt,
     Value<DateTime>? createdAt,
     Value<int>? rowid,
   }) {
@@ -4080,6 +4294,12 @@ class InventoryTransactionsCompanion
       assignedToText: assignedToText ?? this.assignedToText,
       performedByUserId: performedByUserId ?? this.performedByUserId,
       notes: notes ?? this.notes,
+      reversedByTransactionId:
+          reversedByTransactionId ?? this.reversedByTransactionId,
+      reversesTransactionId:
+          reversesTransactionId ?? this.reversesTransactionId,
+      correctionReason: correctionReason ?? this.correctionReason,
+      correctedAt: correctedAt ?? this.correctedAt,
       createdAt: createdAt ?? this.createdAt,
       rowid: rowid ?? this.rowid,
     );
@@ -4129,6 +4349,22 @@ class InventoryTransactionsCompanion
     if (notes.present) {
       map['notes'] = Variable<String>(notes.value);
     }
+    if (reversedByTransactionId.present) {
+      map['reversed_by_transaction_id'] = Variable<String>(
+        reversedByTransactionId.value,
+      );
+    }
+    if (reversesTransactionId.present) {
+      map['reverses_transaction_id'] = Variable<String>(
+        reversesTransactionId.value,
+      );
+    }
+    if (correctionReason.present) {
+      map['correction_reason'] = Variable<String>(correctionReason.value);
+    }
+    if (correctedAt.present) {
+      map['corrected_at'] = Variable<DateTime>(correctedAt.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -4154,6 +4390,10 @@ class InventoryTransactionsCompanion
           ..write('assignedToText: $assignedToText, ')
           ..write('performedByUserId: $performedByUserId, ')
           ..write('notes: $notes, ')
+          ..write('reversedByTransactionId: $reversedByTransactionId, ')
+          ..write('reversesTransactionId: $reversesTransactionId, ')
+          ..write('correctionReason: $correctionReason, ')
+          ..write('correctedAt: $correctedAt, ')
           ..write('createdAt: $createdAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -13765,6 +14005,10 @@ typedef $$InventoryTransactionsTableCreateCompanionBuilder =
       Value<String?> assignedToText,
       Value<String?> performedByUserId,
       Value<String?> notes,
+      Value<String?> reversedByTransactionId,
+      Value<String?> reversesTransactionId,
+      Value<String?> correctionReason,
+      Value<DateTime?> correctedAt,
       required DateTime createdAt,
       Value<int> rowid,
     });
@@ -13783,6 +14027,10 @@ typedef $$InventoryTransactionsTableUpdateCompanionBuilder =
       Value<String?> assignedToText,
       Value<String?> performedByUserId,
       Value<String?> notes,
+      Value<String?> reversedByTransactionId,
+      Value<String?> reversesTransactionId,
+      Value<String?> correctionReason,
+      Value<DateTime?> correctedAt,
       Value<DateTime> createdAt,
       Value<int> rowid,
     });
@@ -13858,6 +14106,26 @@ class $$InventoryTransactionsTableFilterComposer
 
   ColumnFilters<String> get notes => $composableBuilder(
     column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get reversedByTransactionId => $composableBuilder(
+    column: $table.reversedByTransactionId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get reversesTransactionId => $composableBuilder(
+    column: $table.reversesTransactionId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get correctionReason => $composableBuilder(
+    column: $table.correctionReason,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get correctedAt => $composableBuilder(
+    column: $table.correctedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -13941,6 +14209,26 @@ class $$InventoryTransactionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get reversedByTransactionId => $composableBuilder(
+    column: $table.reversedByTransactionId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get reversesTransactionId => $composableBuilder(
+    column: $table.reversesTransactionId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get correctionReason => $composableBuilder(
+    column: $table.correctionReason,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get correctedAt => $composableBuilder(
+    column: $table.correctedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -14015,6 +14303,26 @@ class $$InventoryTransactionsTableAnnotationComposer
   GeneratedColumn<String> get notes =>
       $composableBuilder(column: $table.notes, builder: (column) => column);
 
+  GeneratedColumn<String> get reversedByTransactionId => $composableBuilder(
+    column: $table.reversedByTransactionId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get reversesTransactionId => $composableBuilder(
+    column: $table.reversesTransactionId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get correctionReason => $composableBuilder(
+    column: $table.correctionReason,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get correctedAt => $composableBuilder(
+    column: $table.correctedAt,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 }
@@ -14078,6 +14386,10 @@ class $$InventoryTransactionsTableTableManager
                 Value<String?> assignedToText = const Value.absent(),
                 Value<String?> performedByUserId = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<String?> reversedByTransactionId = const Value.absent(),
+                Value<String?> reversesTransactionId = const Value.absent(),
+                Value<String?> correctionReason = const Value.absent(),
+                Value<DateTime?> correctedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => InventoryTransactionsCompanion(
@@ -14094,6 +14406,10 @@ class $$InventoryTransactionsTableTableManager
                 assignedToText: assignedToText,
                 performedByUserId: performedByUserId,
                 notes: notes,
+                reversedByTransactionId: reversedByTransactionId,
+                reversesTransactionId: reversesTransactionId,
+                correctionReason: correctionReason,
+                correctedAt: correctedAt,
                 createdAt: createdAt,
                 rowid: rowid,
               ),
@@ -14112,6 +14428,10 @@ class $$InventoryTransactionsTableTableManager
                 Value<String?> assignedToText = const Value.absent(),
                 Value<String?> performedByUserId = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<String?> reversedByTransactionId = const Value.absent(),
+                Value<String?> reversesTransactionId = const Value.absent(),
+                Value<String?> correctionReason = const Value.absent(),
+                Value<DateTime?> correctedAt = const Value.absent(),
                 required DateTime createdAt,
                 Value<int> rowid = const Value.absent(),
               }) => InventoryTransactionsCompanion.insert(
@@ -14128,6 +14448,10 @@ class $$InventoryTransactionsTableTableManager
                 assignedToText: assignedToText,
                 performedByUserId: performedByUserId,
                 notes: notes,
+                reversedByTransactionId: reversedByTransactionId,
+                reversesTransactionId: reversesTransactionId,
+                correctionReason: correctionReason,
+                correctedAt: correctedAt,
                 createdAt: createdAt,
                 rowid: rowid,
               ),

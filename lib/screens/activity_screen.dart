@@ -163,7 +163,8 @@ class _ActivityScreenState extends State<ActivityScreen> {
       ActivityFilter.transfer =>
         transaction.transactionType == InventoryTransactionType.transfer,
       ActivityFilter.adjustments =>
-        transaction.transactionType == InventoryTransactionType.adjustment,
+        transaction.transactionType == InventoryTransactionType.adjustment ||
+            transaction.transactionType == InventoryTransactionType.correction,
       ActivityFilter.lostDamaged =>
         transaction.transactionType == InventoryTransactionType.markLost ||
             transaction.transactionType == InventoryTransactionType.markDamaged,
@@ -264,6 +265,20 @@ class _ActivityCard extends StatelessWidget {
               if (toLocation != null) Text('To: $toLocation'),
               if (assignedTo != null) Text('Assigned to: $assignedTo'),
               if (performedBy != null) Text('Performed by: $performedBy'),
+              if (transaction.isReversed || transaction.isReversal) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    if (transaction.isReversed)
+                      const Chip(label: Text('Reversed')),
+                    if (transaction.isReversal)
+                      const Chip(label: Text('Correction')),
+                  ],
+                ),
+              ],
+              if ((transaction.correctionReason ?? '').trim().isNotEmpty)
+                Text('Correction Reason: ${transaction.correctionReason}'),
               if ((transaction.notes ?? '').trim().isNotEmpty)
                 Text('Notes: ${transaction.notes}'),
             ],
@@ -353,6 +368,8 @@ void _showActivityDetail(
   InventoryTransaction transaction,
 ) {
   final item = store.itemById(transaction.itemId);
+  final reversal = store.getReversalForTransaction(transaction.id);
+  final original = store.getOriginalTransactionForReversal(transaction.id);
 
   showDialog<void>(
     context: context,
@@ -398,6 +415,24 @@ void _showActivityDetail(
               ),
               _DetailLine(label: 'Notes', value: transaction.notes),
               _DetailLine(
+                label: 'Correction Reason',
+                value: transaction.correctionReason,
+              ),
+              _DetailLine(
+                label: 'Reverses',
+                value: transaction.reversesTransactionId,
+              ),
+              _DetailLine(
+                label: 'Reversed By',
+                value: transaction.reversedByTransactionId,
+              ),
+              _DetailLine(
+                label: 'Corrected',
+                value: transaction.correctedAt == null
+                    ? null
+                    : _formatDateTime(transaction.correctedAt!),
+              ),
+              _DetailLine(
                 label: 'Created',
                 value: _formatDateTime(transaction.createdAt),
               ),
@@ -412,6 +447,30 @@ void _showActivityDetail(
           ),
         ),
         actions: [
+          if (original != null)
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _showActivityDetail(context, store, original);
+              },
+              child: const Text('View Original'),
+            ),
+          if (reversal != null)
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _showActivityDetail(context, store, reversal);
+              },
+              child: const Text('View Correction'),
+            ),
+          if (store.canReverseTransaction(transaction))
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _showReverseTransactionDialog(context, store, transaction);
+              },
+              child: const Text('Reverse / Correct'),
+            ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('Close'),
@@ -433,6 +492,117 @@ void _showActivityDetail(
       );
     },
   );
+}
+
+void _showReverseTransactionDialog(
+  BuildContext context,
+  AppStore store,
+  InventoryTransaction transaction,
+) {
+  final reasonController = TextEditingController();
+  String? errorText;
+
+  showDialog<void>(
+    context: context,
+    builder: (context) {
+      return StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: const Text('Reverse Transaction'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(_transactionLabel(transaction.transactionType)),
+                  Text(store.resolveItemName(transaction.itemId)),
+                  Text(
+                    _quantityText(
+                      transaction.quantityDelta,
+                      store.resolveUomAbbreviation(transaction.unitOfMeasureId),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'This will not delete history. It will create a correction transaction.',
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    _correctionPreview(store, transaction),
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: reasonController,
+                    decoration: InputDecoration(
+                      labelText: 'Correction Reason',
+                      errorText: errorText,
+                    ),
+                    minLines: 2,
+                    maxLines: 4,
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  final reason = reasonController.text.trim();
+                  if (reason.length < 3) {
+                    setDialogState(() {
+                      errorText = 'Enter a reason.';
+                    });
+                    return;
+                  }
+                  final result = store.reverseInventoryTransaction(
+                    transaction.id,
+                    reason,
+                  );
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(result.message ?? 'Correction created.'),
+                    ),
+                  );
+                },
+                child: const Text('Create Correction'),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  ).whenComplete(reasonController.dispose);
+}
+
+String _correctionPreview(AppStore store, InventoryTransaction transaction) {
+  final unit = store.resolveUomAbbreviation(transaction.unitOfMeasureId);
+  final quantity = _formatQuantity(transaction.quantityDelta.abs());
+  switch (transaction.transactionType) {
+    case InventoryTransactionType.receive:
+      return '${store.resolveLocationName(transaction.toLocationId) ?? 'Destination'} will decrease by $quantity $unit.';
+    case InventoryTransactionType.issue ||
+        InventoryTransactionType.markLost ||
+        InventoryTransactionType.markDamaged:
+      return '${store.resolveLocationName(transaction.fromLocationId) ?? 'Source'} will increase by $quantity $unit.';
+    case InventoryTransactionType.transfer:
+      return '${store.resolveLocationName(transaction.toLocationId) ?? 'Destination'} will decrease by $quantity $unit. ${store.resolveLocationName(transaction.fromLocationId) ?? 'Source'} will increase by $quantity $unit.';
+    case InventoryTransactionType.adjustment ||
+        InventoryTransactionType.cycleCountAdjustment:
+      if (transaction.quantityDelta > 0) {
+        return '${store.resolveLocationName(transaction.toLocationId) ?? 'Location'} will decrease by $quantity $unit.';
+      }
+      return '${store.resolveLocationName(transaction.fromLocationId) ?? 'Location'} will increase by $quantity $unit.';
+    case InventoryTransactionType.checkout ||
+        InventoryTransactionType.returnItem:
+      return 'Correct this from the checkout record.';
+    case InventoryTransactionType.correction:
+      return 'Correction transactions cannot be reversed.';
+  }
 }
 
 class _DetailLine extends StatelessWidget {
@@ -477,6 +647,7 @@ String _transactionLabel(InventoryTransactionType type) {
     InventoryTransactionType.markLost => 'Marked Lost',
     InventoryTransactionType.markDamaged => 'Marked Damaged',
     InventoryTransactionType.cycleCountAdjustment => 'Cycle Count Adjustment',
+    InventoryTransactionType.correction => 'Correction',
   };
 }
 

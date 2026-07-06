@@ -32,7 +32,7 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? openDatabaseConnection());
 
   @override
-  int get schemaVersion => 14;
+  int get schemaVersion => 15;
 
   @override
   MigrationStrategy get migration {
@@ -172,6 +172,24 @@ class AppDatabase extends _$AppDatabase {
           await migrator.addColumn(locations, locations.code);
           await migrator.addColumn(locations, locations.createdAt);
           await migrator.addColumn(locations, locations.updatedAt);
+        }
+        if (from < 15) {
+          await migrator.addColumn(
+            inventoryTransactions,
+            inventoryTransactions.reversedByTransactionId,
+          );
+          await migrator.addColumn(
+            inventoryTransactions,
+            inventoryTransactions.reversesTransactionId,
+          );
+          await migrator.addColumn(
+            inventoryTransactions,
+            inventoryTransactions.correctionReason,
+          );
+          await migrator.addColumn(
+            inventoryTransactions,
+            inventoryTransactions.correctedAt,
+          );
         }
       },
     );

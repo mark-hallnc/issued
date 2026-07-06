@@ -1874,6 +1874,166 @@ class AppStore extends ChangeNotifier {
     return const AppActionResult.success(message: 'Activity recorded.');
   }
 
+  bool canReverseTransaction(InventoryTransaction transaction) {
+    return !isLocked &&
+        (permissions.isAdmin || permissions.isManager) &&
+        !transaction.isReversed &&
+        !transaction.isReversal &&
+        transaction.transactionType != InventoryTransactionType.checkout &&
+        transaction.transactionType != InventoryTransactionType.returnItem &&
+        transaction.transactionType != InventoryTransactionType.correction &&
+        !(transaction.transactionType == InventoryTransactionType.transfer &&
+            transaction.quantityDelta == 0);
+  }
+
+  InventoryTransaction? getReversalForTransaction(String transactionId) {
+    for (final transaction in _transactions) {
+      if (transaction.reversesTransactionId == transactionId) {
+        return transaction;
+      }
+    }
+    return null;
+  }
+
+  InventoryTransaction? getOriginalTransactionForReversal(
+    String transactionId,
+  ) {
+    final reversal = _transactionById(transactionId);
+    final originalId = reversal?.reversesTransactionId;
+    return originalId == null ? null : _transactionById(originalId);
+  }
+
+  bool isTransactionReversed(String transactionId) {
+    final transaction = _transactionById(transactionId);
+    return transaction?.isReversed ?? false;
+  }
+
+  AppActionResult reverseInventoryTransaction(
+    String transactionId,
+    String reason,
+  ) {
+    if (isLocked) {
+      return const AppActionResult.failure('Unlock Issued to continue.');
+    }
+    if (!(permissions.isAdmin || permissions.isManager)) {
+      return AppActionResult.denied();
+    }
+
+    final trimmedReason = reason.trim();
+    if (trimmedReason.length < 3) {
+      return const AppActionResult.failure('Correction reason is required.');
+    }
+
+    final originalIndex = _transactions.indexWhere(
+      (transaction) => transaction.id == transactionId,
+    );
+    if (originalIndex == -1) {
+      return const AppActionResult.failure('Transaction not found.');
+    }
+    final original = _transactions[originalIndex];
+    if (original.isReversed) {
+      return const AppActionResult.failure(
+        'This transaction has already been reversed.',
+      );
+    }
+    if (original.isReversal ||
+        original.transactionType == InventoryTransactionType.correction) {
+      return const AppActionResult.failure(
+        'Correction transactions cannot be reversed.',
+      );
+    }
+    if (original.transactionType == InventoryTransactionType.checkout) {
+      return const AppActionResult.failure(
+        'Checkout transactions must be corrected from the checkout record.',
+      );
+    }
+    if (original.transactionType == InventoryTransactionType.returnItem) {
+      return const AppActionResult.failure(
+        'Return transactions must be corrected from the checkout record.',
+      );
+    }
+
+    final item = _itemById(original.itemId);
+    if (item == null) {
+      return const AppActionResult.failure(
+        'The item for this transaction is missing.',
+      );
+    }
+
+    final impacts = _reversalLocationImpacts(original);
+    if (impacts.isEmpty) {
+      return const AppActionResult.failure(
+        'This transaction does not include enough stock movement detail to reverse safely.',
+      );
+    }
+
+    for (final impact in impacts.entries) {
+      final location = _locationById(impact.key);
+      if (location == null) {
+        return const AppActionResult.failure(
+          'A location for this transaction is missing.',
+        );
+      }
+      final current =
+          _balanceFor(original.itemId, impact.key)?.quantityOnHand ?? 0;
+      final next = current + impact.value;
+      if (next < 0) {
+        return AppActionResult.failure(
+          'Reversing this transaction would make ${location.name} negative.',
+        );
+      }
+      if (!_isWholeQuantityAllowed(original.itemId, next)) {
+        return const AppActionResult.failure(
+          'This correction would create an invalid quantity.',
+        );
+      }
+    }
+
+    final now = DateTime.now();
+    for (final impact in impacts.entries) {
+      final current =
+          _balanceFor(original.itemId, impact.key)?.quantityOnHand ?? 0;
+      _setBalanceQuantity(
+        original.itemId,
+        impact.key,
+        current + impact.value,
+        now,
+      );
+    }
+    _syncItemCachedQuantity(original.itemId, now);
+
+    final reversal = InventoryTransaction(
+      id: 'txn-correction-${now.microsecondsSinceEpoch}',
+      itemId: original.itemId,
+      transactionType: InventoryTransactionType.correction,
+      quantityDelta: -original.quantityDelta,
+      unitOfMeasureId: original.unitOfMeasureId,
+      fromLocationId: original.toLocationId,
+      toLocationId: original.fromLocationId,
+      assignedToPersonId: original.assignedToPersonId,
+      assignedToLocationId: original.assignedToLocationId,
+      assignedToTargetId: original.assignedToTargetId,
+      assignedToText: original.assignedToText,
+      performedByUserId: currentUser?.id,
+      notes: 'Correction for ${original.id}. This keeps history.',
+      reversesTransactionId: original.id,
+      correctionReason: trimmedReason,
+      correctedAt: now,
+      createdAt: now,
+    );
+    final markedOriginal = original.copyWith(
+      reversedByTransactionId: reversal.id,
+      correctionReason: trimmedReason,
+      correctedAt: now,
+    );
+    _transactions[originalIndex] = markedOriginal;
+    _transactions.add(reversal);
+    unawaited(_database.upsertTransaction(markedOriginal.toCompanion()));
+    unawaited(_database.upsertTransaction(reversal.toCompanion()));
+    notifyListeners();
+    return const AppActionResult.success(message: 'Correction created.');
+  }
+
   List<ItemLocationBalance> itemBalancesForItem(String itemId) {
     final balances = _itemLocationBalances
         .where((balance) => balance.itemId == itemId)
@@ -2044,7 +2204,7 @@ class AppStore extends ChangeNotifier {
     _appendInventoryTransaction(
       itemId: itemId,
       type: InventoryTransactionType.transfer,
-      quantityDelta: 0,
+      quantityDelta: quantity,
       fromLocationId: fromLocationId,
       toLocationId: toLocationId,
       notes: notes,
@@ -3761,6 +3921,15 @@ class AppStore extends ChangeNotifier {
     return null;
   }
 
+  InventoryTransaction? _transactionById(String transactionId) {
+    for (final transaction in _transactions) {
+      if (transaction.id == transactionId) {
+        return transaction;
+      }
+    }
+    return null;
+  }
+
   UnitOfMeasure? _unitById(String unitOfMeasureId) {
     for (final unit in _unitsOfMeasure) {
       if (unit.id == unitOfMeasureId) {
@@ -3869,6 +4038,48 @@ class AppStore extends ChangeNotifier {
         item.isActive &&
         quantity > 0 &&
         _isWholeQuantityAllowed(itemId, quantity);
+  }
+
+  Map<String, double> _reversalLocationImpacts(
+    InventoryTransaction transaction,
+  ) {
+    final impacts = <String, double>{};
+
+    void addImpact(String? locationId, double delta) {
+      if (locationId == null || delta == 0) {
+        return;
+      }
+      impacts[locationId] = (impacts[locationId] ?? 0) + delta;
+    }
+
+    final quantity = transaction.quantityDelta.abs();
+    switch (transaction.transactionType) {
+      case InventoryTransactionType.receive:
+        addImpact(transaction.toLocationId, -quantity);
+        break;
+      case InventoryTransactionType.issue ||
+          InventoryTransactionType.markLost ||
+          InventoryTransactionType.markDamaged:
+        addImpact(transaction.fromLocationId, quantity);
+        break;
+      case InventoryTransactionType.transfer:
+        addImpact(transaction.toLocationId, -quantity);
+        addImpact(transaction.fromLocationId, quantity);
+        break;
+      case InventoryTransactionType.adjustment ||
+          InventoryTransactionType.cycleCountAdjustment:
+        if (transaction.quantityDelta > 0) {
+          addImpact(transaction.toLocationId, -quantity);
+        } else {
+          addImpact(transaction.fromLocationId, quantity);
+        }
+        break;
+      case InventoryTransactionType.checkout ||
+          InventoryTransactionType.returnItem ||
+          InventoryTransactionType.correction:
+        break;
+    }
+    return impacts;
   }
 
   void _appendInventoryTransaction({
@@ -4023,6 +4234,9 @@ class AppStore extends ChangeNotifier {
 
   Iterable<InventoryTransaction> _usageTransactions(DateTime? start) {
     return _transactions.where((transaction) {
+      if (transaction.isReversed) {
+        return false;
+      }
       if (start != null && transaction.createdAt.isBefore(start)) {
         return false;
       }
@@ -4034,6 +4248,7 @@ class AppStore extends ChangeNotifier {
         InventoryTransactionType.markDamaged => true,
         InventoryTransactionType.cycleCountAdjustment =>
           transaction.quantityDelta < 0,
+        InventoryTransactionType.correction => transaction.quantityDelta < 0,
         _ => false,
       };
     });
@@ -4291,7 +4506,7 @@ class AppStore extends ChangeNotifier {
       _appendInventoryTransaction(
         itemId: balance.itemId,
         type: InventoryTransactionType.transfer,
-        quantityDelta: 0,
+        quantityDelta: balance.quantityOnHand,
         fromLocationId: fromLocationId,
         toLocationId: toLocationId,
         notes:

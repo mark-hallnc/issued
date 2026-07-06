@@ -356,6 +356,10 @@ class BackupService {
       'assignedToText': transaction.assignedToText,
       'performedByUserId': transaction.performedByUserId,
       'notes': transaction.notes,
+      'reversedByTransactionId': transaction.reversedByTransactionId,
+      'reversesTransactionId': transaction.reversesTransactionId,
+      'correctionReason': transaction.correctionReason,
+      'correctedAt': transaction.correctedAt?.toIso8601String(),
       'createdAt': transaction.createdAt.toIso8601String(),
     };
   }
@@ -834,6 +838,10 @@ class BackupService {
       assignedToText: row['assignedToText']?.toString(),
       performedByUserId: row['performedByUserId']?.toString(),
       notes: row['notes']?.toString(),
+      reversedByTransactionId: row['reversedByTransactionId']?.toString(),
+      reversesTransactionId: row['reversesTransactionId']?.toString(),
+      correctionReason: row['correctionReason']?.toString(),
+      correctedAt: _date(row['correctedAt']),
       createdAt: _date(row['createdAt']) ?? DateTime.now(),
     );
   }

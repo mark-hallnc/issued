@@ -213,6 +213,17 @@ class DataHealthService {
     Map<String, AppUser> usersById,
     Map<String, AssignmentTarget> targetsById,
   ) {
+    final transactionsById = {
+      for (final transaction in store.transactions) transaction.id: transaction,
+    };
+    final reversalCounts = <String, int>{};
+    for (final transaction in store.transactions) {
+      final originalId = transaction.reversesTransactionId;
+      if (originalId != null) {
+        reversalCounts[originalId] = (reversalCounts[originalId] ?? 0) + 1;
+      }
+    }
+
     for (final transaction in store.transactions) {
       if (!itemsById.containsKey(transaction.itemId)) {
         issues.add(
@@ -289,6 +300,92 @@ class DataHealthService {
               'Activity ${transaction.id} references assignment target $targetId.',
           type: 'inventoryTransaction',
           recordId: transaction.id,
+        );
+      }
+
+      final reversedById = transaction.reversedByTransactionId;
+      if (reversedById != null && !transactionsById.containsKey(reversedById)) {
+        issues.add(
+          DataHealthIssue(
+            id: 'transaction-reversal-missing-${transaction.id}',
+            severity: DataHealthSeverity.warning,
+            title: 'Reversed activity is missing its correction',
+            description:
+                'Activity ${transaction.id} is marked reversed by $reversedById, but that correction transaction is missing.',
+            affectedRecordType: 'inventoryTransaction',
+            affectedRecordId: transaction.id,
+            repairAction: null,
+            canRepair: false,
+          ),
+        );
+      }
+
+      final reversesId = transaction.reversesTransactionId;
+      if (reversesId != null) {
+        final original = transactionsById[reversesId];
+        if (original == null) {
+          issues.add(
+            DataHealthIssue(
+              id: 'transaction-original-missing-${transaction.id}',
+              severity: DataHealthSeverity.warning,
+              title: 'Correction references missing activity',
+              description:
+                  'Correction ${transaction.id} reverses $reversesId, but the original activity is missing.',
+              affectedRecordType: 'inventoryTransaction',
+              affectedRecordId: transaction.id,
+              repairAction: null,
+              canRepair: false,
+            ),
+          );
+        } else {
+          if (original.itemId != transaction.itemId) {
+            issues.add(
+              DataHealthIssue(
+                id: 'transaction-reversal-item-mismatch-${transaction.id}',
+                severity: DataHealthSeverity.warning,
+                title: 'Correction item does not match original',
+                description:
+                    'Correction ${transaction.id} references ${transaction.itemId}, but original $reversesId references ${original.itemId}.',
+                affectedRecordType: 'inventoryTransaction',
+                affectedRecordId: transaction.id,
+                repairAction: null,
+                canRepair: false,
+              ),
+            );
+          }
+          if (original.quantityDelta != 0 &&
+              transaction.quantityDelta != 0 &&
+              original.quantityDelta.sign == transaction.quantityDelta.sign) {
+            issues.add(
+              DataHealthIssue(
+                id: 'transaction-reversal-same-sign-${transaction.id}',
+                severity: DataHealthSeverity.warning,
+                title: 'Correction quantity may not offset original',
+                description:
+                    'Correction ${transaction.id} has the same quantity direction as original $reversesId.',
+                affectedRecordType: 'inventoryTransaction',
+                affectedRecordId: transaction.id,
+                repairAction: null,
+                canRepair: false,
+              ),
+            );
+          }
+        }
+      }
+
+      if ((reversalCounts[transaction.id] ?? 0) > 1) {
+        issues.add(
+          DataHealthIssue(
+            id: 'transaction-reversed-more-than-once-${transaction.id}',
+            severity: DataHealthSeverity.warning,
+            title: 'Activity has more than one correction',
+            description:
+                'Activity ${transaction.id} is referenced by ${reversalCounts[transaction.id]} correction transactions.',
+            affectedRecordType: 'inventoryTransaction',
+            affectedRecordId: transaction.id,
+            repairAction: null,
+            canRepair: false,
+          ),
         );
       }
     }

@@ -102,6 +102,10 @@ class InventoryTransactions extends Table {
   TextColumn get assignedToText => text().nullable()();
   TextColumn get performedByUserId => text().nullable()();
   TextColumn get notes => text().nullable()();
+  TextColumn get reversedByTransactionId => text().nullable()();
+  TextColumn get reversesTransactionId => text().nullable()();
+  TextColumn get correctionReason => text().nullable()();
+  DateTimeColumn get correctedAt => dateTime().nullable()();
   DateTimeColumn get createdAt => dateTime()();
 
   @override
