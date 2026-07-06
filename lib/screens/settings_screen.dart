@@ -4,11 +4,13 @@ import '../core/app_store.dart';
 import '../core/permissions/app_permissions.dart';
 import 'assignment_targets_screen.dart';
 import 'backup_restore_screen.dart';
+import 'cloud_login_screen.dart';
 import 'data_health_screen.dart';
 import 'import_export_screen.dart';
 import 'label_center_screen.dart';
 import 'reports_screen.dart';
 import 'settings_detail_screens.dart';
+import 'workspace_selection_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -30,6 +32,11 @@ class SettingsScreen extends StatelessWidget {
           icon: Icons.group_outlined,
           screen: UsersRolesSettingsScreen(),
         ),
+      const _SettingsRow(
+        title: 'Cloud Account / Workspace',
+        icon: Icons.cloud_outlined,
+        screen: CloudAccountSettingsScreen(),
+      ),
       if (permissions.canManageSettings)
         const _SettingsRow(
           title: 'Locations',
@@ -120,6 +127,117 @@ class SettingsScreen extends StatelessWidget {
             const SizedBox(height: 10),
           ],
       ],
+    );
+  }
+}
+
+class CloudAccountSettingsScreen extends StatelessWidget {
+  const CloudAccountSettingsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final store = AppStoreScope.of(context);
+    final cloudEmail = store.currentCloudUser?.email;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Cloud Account')),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _CloudStatusLine(
+                    label: 'Cloud configured',
+                    value: store.isCloudConfigured ? 'Yes' : 'No',
+                  ),
+                  _CloudStatusLine(
+                    label: 'Signed in',
+                    value: cloudEmail ?? 'No',
+                  ),
+                  _CloudStatusLine(
+                    label: 'Active workspace',
+                    value: store.activeWorkspace?.name ?? 'None',
+                  ),
+                  _CloudStatusLine(
+                    label: 'Mode',
+                    value: store.cloudModeEnabled
+                        ? 'Cloud workspace'
+                        : 'Local-Only Mode',
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (context) => const CloudLoginScreen(),
+                ),
+              );
+            },
+            child: Text(store.isCloudSignedIn ? 'Reconnect Cloud' : 'Sign In'),
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton(
+            onPressed: store.isCloudSignedIn
+                ? () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (context) => const WorkspaceSelectionScreen(),
+                      ),
+                    );
+                  }
+                : null,
+            child: const Text('Select Workspace'),
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton(
+            onPressed: store.isCloudSignedIn
+                ? () async {
+                    final result = await store.signOutCloud();
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(result.message ?? 'Signed out.'),
+                        ),
+                      );
+                    }
+                  }
+                : null,
+            child: const Text('Sign Out'),
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton(
+            onPressed: store.disableCloudModeAndUseLocalOnly,
+            child: const Text('Use Local-Only Mode'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CloudStatusLine extends StatelessWidget {
+  const _CloudStatusLine({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Expanded(child: Text(label)),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w700)),
+        ],
+      ),
     );
   }
 }
