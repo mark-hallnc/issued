@@ -520,9 +520,13 @@ class AppStore extends ChangeNotifier {
     final location = Location(
       id: id ?? 'loc-${DateTime.now().microsecondsSinceEpoch}',
       name: normalizedName,
+      description: null,
+      code: null,
       type: type,
       parentLocationId: null,
       isActive: true,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
     );
     _locations.add(location);
     await _database.upsertLocation(location.toCompanion());
@@ -1398,6 +1402,8 @@ class AppStore extends ChangeNotifier {
         resetNegativeMinimumQuantity(issue.affectedRecordId ?? ''),
       DataHealthRepairAction.createMissingDefaultSetup =>
         createMissingDefaultSetup(),
+      DataHealthRepairAction.clearInvalidLocationParent =>
+        clearInvalidLocationParent(issue.affectedRecordId ?? ''),
       null => Future.value(false),
     };
   }
@@ -1439,6 +1445,23 @@ class AppStore extends ChangeNotifier {
     );
     _upsertBalanceInMemory(balance);
     await _database.upsertItemLocationBalance(balance.toCompanion());
+    notifyListeners();
+    return true;
+  }
+
+  Future<bool> clearInvalidLocationParent(String locationId) async {
+    final index = _locations.indexWhere(
+      (location) => location.id == locationId,
+    );
+    if (index == -1) {
+      return false;
+    }
+    final updated = _locations[index].copyWith(
+      clearParentLocationId: true,
+      updatedAt: DateTime.now(),
+    );
+    _locations[index] = updated;
+    await _database.upsertLocation(updated.toCompanion());
     notifyListeners();
     return true;
   }
@@ -2563,6 +2586,122 @@ class AppStore extends ChangeNotifier {
     return _items.where((item) {
       return item.sku?.trim().toLowerCase() == normalized;
     }).toList();
+  }
+
+  List<Location> get activeLocations =>
+      List.unmodifiable(_locations.where((location) => location.isActive));
+
+  String resolveLocationPath(String locationId) {
+    final names = <String>[];
+    final seen = <String>{};
+    var current = _locationById(locationId);
+    while (current != null && seen.add(current.id)) {
+      names.insert(0, current.name);
+      final parentId = current.parentLocationId;
+      current = parentId == null ? null : _locationById(parentId);
+    }
+    return names.isEmpty ? 'Unknown location' : names.join(' / ');
+  }
+
+  List<Location> getChildLocations(String parentLocationId) {
+    return _locations
+        .where((location) => location.parentLocationId == parentLocationId)
+        .toList()
+      ..sort((left, right) => left.name.compareTo(right.name));
+  }
+
+  List<ItemLocationBalance> getBalancesAtLocation(String locationId) {
+    return _itemLocationBalances
+        .where((balance) => balance.locationId == locationId)
+        .toList()
+      ..sort((left, right) => left.itemId.compareTo(right.itemId));
+  }
+
+  List<Item> getItemsAtLocation(String locationId) {
+    final itemIds = {
+      for (final balance in getBalancesAtLocation(locationId))
+        if (balance.quantityOnHand > 0) balance.itemId,
+      for (final item in _items)
+        if (item.locationId == locationId) item.id,
+    };
+    return _items.where((item) => itemIds.contains(item.id)).toList()
+      ..sort((left, right) => left.name.compareTo(right.name));
+  }
+
+  LocationStockSummary getLocationStockSummary(String locationId) {
+    final balances = getBalancesAtLocation(locationId);
+    final positiveBalances = balances
+        .where((balance) => balance.quantityOnHand > 0)
+        .toList();
+    final itemIds = {for (final balance in positiveBalances) balance.itemId};
+    final totalQuantity = positiveBalances.fold<double>(
+      0,
+      (sum, balance) => sum + balance.quantityOnHand,
+    );
+    return LocationStockSummary(
+      itemCount: itemIds.length,
+      positiveBalanceCount: positiveBalances.length,
+      totalQuantity: totalQuantity,
+    );
+  }
+
+  bool canArchiveLocation(String locationId) {
+    final activeLocations = _locations
+        .where((location) => location.isActive && location.id != locationId)
+        .length;
+    if (activeLocations == 0) {
+      return false;
+    }
+    return !getBalancesAtLocation(
+      locationId,
+    ).any((balance) => balance.quantityOnHand > 0);
+  }
+
+  bool isLocationCodeInUse(String code, {String? excludingLocationId}) {
+    final normalized = code.trim().toLowerCase();
+    if (normalized.isEmpty) {
+      return false;
+    }
+    return _locations.any((location) {
+      return location.id != excludingLocationId &&
+          (location.code ?? '').trim().toLowerCase() == normalized;
+    });
+  }
+
+  bool isLocationNameInUseUnderParent(
+    String name, {
+    String? parentLocationId,
+    String? excludingLocationId,
+  }) {
+    final normalized = name.trim().toLowerCase();
+    if (normalized.isEmpty) {
+      return false;
+    }
+    return _locations.any((location) {
+      return location.isActive &&
+          location.id != excludingLocationId &&
+          location.parentLocationId == parentLocationId &&
+          location.name.trim().toLowerCase() == normalized;
+    });
+  }
+
+  bool wouldCreateLocationCycle(String locationId, String? parentLocationId) {
+    if (parentLocationId == null || parentLocationId.isEmpty) {
+      return false;
+    }
+    if (locationId == parentLocationId) {
+      return true;
+    }
+    final seen = <String>{locationId};
+    var current = _locationById(parentLocationId);
+    while (current != null) {
+      if (!seen.add(current.id)) {
+        return true;
+      }
+      final parentId = current.parentLocationId;
+      current = parentId == null ? null : _locationById(parentId);
+    }
+    return false;
   }
 
   String resolveUomAbbreviation(String uomId) {
@@ -3979,15 +4118,190 @@ class AppStore extends ChangeNotifier {
     if (!permissions.canManageSettings) {
       return AppActionResult.denied();
     }
+    final name = location.name.trim();
+    final code = location.code?.trim();
+    final parentId = location.parentLocationId;
+    if (name.isEmpty) {
+      return AppActionResult.failure('Location name is required.');
+    }
+    if (isLocationNameInUseUnderParent(name, parentLocationId: parentId)) {
+      return AppActionResult.failure(
+        'An active location with this name already exists under the same parent.',
+      );
+    }
+    if (code != null && code.isNotEmpty && isLocationCodeInUse(code)) {
+      return AppActionResult.failure(
+        'Another location already uses this code.',
+      );
+    }
+    if (parentId != null && _locationById(parentId) == null) {
+      return AppActionResult.failure('Parent location not found.');
+    }
     if (location.isActive && !canAddLocation) {
       return AppActionResult.failure(
         'Your ${currentPlan.name} plan includes up to ${currentPlan.locationLimit} active locations.',
       );
     }
-    _locations.add(location);
-    unawaited(_database.upsertLocation(location.toCompanion()));
+    final now = DateTime.now();
+    final saved = location.copyWith(
+      name: name,
+      code: code,
+      clearCode: code == null || code.isEmpty,
+      createdAt: location.createdAt == DateTime.fromMillisecondsSinceEpoch(0)
+          ? now
+          : location.createdAt,
+      updatedAt: now,
+    );
+    _locations.add(saved);
+    unawaited(_database.upsertLocation(saved.toCompanion()));
     notifyListeners();
     return const AppActionResult.success(message: 'Location added.');
+  }
+
+  AppActionResult updateLocation(Location location) {
+    if (!permissions.canManageSettings) {
+      return AppActionResult.denied();
+    }
+    final index = _locations.indexWhere((stored) => stored.id == location.id);
+    if (index == -1) {
+      return AppActionResult.failure('Location not found.');
+    }
+    final name = location.name.trim();
+    final code = location.code?.trim();
+    final parentId = location.parentLocationId;
+    if (name.isEmpty) {
+      return AppActionResult.failure('Location name is required.');
+    }
+    if (wouldCreateLocationCycle(location.id, parentId)) {
+      return AppActionResult.failure('Parent location cannot create a cycle.');
+    }
+    if (isLocationNameInUseUnderParent(
+      name,
+      parentLocationId: parentId,
+      excludingLocationId: location.id,
+    )) {
+      return AppActionResult.failure(
+        'An active location with this name already exists under the same parent.',
+      );
+    }
+    if (code != null &&
+        code.isNotEmpty &&
+        isLocationCodeInUse(code, excludingLocationId: location.id)) {
+      return AppActionResult.failure(
+        'Another location already uses this code.',
+      );
+    }
+    final saved = location.copyWith(
+      name: name,
+      code: code,
+      clearCode: code == null || code.isEmpty,
+      updatedAt: DateTime.now(),
+    );
+    _locations[index] = saved;
+    unawaited(_database.upsertLocation(saved.toCompanion()));
+    notifyListeners();
+    return const AppActionResult.success(message: 'Location updated.');
+  }
+
+  AppActionResult archiveLocation(String locationId) {
+    if (!permissions.canManageSettings) {
+      return AppActionResult.denied();
+    }
+    final index = _locations.indexWhere(
+      (location) => location.id == locationId,
+    );
+    if (index == -1) {
+      return AppActionResult.failure('Location not found.');
+    }
+    if (!canArchiveLocation(locationId)) {
+      return AppActionResult.failure('This location still has stock.');
+    }
+    final archived = _locations[index].copyWith(
+      isActive: false,
+      updatedAt: DateTime.now(),
+    );
+    _locations[index] = archived;
+    unawaited(_database.upsertLocation(archived.toCompanion()));
+    notifyListeners();
+    return const AppActionResult.success(message: 'Location archived.');
+  }
+
+  AppActionResult unarchiveLocation(String locationId) {
+    if (!permissions.canManageSettings) {
+      return AppActionResult.denied();
+    }
+    if (!canAddLocation) {
+      return AppActionResult.failure(
+        'Your ${currentPlan.name} plan includes up to ${currentPlan.locationLimit} active locations.',
+      );
+    }
+    final index = _locations.indexWhere(
+      (location) => location.id == locationId,
+    );
+    if (index == -1) {
+      return AppActionResult.failure('Location not found.');
+    }
+    final restored = _locations[index].copyWith(
+      isActive: true,
+      updatedAt: DateTime.now(),
+    );
+    _locations[index] = restored;
+    unawaited(_database.upsertLocation(restored.toCompanion()));
+    notifyListeners();
+    return const AppActionResult.success(message: 'Location restored.');
+  }
+
+  AppActionResult transferAllStockFromLocation(
+    String fromLocationId,
+    String toLocationId,
+  ) {
+    if (!permissions.canTransferStock) {
+      return AppActionResult.denied();
+    }
+    if (fromLocationId == toLocationId) {
+      return AppActionResult.failure('Choose a different destination.');
+    }
+    final fromLocation = _locationById(fromLocationId);
+    final toLocation = _locationById(toLocationId);
+    if (fromLocation == null || toLocation == null || !toLocation.isActive) {
+      return AppActionResult.failure('Location not found.');
+    }
+    final balances = getBalancesAtLocation(
+      fromLocationId,
+    ).where((balance) => balance.quantityOnHand > 0).toList();
+    if (balances.isEmpty) {
+      return const AppActionResult.success(message: 'No stock to transfer.');
+    }
+    final now = DateTime.now();
+    for (final balance in balances) {
+      final item = _itemById(balance.itemId);
+      if (item == null || !item.isActive) {
+        continue;
+      }
+      final toCurrent =
+          _balanceFor(balance.itemId, toLocationId)?.quantityOnHand ?? 0;
+      _setBalanceQuantity(balance.itemId, fromLocationId, 0, now);
+      _setBalanceQuantity(
+        balance.itemId,
+        toLocationId,
+        toCurrent + balance.quantityOnHand,
+        now,
+      );
+      _syncItemCachedQuantity(balance.itemId, now);
+      _appendInventoryTransaction(
+        itemId: balance.itemId,
+        type: InventoryTransactionType.transfer,
+        quantityDelta: 0,
+        fromLocationId: fromLocationId,
+        toLocationId: toLocationId,
+        notes:
+            'Transferred all stock from ${fromLocation.name} to ${toLocation.name}.',
+      );
+    }
+    notifyListeners();
+    return AppActionResult.success(
+      message: 'Transferred stock from ${fromLocation.name}.',
+    );
   }
 
   AppActionResult addCustomFieldDefinition(CustomFieldDefinition field) {
@@ -4494,6 +4808,18 @@ class ReorderStatusSummary {
   final int partiallyReceived;
   final int received;
   final int canceled;
+}
+
+class LocationStockSummary {
+  const LocationStockSummary({
+    required this.itemCount,
+    required this.positiveBalanceCount,
+    required this.totalQuantity,
+  });
+
+  final int itemCount;
+  final int positiveBalanceCount;
+  final double totalQuantity;
 }
 
 class DashboardSummary {

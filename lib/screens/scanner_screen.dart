@@ -9,6 +9,7 @@ import 'checked_out_screen.dart';
 import 'item_detail_screen.dart';
 import 'items_screen.dart';
 import 'label_center_screen.dart';
+import 'location_detail_screen.dart';
 import 'quick_issue_screen.dart';
 
 class ScannerScreen extends StatefulWidget {
@@ -364,6 +365,15 @@ class _LocationScanPanel extends StatelessWidget {
                   onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute<void>(
                       builder: (context) =>
+                          LocationDetailScreen(locationId: location.id),
+                    ),
+                  ),
+                  child: const Text('View Detail'),
+                ),
+                OutlinedButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (context) =>
                           ItemsScreen(initialLocationId: location.id),
                     ),
                   ),
@@ -382,8 +392,9 @@ class _LocationScanPanel extends StatelessWidget {
                 OutlinedButton(
                   onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute<void>(
-                      builder: (context) => const LabelCenterScreen(
+                      builder: (context) => LabelCenterScreen(
                         initialMode: LabelCenterMode.locations,
+                        initialLocationIds: {location.id},
                       ),
                     ),
                   ),

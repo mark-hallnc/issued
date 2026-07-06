@@ -1687,6 +1687,26 @@ class $LocationsTable extends Locations
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _descriptionMeta = const VerificationMeta(
+    'description',
+  );
+  @override
+  late final GeneratedColumn<String> description = GeneratedColumn<String>(
+    'description',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _codeMeta = const VerificationMeta('code');
+  @override
+  late final GeneratedColumn<String> code = GeneratedColumn<String>(
+    'code',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _typeMeta = const VerificationMeta('type');
   @override
   late final GeneratedColumn<String> type = GeneratedColumn<String>(
@@ -1721,13 +1741,39 @@ class $LocationsTable extends Locations
       'CHECK ("is_active" IN (0, 1))',
     ),
   );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
     name,
+    description,
+    code,
     type,
     parentLocationId,
     isActive,
+    createdAt,
+    updatedAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1754,6 +1800,21 @@ class $LocationsTable extends Locations
     } else if (isInserting) {
       context.missing(_nameMeta);
     }
+    if (data.containsKey('description')) {
+      context.handle(
+        _descriptionMeta,
+        description.isAcceptableOrUnknown(
+          data['description']!,
+          _descriptionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('code')) {
+      context.handle(
+        _codeMeta,
+        code.isAcceptableOrUnknown(data['code']!, _codeMeta),
+      );
+    }
     if (data.containsKey('type')) {
       context.handle(
         _typeMeta,
@@ -1779,6 +1840,18 @@ class $LocationsTable extends Locations
     } else if (isInserting) {
       context.missing(_isActiveMeta);
     }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
     return context;
   }
 
@@ -1796,6 +1869,14 @@ class $LocationsTable extends Locations
         DriftSqlType.string,
         data['${effectivePrefix}name'],
       )!,
+      description: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}description'],
+      ),
+      code: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}code'],
+      ),
       type: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}type'],
@@ -1808,6 +1889,14 @@ class $LocationsTable extends Locations
         DriftSqlType.bool,
         data['${effectivePrefix}is_active'],
       )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      ),
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      ),
     );
   }
 
@@ -1820,26 +1909,46 @@ class $LocationsTable extends Locations
 class LocationRecord extends DataClass implements Insertable<LocationRecord> {
   final String id;
   final String name;
+  final String? description;
+  final String? code;
   final String type;
   final String? parentLocationId;
   final bool isActive;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
   const LocationRecord({
     required this.id,
     required this.name,
+    this.description,
+    this.code,
     required this.type,
     this.parentLocationId,
     required this.isActive,
+    this.createdAt,
+    this.updatedAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
     map['name'] = Variable<String>(name);
+    if (!nullToAbsent || description != null) {
+      map['description'] = Variable<String>(description);
+    }
+    if (!nullToAbsent || code != null) {
+      map['code'] = Variable<String>(code);
+    }
     map['type'] = Variable<String>(type);
     if (!nullToAbsent || parentLocationId != null) {
       map['parent_location_id'] = Variable<String>(parentLocationId);
     }
     map['is_active'] = Variable<bool>(isActive);
+    if (!nullToAbsent || createdAt != null) {
+      map['created_at'] = Variable<DateTime>(createdAt);
+    }
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
     return map;
   }
 
@@ -1847,11 +1956,21 @@ class LocationRecord extends DataClass implements Insertable<LocationRecord> {
     return LocationsCompanion(
       id: Value(id),
       name: Value(name),
+      description: description == null && nullToAbsent
+          ? const Value.absent()
+          : Value(description),
+      code: code == null && nullToAbsent ? const Value.absent() : Value(code),
       type: Value(type),
       parentLocationId: parentLocationId == null && nullToAbsent
           ? const Value.absent()
           : Value(parentLocationId),
       isActive: Value(isActive),
+      createdAt: createdAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(createdAt),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
     );
   }
 
@@ -1863,9 +1982,13 @@ class LocationRecord extends DataClass implements Insertable<LocationRecord> {
     return LocationRecord(
       id: serializer.fromJson<String>(json['id']),
       name: serializer.fromJson<String>(json['name']),
+      description: serializer.fromJson<String?>(json['description']),
+      code: serializer.fromJson<String?>(json['code']),
       type: serializer.fromJson<String>(json['type']),
       parentLocationId: serializer.fromJson<String?>(json['parentLocationId']),
       isActive: serializer.fromJson<bool>(json['isActive']),
+      createdAt: serializer.fromJson<DateTime?>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
     );
   }
   @override
@@ -1874,36 +1997,54 @@ class LocationRecord extends DataClass implements Insertable<LocationRecord> {
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
       'name': serializer.toJson<String>(name),
+      'description': serializer.toJson<String?>(description),
+      'code': serializer.toJson<String?>(code),
       'type': serializer.toJson<String>(type),
       'parentLocationId': serializer.toJson<String?>(parentLocationId),
       'isActive': serializer.toJson<bool>(isActive),
+      'createdAt': serializer.toJson<DateTime?>(createdAt),
+      'updatedAt': serializer.toJson<DateTime?>(updatedAt),
     };
   }
 
   LocationRecord copyWith({
     String? id,
     String? name,
+    Value<String?> description = const Value.absent(),
+    Value<String?> code = const Value.absent(),
     String? type,
     Value<String?> parentLocationId = const Value.absent(),
     bool? isActive,
+    Value<DateTime?> createdAt = const Value.absent(),
+    Value<DateTime?> updatedAt = const Value.absent(),
   }) => LocationRecord(
     id: id ?? this.id,
     name: name ?? this.name,
+    description: description.present ? description.value : this.description,
+    code: code.present ? code.value : this.code,
     type: type ?? this.type,
     parentLocationId: parentLocationId.present
         ? parentLocationId.value
         : this.parentLocationId,
     isActive: isActive ?? this.isActive,
+    createdAt: createdAt.present ? createdAt.value : this.createdAt,
+    updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
   );
   LocationRecord copyWithCompanion(LocationsCompanion data) {
     return LocationRecord(
       id: data.id.present ? data.id.value : this.id,
       name: data.name.present ? data.name.value : this.name,
+      description: data.description.present
+          ? data.description.value
+          : this.description,
+      code: data.code.present ? data.code.value : this.code,
       type: data.type.present ? data.type.value : this.type,
       parentLocationId: data.parentLocationId.present
           ? data.parentLocationId.value
           : this.parentLocationId,
       isActive: data.isActive.present ? data.isActive.value : this.isActive,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
   }
 
@@ -1912,47 +2053,77 @@ class LocationRecord extends DataClass implements Insertable<LocationRecord> {
     return (StringBuffer('LocationRecord(')
           ..write('id: $id, ')
           ..write('name: $name, ')
+          ..write('description: $description, ')
+          ..write('code: $code, ')
           ..write('type: $type, ')
           ..write('parentLocationId: $parentLocationId, ')
-          ..write('isActive: $isActive')
+          ..write('isActive: $isActive, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, name, type, parentLocationId, isActive);
+  int get hashCode => Object.hash(
+    id,
+    name,
+    description,
+    code,
+    type,
+    parentLocationId,
+    isActive,
+    createdAt,
+    updatedAt,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is LocationRecord &&
           other.id == this.id &&
           other.name == this.name &&
+          other.description == this.description &&
+          other.code == this.code &&
           other.type == this.type &&
           other.parentLocationId == this.parentLocationId &&
-          other.isActive == this.isActive);
+          other.isActive == this.isActive &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
 }
 
 class LocationsCompanion extends UpdateCompanion<LocationRecord> {
   final Value<String> id;
   final Value<String> name;
+  final Value<String?> description;
+  final Value<String?> code;
   final Value<String> type;
   final Value<String?> parentLocationId;
   final Value<bool> isActive;
+  final Value<DateTime?> createdAt;
+  final Value<DateTime?> updatedAt;
   final Value<int> rowid;
   const LocationsCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
+    this.description = const Value.absent(),
+    this.code = const Value.absent(),
     this.type = const Value.absent(),
     this.parentLocationId = const Value.absent(),
     this.isActive = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   LocationsCompanion.insert({
     required String id,
     required String name,
+    this.description = const Value.absent(),
+    this.code = const Value.absent(),
     required String type,
     this.parentLocationId = const Value.absent(),
     required bool isActive,
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name),
@@ -1961,17 +2132,25 @@ class LocationsCompanion extends UpdateCompanion<LocationRecord> {
   static Insertable<LocationRecord> custom({
     Expression<String>? id,
     Expression<String>? name,
+    Expression<String>? description,
+    Expression<String>? code,
     Expression<String>? type,
     Expression<String>? parentLocationId,
     Expression<bool>? isActive,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (name != null) 'name': name,
+      if (description != null) 'description': description,
+      if (code != null) 'code': code,
       if (type != null) 'type': type,
       if (parentLocationId != null) 'parent_location_id': parentLocationId,
       if (isActive != null) 'is_active': isActive,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1979,17 +2158,25 @@ class LocationsCompanion extends UpdateCompanion<LocationRecord> {
   LocationsCompanion copyWith({
     Value<String>? id,
     Value<String>? name,
+    Value<String?>? description,
+    Value<String?>? code,
     Value<String>? type,
     Value<String?>? parentLocationId,
     Value<bool>? isActive,
+    Value<DateTime?>? createdAt,
+    Value<DateTime?>? updatedAt,
     Value<int>? rowid,
   }) {
     return LocationsCompanion(
       id: id ?? this.id,
       name: name ?? this.name,
+      description: description ?? this.description,
+      code: code ?? this.code,
       type: type ?? this.type,
       parentLocationId: parentLocationId ?? this.parentLocationId,
       isActive: isActive ?? this.isActive,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2003,6 +2190,12 @@ class LocationsCompanion extends UpdateCompanion<LocationRecord> {
     if (name.present) {
       map['name'] = Variable<String>(name.value);
     }
+    if (description.present) {
+      map['description'] = Variable<String>(description.value);
+    }
+    if (code.present) {
+      map['code'] = Variable<String>(code.value);
+    }
     if (type.present) {
       map['type'] = Variable<String>(type.value);
     }
@@ -2011,6 +2204,12 @@ class LocationsCompanion extends UpdateCompanion<LocationRecord> {
     }
     if (isActive.present) {
       map['is_active'] = Variable<bool>(isActive.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
     }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
@@ -2023,9 +2222,13 @@ class LocationsCompanion extends UpdateCompanion<LocationRecord> {
     return (StringBuffer('LocationsCompanion(')
           ..write('id: $id, ')
           ..write('name: $name, ')
+          ..write('description: $description, ')
+          ..write('code: $code, ')
           ..write('type: $type, ')
           ..write('parentLocationId: $parentLocationId, ')
           ..write('isActive: $isActive, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -12754,18 +12957,26 @@ typedef $$LocationsTableCreateCompanionBuilder =
     LocationsCompanion Function({
       required String id,
       required String name,
+      Value<String?> description,
+      Value<String?> code,
       required String type,
       Value<String?> parentLocationId,
       required bool isActive,
+      Value<DateTime?> createdAt,
+      Value<DateTime?> updatedAt,
       Value<int> rowid,
     });
 typedef $$LocationsTableUpdateCompanionBuilder =
     LocationsCompanion Function({
       Value<String> id,
       Value<String> name,
+      Value<String?> description,
+      Value<String?> code,
       Value<String> type,
       Value<String?> parentLocationId,
       Value<bool> isActive,
+      Value<DateTime?> createdAt,
+      Value<DateTime?> updatedAt,
       Value<int> rowid,
     });
 
@@ -12788,6 +12999,16 @@ class $$LocationsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get code => $composableBuilder(
+    column: $table.code,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get type => $composableBuilder(
     column: $table.type,
     builder: (column) => ColumnFilters(column),
@@ -12800,6 +13021,16 @@ class $$LocationsTableFilterComposer
 
   ColumnFilters<bool> get isActive => $composableBuilder(
     column: $table.isActive,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -12823,6 +13054,16 @@ class $$LocationsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get code => $composableBuilder(
+    column: $table.code,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get type => $composableBuilder(
     column: $table.type,
     builder: (column) => ColumnOrderings(column),
@@ -12835,6 +13076,16 @@ class $$LocationsTableOrderingComposer
 
   ColumnOrderings<bool> get isActive => $composableBuilder(
     column: $table.isActive,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
     builder: (column) => ColumnOrderings(column),
   );
 }
@@ -12854,6 +13105,14 @@ class $$LocationsTableAnnotationComposer
   GeneratedColumn<String> get name =>
       $composableBuilder(column: $table.name, builder: (column) => column);
 
+  GeneratedColumn<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get code =>
+      $composableBuilder(column: $table.code, builder: (column) => column);
+
   GeneratedColumn<String> get type =>
       $composableBuilder(column: $table.type, builder: (column) => column);
 
@@ -12864,6 +13123,12 @@ class $$LocationsTableAnnotationComposer
 
   GeneratedColumn<bool> get isActive =>
       $composableBuilder(column: $table.isActive, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
 }
 
 class $$LocationsTableTableManager
@@ -12899,32 +13164,48 @@ class $$LocationsTableTableManager
               ({
                 Value<String> id = const Value.absent(),
                 Value<String> name = const Value.absent(),
+                Value<String?> description = const Value.absent(),
+                Value<String?> code = const Value.absent(),
                 Value<String> type = const Value.absent(),
                 Value<String?> parentLocationId = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
+                Value<DateTime?> createdAt = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LocationsCompanion(
                 id: id,
                 name: name,
+                description: description,
+                code: code,
                 type: type,
                 parentLocationId: parentLocationId,
                 isActive: isActive,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
                 rowid: rowid,
               ),
           createCompanionCallback:
               ({
                 required String id,
                 required String name,
+                Value<String?> description = const Value.absent(),
+                Value<String?> code = const Value.absent(),
                 required String type,
                 Value<String?> parentLocationId = const Value.absent(),
                 required bool isActive,
+                Value<DateTime?> createdAt = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LocationsCompanion.insert(
                 id: id,
                 name: name,
+                description: description,
+                code: code,
                 type: type,
                 parentLocationId: parentLocationId,
                 isActive: isActive,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

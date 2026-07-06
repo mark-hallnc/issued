@@ -160,30 +160,51 @@ class Location {
   const Location({
     required this.id,
     required this.name,
+    required this.description,
+    required this.code,
     required this.type,
     required this.parentLocationId,
     required this.isActive,
+    required this.createdAt,
+    required this.updatedAt,
   });
 
   final String id;
   final String name;
+  final String? description;
+  final String? code;
   final String type;
   final String? parentLocationId;
   final bool isActive;
+  final DateTime createdAt;
+  final DateTime updatedAt;
 
   Location copyWith({
     String? id,
     String? name,
+    String? description,
+    String? code,
     String? type,
     String? parentLocationId,
+    bool clearDescription = false,
+    bool clearCode = false,
+    bool clearParentLocationId = false,
     bool? isActive,
+    DateTime? createdAt,
+    DateTime? updatedAt,
   }) {
     return Location(
       id: id ?? this.id,
       name: name ?? this.name,
+      description: clearDescription ? null : description ?? this.description,
+      code: clearCode ? null : code ?? this.code,
       type: type ?? this.type,
-      parentLocationId: parentLocationId ?? this.parentLocationId,
+      parentLocationId: clearParentLocationId
+          ? null
+          : parentLocationId ?? this.parentLocationId,
       isActive: isActive ?? this.isActive,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 }

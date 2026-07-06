@@ -127,7 +127,7 @@ String buildItemsCsv(AppStore store, {required bool includeArchived}) {
       purchaseUnit?.name ?? '',
       purchaseUnit?.abbreviation ?? '',
       item.purchaseToStockConversionFactor ?? '',
-      location?.name ?? '',
+      location == null ? '' : store.resolveLocationPath(location.id),
       _locationBalancesText(store, item, unit),
       item.barcode ?? '',
       item.sku ?? '',

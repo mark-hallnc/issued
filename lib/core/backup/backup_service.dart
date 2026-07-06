@@ -253,9 +253,13 @@ class BackupService {
     return {
       'id': location.id,
       'name': location.name,
+      'description': location.description,
+      'code': location.code,
       'type': location.type,
       'parentLocationId': location.parentLocationId,
       'isActive': location.isActive,
+      'createdAt': location.createdAt.toIso8601String(),
+      'updatedAt': location.updatedAt.toIso8601String(),
     };
   }
 
@@ -642,9 +646,13 @@ class BackupService {
     return Location(
       id: id,
       name: _string(row, 'name', id),
+      description: row['description']?.toString(),
+      code: row['code']?.toString(),
       type: _string(row, 'type', 'Other'),
       parentLocationId: row['parentLocationId']?.toString(),
       isActive: _bool(row, 'isActive', true),
+      createdAt: _date(row['createdAt']) ?? DateTime.now(),
+      updatedAt: _date(row['updatedAt']) ?? DateTime.now(),
     );
   }
 

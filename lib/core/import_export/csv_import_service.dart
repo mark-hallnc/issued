@@ -774,11 +774,15 @@ Location? _findLocation(AppStore store, String? value) {
   if (value == null || value.trim().isEmpty) {
     return null;
   }
+  final normalized = _normalizeLocationPath(value);
   return store.locations.cast<Location?>().firstWhere(
     (location) =>
         location != null &&
         location.isActive &&
-        _normalize(location.name) == _normalize(value),
+        (_normalize(location.name) == normalized ||
+            _normalize(location.code ?? '') == normalized ||
+            _normalizeLocationPath(store.resolveLocationPath(location.id)) ==
+                normalized),
     orElse: () => null,
   );
 }
@@ -786,6 +790,17 @@ Location? _findLocation(AppStore store, String? value) {
 bool _isWhole(double value) => value == value.roundToDouble();
 
 String _normalize(String value) => value.trim().toLowerCase();
+
+String _normalizeLocationPath(String value) {
+  return value
+      .trim()
+      .toLowerCase()
+      .replaceAll('\\', '/')
+      .split('/')
+      .map((part) => part.trim())
+      .where((part) => part.isNotEmpty)
+      .join('/');
+}
 
 String csvImportSlug(String value) => _slug(value);
 

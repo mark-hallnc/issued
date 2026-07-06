@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../core/app_store.dart';
 import '../core/models/models.dart';
 import '../core/permissions/app_permissions.dart';
+import 'items_screen.dart';
 import 'label_center_screen.dart';
+import 'location_detail_screen.dart';
 import 'plan_screens.dart';
 
 class CompanySettingsScreen extends StatefulWidget {
@@ -436,9 +438,42 @@ class LocationsSettingsScreen extends StatefulWidget {
 }
 
 class _LocationsSettingsScreenState extends State<LocationsSettingsScreen> {
+  final _searchController = TextEditingController();
+  bool _showArchived = false;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final store = AppStoreScope.of(context);
+    final query = _searchController.text.trim().toLowerCase();
+    final locations =
+        store.locations.where((location) {
+          if (!_showArchived && !location.isActive) {
+            return false;
+          }
+          final haystack = [
+            location.name,
+            location.code,
+            location.type,
+            store.resolveLocationPath(location.id),
+          ].whereType<String>().join(' ').toLowerCase();
+          return query.isEmpty || haystack.contains(query);
+        }).toList()..sort((left, right) {
+          final activeCompare = (right.isActive ? 1 : 0).compareTo(
+            left.isActive ? 1 : 0,
+          );
+          if (activeCompare != 0) {
+            return activeCompare;
+          }
+          return store
+              .resolveLocationPath(left.id)
+              .compareTo(store.resolveLocationPath(right.id));
+        });
 
     return _SettingsScaffold(
       title: 'Locations',
@@ -472,16 +507,37 @@ class _LocationsSettingsScreenState extends State<LocationsSettingsScreen> {
             )
           : null,
       children: [
-        for (final location in store.locations) ...[
-          Card(
-            child: ListTile(
-              leading: const Icon(
-                Icons.location_on_outlined,
-                color: Color(0xFF1E3A5F),
-              ),
-              title: Text(location.name),
-              subtitle: Text('Type: ${location.type}'),
+        TextField(
+          controller: _searchController,
+          decoration: const InputDecoration(
+            labelText: 'Search locations',
+            prefixIcon: Icon(Icons.search),
+            border: OutlineInputBorder(),
+          ),
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 12),
+        SwitchListTile(
+          value: _showArchived,
+          title: const Text('Show archived locations'),
+          onChanged: (value) => setState(() => _showArchived = value),
+        ),
+        const SizedBox(height: 12),
+        if (locations.isEmpty)
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('No locations found.'),
             ),
+          ),
+        for (final location in locations) ...[
+          _LocationCard(
+            location: location,
+            store: store,
+            canManage: store.permissions.canManageSettings,
+            onEdit: () => _showLocationForm(location: location),
+            onArchive: () => _archiveLocation(location),
+            onRestore: () => _restoreLocation(location),
           ),
           const SizedBox(height: 10),
         ],
@@ -489,14 +545,14 @@ class _LocationsSettingsScreenState extends State<LocationsSettingsScreen> {
     );
   }
 
-  Future<void> _showAddLocationForm() async {
+  Future<void> _showLocationForm({Location? location}) async {
     final store = AppStoreScope.of(context);
     if (!store.permissions.canManageSettings) {
       _showPermissionDenied(context);
       return;
     }
 
-    if (!store.canAddLocation) {
+    if (location == null && !store.canAddLocation) {
       final action = await showPlanLimitDialog(
         context,
         title: 'Location limit reached',
@@ -520,20 +576,180 @@ class _LocationsSettingsScreenState extends State<LocationsSettingsScreen> {
       return;
     }
 
-    final location = await showDialog<Location>(
+    final result = await showDialog<Location>(
       context: context,
-      builder: (context) => const _AddLocationDialog(),
+      builder: (context) => _LocationDialog(location: location, store: store),
     );
 
-    if (location == null) {
+    if (result == null || !mounted) {
       return;
     }
 
-    if (!mounted) {
+    final saveResult = location == null
+        ? store.addLocation(result)
+        : store.updateLocation(result);
+    _showMessage(saveResult.message ?? 'Location saved.');
+  }
+
+  Future<void> _archiveLocation(Location location) async {
+    final store = AppStoreScope.of(context);
+    if (!store.permissions.canManageSettings) {
+      _showPermissionDenied(context);
       return;
     }
+    if (!store.canArchiveLocation(location.id)) {
+      final destination = await showDialog<Location>(
+        context: context,
+        builder: (context) => _TransferLocationDialog(source: location),
+      );
+      if (destination == null || !mounted) {
+        return;
+      }
+      final transferResult = store.transferAllStockFromLocation(
+        location.id,
+        destination.id,
+      );
+      if (!transferResult.success) {
+        _showMessage(transferResult.message ?? 'Could not transfer stock.');
+        return;
+      }
+    }
+    final result = store.archiveLocation(location.id);
+    _showMessage(result.message ?? 'Location archived.');
+  }
 
-    AppStoreScope.of(context).addLocation(location);
+  void _restoreLocation(Location location) {
+    final result = AppStoreScope.of(context).unarchiveLocation(location.id);
+    _showMessage(result.message ?? 'Location restored.');
+  }
+
+  Future<void> _showAddLocationForm() => _showLocationForm();
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+}
+
+class _LocationCard extends StatelessWidget {
+  const _LocationCard({
+    required this.location,
+    required this.store,
+    required this.canManage,
+    required this.onEdit,
+    required this.onArchive,
+    required this.onRestore,
+  });
+
+  final Location location;
+  final AppStore store;
+  final bool canManage;
+  final VoidCallback onEdit;
+  final VoidCallback onArchive;
+  final VoidCallback onRestore;
+
+  @override
+  Widget build(BuildContext context) {
+    final summary = store.getLocationStockSummary(location.id);
+    return Card(
+      child: ListTile(
+        leading: const Icon(
+          Icons.location_on_outlined,
+          color: Color(0xFF1E3A5F),
+        ),
+        title: Text(store.resolveLocationPath(location.id)),
+        subtitle: Text(
+          [
+            if ((location.code ?? '').trim().isNotEmpty)
+              'Code: ${location.code}',
+            'Type: ${_locationTypeLabel(location.type)}',
+            '${summary.itemCount} items',
+            if (!location.isActive) 'Archived',
+          ].join(' - '),
+        ),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (context) => LocationDetailScreen(locationId: location.id),
+          ),
+        ),
+        trailing: PopupMenuButton<String>(
+          onSelected: (value) {
+            if (value == 'edit') {
+              onEdit();
+            } else if (value == 'archive') {
+              onArchive();
+            } else if (value == 'restore') {
+              onRestore();
+            } else if (value == 'label') {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (context) => LabelCenterScreen(
+                    initialMode: LabelCenterMode.locations,
+                    initialLocationIds: {location.id},
+                  ),
+                ),
+              );
+            } else if (value == 'stock') {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (context) =>
+                      ItemsScreen(initialLocationId: location.id),
+                ),
+              );
+            }
+          },
+          itemBuilder: (context) => [
+            const PopupMenuItem(value: 'stock', child: Text('View Stock')),
+            const PopupMenuItem(value: 'label', child: Text('Print Label')),
+            if (canManage)
+              const PopupMenuItem(value: 'edit', child: Text('Edit')),
+            if (canManage && location.isActive)
+              const PopupMenuItem(value: 'archive', child: Text('Archive')),
+            if (canManage && !location.isActive)
+              const PopupMenuItem(value: 'restore', child: Text('Restore')),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TransferLocationDialog extends StatelessWidget {
+  const _TransferLocationDialog({required this.source});
+
+  final Location source;
+
+  @override
+  Widget build(BuildContext context) {
+    final store = AppStoreScope.of(context);
+    final destinations = store.activeLocations
+        .where((location) => location.id != source.id)
+        .toList();
+    return AlertDialog(
+      title: const Text('Transfer stock before archiving'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('This location still has stock. Choose a destination.'),
+            const SizedBox(height: 12),
+            for (final location in destinations)
+              ListTile(
+                title: Text(store.resolveLocationPath(location.id)),
+                onTap: () => Navigator.of(context).pop(location),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+      ],
+    );
   }
 }
 
@@ -946,29 +1162,74 @@ class _AddUomDialogState extends State<_AddUomDialog> {
   }
 }
 
-class _AddLocationDialog extends StatefulWidget {
-  const _AddLocationDialog();
+class _LocationDialog extends StatefulWidget {
+  const _LocationDialog({required this.store, this.location});
+
+  final AppStore store;
+  final Location? location;
 
   @override
-  State<_AddLocationDialog> createState() => _AddLocationDialogState();
+  State<_LocationDialog> createState() => _LocationDialogState();
 }
 
-class _AddLocationDialogState extends State<_AddLocationDialog> {
+class _LocationDialogState extends State<_LocationDialog> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _typeController = TextEditingController();
+  late final TextEditingController _nameController;
+  late final TextEditingController _codeController;
+  late final TextEditingController _descriptionController;
+  late String _type;
+  String? _parentLocationId;
+
+  static const _types = [
+    'stockroom',
+    'shelf',
+    'bin',
+    'truck',
+    'jobBox',
+    'warehouse',
+    'trailer',
+    'other',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    final location = widget.location;
+    _nameController = TextEditingController(text: location?.name ?? '');
+    _codeController = TextEditingController(text: location?.code ?? '');
+    _descriptionController = TextEditingController(
+      text: location?.description ?? '',
+    );
+    _type = _types.contains(location?.type) ? location!.type : 'other';
+    _parentLocationId = location?.parentLocationId;
+  }
 
   @override
   void dispose() {
     _nameController.dispose();
-    _typeController.dispose();
+    _codeController.dispose();
+    _descriptionController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final location = widget.location;
+    final parentOptions =
+        widget.store.locations.where((candidate) {
+          return candidate.id != location?.id &&
+              !widget.store.wouldCreateLocationCycle(
+                location?.id ?? 'new-location',
+                candidate.id,
+              );
+        }).toList()..sort(
+          (left, right) => widget.store
+              .resolveLocationPath(left.id)
+              .compareTo(widget.store.resolveLocationPath(right.id)),
+        );
+
     return AlertDialog(
-      title: const Text('Add Location'),
+      title: Text(location == null ? 'Add Location' : 'Edit Location'),
       content: Form(
         key: _formKey,
         child: SingleChildScrollView(
@@ -981,9 +1242,42 @@ class _AddLocationDialogState extends State<_AddLocationDialog> {
                 validator: _required,
               ),
               TextFormField(
-                controller: _typeController,
+                controller: _codeController,
+                decoration: const InputDecoration(labelText: 'Code'),
+              ),
+              DropdownButtonFormField<String>(
+                initialValue: _type,
                 decoration: const InputDecoration(labelText: 'Type'),
-                validator: _required,
+                items: [
+                  for (final type in _types)
+                    DropdownMenuItem(
+                      value: type,
+                      child: Text(_locationTypeLabel(type)),
+                    ),
+                ],
+                onChanged: (value) => setState(() => _type = value ?? 'other'),
+              ),
+              DropdownButtonFormField<String?>(
+                initialValue: _parentLocationId,
+                decoration: const InputDecoration(labelText: 'Parent Location'),
+                items: [
+                  const DropdownMenuItem(
+                    value: null,
+                    child: Text('No parent location'),
+                  ),
+                  for (final parent in parentOptions)
+                    DropdownMenuItem(
+                      value: parent.id,
+                      child: Text(widget.store.resolveLocationPath(parent.id)),
+                    ),
+                ],
+                onChanged: (value) => setState(() => _parentLocationId = value),
+              ),
+              TextFormField(
+                controller: _descriptionController,
+                decoration: const InputDecoration(labelText: 'Description'),
+                minLines: 2,
+                maxLines: 4,
               ),
             ],
           ),
@@ -1003,16 +1297,52 @@ class _AddLocationDialogState extends State<_AddLocationDialog> {
     if (!_formKey.currentState!.validate()) {
       return;
     }
+    final now = DateTime.now();
+    final location = widget.location;
+    final name = _nameController.text.trim();
+    final code = _emptyToNull(_codeController.text);
+    final description = _emptyToNull(_descriptionController.text);
+    if (widget.store.isLocationNameInUseUnderParent(
+      name,
+      parentLocationId: _parentLocationId,
+      excludingLocationId: location?.id,
+    )) {
+      _showDialogMessage('A location with this name already exists here.');
+      return;
+    }
+    if (code != null &&
+        widget.store.isLocationCodeInUse(
+          code,
+          excludingLocationId: location?.id,
+        )) {
+      _showDialogMessage('Another location already uses this code.');
+      return;
+    }
+    if (location != null &&
+        widget.store.wouldCreateLocationCycle(location.id, _parentLocationId)) {
+      _showDialogMessage('Parent location cannot create a cycle.');
+      return;
+    }
 
     Navigator.of(context).pop(
       Location(
-        id: 'loc-${DateTime.now().microsecondsSinceEpoch}',
-        name: _nameController.text.trim(),
-        type: _typeController.text.trim(),
-        parentLocationId: null,
-        isActive: true,
+        id: location?.id ?? 'loc-${now.microsecondsSinceEpoch}',
+        name: name,
+        description: description,
+        code: code,
+        type: _type,
+        parentLocationId: _parentLocationId,
+        isActive: location?.isActive ?? true,
+        createdAt: location?.createdAt ?? now,
+        updatedAt: now,
       ),
     );
+  }
+
+  void _showDialogMessage(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
@@ -1390,6 +1720,24 @@ String? _required(String? value) {
   }
 
   return null;
+}
+
+String? _emptyToNull(String value) {
+  final trimmed = value.trim();
+  return trimmed.isEmpty ? null : trimmed;
+}
+
+String _locationTypeLabel(String value) {
+  return switch (value) {
+    'stockroom' => 'Stockroom',
+    'shelf' => 'Shelf',
+    'bin' => 'Bin',
+    'truck' => 'Truck',
+    'jobBox' => 'Job Box',
+    'warehouse' => 'Warehouse',
+    'trailer' => 'Trailer',
+    _ => value.isEmpty ? 'Other' : value,
+  };
 }
 
 void _showPermissionDenied(BuildContext context) {

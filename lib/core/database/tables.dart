@@ -45,9 +45,13 @@ class UnitsOfMeasure extends Table {
 class Locations extends Table {
   TextColumn get id => text()();
   TextColumn get name => text()();
+  TextColumn get description => text().nullable()();
+  TextColumn get code => text().nullable()();
   TextColumn get type => text()();
   TextColumn get parentLocationId => text().nullable()();
   BoolColumn get isActive => boolean()();
+  DateTimeColumn get createdAt => dateTime().nullable()();
+  DateTimeColumn get updatedAt => dateTime().nullable()();
 
   @override
   Set<Column<Object>> get primaryKey => {id};

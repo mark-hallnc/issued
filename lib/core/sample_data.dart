@@ -18,19 +18,27 @@ final sampleUnitsOfMeasure = [
 ];
 
 final sampleLocations = [
-  const Location(
+  Location(
     id: 'loc-main-crib',
     name: 'Main Tool Crib',
-    type: 'crib',
+    description: 'Primary stockroom for tools and consumables.',
+    code: 'MAIN',
+    type: 'stockroom',
     parentLocationId: null,
     isActive: true,
+    createdAt: DateTime(2026, 7, 1),
+    updatedAt: DateTime(2026, 7, 1),
   ),
-  const Location(
+  Location(
     id: 'loc-shop-floor',
     name: 'Shop Floor',
-    type: 'workArea',
+    description: 'General shop floor storage and work area.',
+    code: 'SHOP',
+    type: 'other',
     parentLocationId: null,
     isActive: true,
+    createdAt: DateTime(2026, 7, 1),
+    updatedAt: DateTime(2026, 7, 1),
   ),
 ];
 

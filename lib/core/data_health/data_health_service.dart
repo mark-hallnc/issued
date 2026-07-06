@@ -11,6 +11,7 @@ enum DataHealthRepairAction {
   removeOrphanCustomFieldValue,
   resetNegativeMinimumQuantity,
   createMissingDefaultSetup,
+  clearInvalidLocationParent,
 }
 
 class DataHealthIssue {
@@ -89,6 +90,7 @@ class DataHealthService {
       targetsById,
     );
     _checkAssignmentTargets(store, issues);
+    _checkLocations(store, issues, locationsById);
     _checkCheckouts(store, issues, itemsById, targetsById);
     _checkReorders(store, issues, itemsById, locationsById);
     _checkCycleCounts(store, issues, itemsById, locationsById);
@@ -470,6 +472,112 @@ class DataHealthService {
           canRepair: false,
         ),
       );
+    }
+  }
+
+  void _checkLocations(
+    AppStore store,
+    List<DataHealthIssue> issues,
+    Map<String, Location> locationsById,
+  ) {
+    final activeCodes = <String, Location>{};
+    final activeSiblingNames = <String, Location>{};
+    for (final location in store.locations) {
+      final parentId = location.parentLocationId;
+      if (parentId != null && !locationsById.containsKey(parentId)) {
+        issues.add(
+          DataHealthIssue(
+            id: 'location-missing-parent-${location.id}',
+            severity: DataHealthSeverity.warning,
+            title: 'Location parent is missing',
+            description:
+                '${location.name} references parent location $parentId, which is not in local data.',
+            affectedRecordType: 'location',
+            affectedRecordId: location.id,
+            repairAction: DataHealthRepairAction.clearInvalidLocationParent,
+            canRepair: true,
+          ),
+        );
+      }
+      if (store.wouldCreateLocationCycle(location.id, parentId)) {
+        issues.add(
+          DataHealthIssue(
+            id: 'location-parent-cycle-${location.id}',
+            severity: DataHealthSeverity.error,
+            title: 'Location hierarchy has a cycle',
+            description:
+                '${location.name} is part of a circular parent location chain.',
+            affectedRecordType: 'location',
+            affectedRecordId: location.id,
+            repairAction: DataHealthRepairAction.clearInvalidLocationParent,
+            canRepair: true,
+          ),
+        );
+      }
+      if (!location.isActive) {
+        final hasStock = store
+            .getBalancesAtLocation(location.id)
+            .any((balance) => balance.quantityOnHand > 0);
+        if (hasStock) {
+          issues.add(
+            DataHealthIssue(
+              id: 'archived-location-stock-${location.id}',
+              severity: DataHealthSeverity.warning,
+              title: 'Archived location has stock',
+              description:
+                  '${location.name} is archived but still has positive stock.',
+              affectedRecordType: 'location',
+              affectedRecordId: location.id,
+              repairAction: null,
+              canRepair: false,
+            ),
+          );
+        }
+      }
+      if (!location.isActive) {
+        continue;
+      }
+      final code = location.code?.trim().toLowerCase();
+      if (code != null && code.isNotEmpty) {
+        final existing = activeCodes[code];
+        if (existing == null) {
+          activeCodes[code] = location;
+        } else {
+          issues.add(
+            DataHealthIssue(
+              id: 'duplicate-location-code-${location.id}',
+              severity: DataHealthSeverity.warning,
+              title: 'Duplicate active location code',
+              description:
+                  '${location.name} and ${existing.name} both use code ${location.code}.',
+              affectedRecordType: 'location',
+              affectedRecordId: location.id,
+              repairAction: null,
+              canRepair: false,
+            ),
+          );
+        }
+      }
+      final siblingKey =
+          '${location.parentLocationId ?? 'root'}:${location.name.trim().toLowerCase()}';
+      final existing = activeSiblingNames[siblingKey];
+      if (existing == null) {
+        activeSiblingNames[siblingKey] = location;
+      } else {
+        issues.add(
+          DataHealthIssue(
+            id: 'duplicate-sibling-location-${location.id}',
+            severity: DataHealthSeverity.warning,
+            title: 'Duplicate active sibling location name',
+            description:
+                '${location.name} appears more than once under the same parent.',
+            affectedRecordType: 'location',
+            affectedRecordId: location.id,
+            repairAction: null,
+            canRepair: false,
+          ),
+        );
+      }
     }
   }
 

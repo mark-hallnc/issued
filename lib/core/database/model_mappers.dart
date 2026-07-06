@@ -93,9 +93,13 @@ extension LocationRecordMapper on LocationRecord {
     return domain.Location(
       id: id,
       name: name,
+      description: description,
+      code: code,
       type: type,
       parentLocationId: parentLocationId,
       isActive: isActive,
+      createdAt: createdAt ?? DateTime.fromMillisecondsSinceEpoch(0),
+      updatedAt: updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0),
     );
   }
 }
@@ -105,9 +109,13 @@ extension LocationDomainMapper on domain.Location {
     return LocationsCompanion(
       id: Value(id),
       name: Value(name),
+      description: Value(description),
+      code: Value(code),
       type: Value(type),
       parentLocationId: Value(parentLocationId),
       isActive: Value(isActive),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
     );
   }
 }

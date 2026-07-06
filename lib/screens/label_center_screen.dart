@@ -12,10 +12,12 @@ class LabelCenterScreen extends StatefulWidget {
     super.key,
     this.initialMode = LabelCenterMode.items,
     this.initialItemIds = const {},
+    this.initialLocationIds = const {},
   });
 
   final LabelCenterMode initialMode;
   final Set<String> initialItemIds;
+  final Set<String> initialLocationIds;
 
   @override
   State<LabelCenterScreen> createState() => _LabelCenterScreenState();
@@ -24,7 +26,9 @@ class LabelCenterScreen extends StatefulWidget {
 class _LabelCenterScreenState extends State<LabelCenterScreen> {
   late LabelCenterMode _mode = widget.initialMode;
   late final Set<String> _selectedItemIds = Set.of(widget.initialItemIds);
-  final Set<String> _selectedLocationIds = {};
+  late final Set<String> _selectedLocationIds = Set.of(
+    widget.initialLocationIds,
+  );
   final Set<String> _selectedTargetIds = {};
   final _searchController = TextEditingController();
   LabelTemplate _template = LabelTemplate.small;
@@ -229,7 +233,7 @@ class _LabelCenterScreenState extends State<LabelCenterScreen> {
                   location.isActive &&
                   _selectedLocationIds.contains(location.id),
             )
-            .map(_locationRecord)
+            .map((location) => _locationRecord(store, location))
             .toList(),
       LabelCenterMode.targets =>
         store.assignmentTargets
@@ -604,10 +608,13 @@ LabelRecord _itemRecord(AppStore store, Item item) {
   );
 }
 
-LabelRecord _locationRecord(Location location) {
+LabelRecord _locationRecord(AppStore store, Location location) {
   return LabelRecord(
-    title: location.name,
+    title: store.resolveLocationPath(location.id),
     subtitle: location.type,
+    footer: (location.code ?? '').trim().isEmpty
+        ? null
+        : 'Code: ${location.code}',
     payload: locationQrValue(location),
     kind: 'Location',
   );

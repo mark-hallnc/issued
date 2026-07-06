@@ -534,9 +534,13 @@ class _ImportPreviewScreenState extends State<ImportPreviewScreen> {
     final location = Location(
       id: 'loc-import-${now.microsecondsSinceEpoch}-$index',
       name: row.locationName ?? 'Imported',
+      description: null,
+      code: null,
       type: 'imported',
       parentLocationId: null,
       isActive: true,
+      createdAt: now,
+      updatedAt: now,
     );
     store.addLocation(location);
     return location;

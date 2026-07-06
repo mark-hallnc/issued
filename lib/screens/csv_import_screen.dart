@@ -563,14 +563,64 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
     if (!_createMissingLocations) {
       return null;
     }
+    final path = name.trim();
+    if (path.contains('/')) {
+      return _findOrCreateLocationPath(store, path, sequence);
+    }
     final location = Location(
       id: 'loc-import-${DateTime.now().microsecondsSinceEpoch}-$sequence',
       name: name,
+      description: null,
+      code: null,
       type: 'Imported',
       parentLocationId: null,
       isActive: true,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
     );
     return store.addLocation(location).success ? location : null;
+  }
+
+  Location? _findOrCreateLocationPath(
+    AppStore store,
+    String path,
+    int sequence,
+  ) {
+    final parts = path
+        .replaceAll('\\', '/')
+        .split('/')
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) {
+      return null;
+    }
+    Location? parent;
+    for (var index = 0; index < parts.length; index++) {
+      final partialPath = parts.take(index + 1).join('/');
+      final existing = findImportLocation(store, partialPath);
+      if (existing != null) {
+        parent = existing;
+        continue;
+      }
+      final now = DateTime.now();
+      final location = Location(
+        id: 'loc-import-${now.microsecondsSinceEpoch}-$sequence-$index',
+        name: parts[index],
+        description: null,
+        code: null,
+        type: index == parts.length - 1 ? 'bin' : 'stockroom',
+        parentLocationId: parent?.id,
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      );
+      if (!store.addLocation(location).success) {
+        return null;
+      }
+      parent = location;
+    }
+    return parent;
   }
 
   List<CustomFieldValue> _customFieldValues(
