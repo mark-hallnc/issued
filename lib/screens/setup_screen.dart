@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../core/app_store.dart';
+import 'cloud_login_screen.dart';
 
 class SetupScreen extends StatefulWidget {
   const SetupScreen({super.key});
@@ -56,6 +57,25 @@ class _SetupScreenState extends State<SetupScreen> {
                 FilledButton(
                   onPressed: _next,
                   child: const Text('Get Started'),
+                ),
+                const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 12),
+                const Text(
+                  'Invited team members can sign in with their email account.',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (context) => const CloudLoginScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.cloud_outlined),
+                  label: const Text('Sign in with Cloud Account'),
                 ),
               ],
             ),

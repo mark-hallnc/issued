@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/app_store.dart';
 import '../core/models/models.dart';
 import '../core/permissions/app_permissions.dart';
+import 'cloud_login_screen.dart';
 
 class SessionLockScreen extends StatefulWidget {
   const SessionLockScreen({super.key});
@@ -58,14 +59,17 @@ class _SessionLockScreenState extends State<SessionLockScreen> {
                             ?.copyWith(fontWeight: FontWeight.w800),
                       ),
                       const SizedBox(height: 6),
-                      const Text(
-                        'Unlock to continue.',
-                        textAlign: TextAlign.center,
-                      ),
+                      const Text('Unlock Issued', textAlign: TextAlign.center),
                       const SizedBox(height: 24),
+                      const Text(
+                        'Use a local user PIN on this shared device.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 12),
+                      ),
+                      const SizedBox(height: 12),
                       if (activeUsers.isEmpty)
                         const Text(
-                          'No active local users are available. Finish setup or create an Admin user.',
+                          'No active local users are available. Finish setup or create an Admin user, or sign in with a cloud account.',
                         )
                       else ...[
                         DropdownButtonFormField<String>(
@@ -109,11 +113,19 @@ class _SessionLockScreenState extends State<SessionLockScreen> {
                           label: const Text('Unlock'),
                         ),
                       ],
+                      const SizedBox(height: 20),
+                      const Divider(),
                       const SizedBox(height: 12),
                       const Text(
-                        'Local PIN protection is for shared-device accountability. Cloud login will be added later.',
+                        'Invited team members can sign in with their email account.',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 12),
+                      ),
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        onPressed: _isUnlocking ? null : _openCloudLogin,
+                        icon: const Icon(Icons.cloud_outlined),
+                        label: const Text('Sign in with Cloud Account'),
                       ),
                     ],
                   ),
@@ -123,6 +135,12 @@ class _SessionLockScreenState extends State<SessionLockScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  void _openCloudLogin() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (context) => const CloudLoginScreen()),
     );
   }
 
