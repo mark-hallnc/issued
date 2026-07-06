@@ -46,7 +46,7 @@ class AppStore extends ChangeNotifier {
   final PinHashService _pinHashService = PinHashService();
   final CloudAuthService cloudAuthService = const CloudAuthService();
   late final WorkspaceService workspaceService = WorkspaceService(
-    authService: cloudAuthService,
+    cloudAuthService,
   );
   supabase.User? _currentCloudUser;
   final List<CloudWorkspace> _availableWorkspaces = [];

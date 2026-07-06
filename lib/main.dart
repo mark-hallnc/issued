@@ -9,7 +9,7 @@ Future<void> main() async {
   if (SupabaseConfig.isConfigured) {
     await Supabase.initialize(
       url: SupabaseConfig.supabaseUrl,
-      anonKey: SupabaseConfig.supabaseAnonKey,
+      publishableKey: SupabaseConfig.supabaseAnonKey,
     );
   }
   runApp(const IssuedApp());

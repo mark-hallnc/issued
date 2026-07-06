@@ -21,8 +21,7 @@ class WorkspaceResult<T> {
 }
 
 class WorkspaceService {
-  WorkspaceService({CloudAuthService authService = const CloudAuthService()})
-    : _authService = authService;
+  WorkspaceService([this._authService = const CloudAuthService()]);
 
   final CloudAuthService _authService;
   CloudWorkspace? _activeWorkspace;

@@ -111,7 +111,7 @@ class _WorkspaceSelectionScreenState extends State<WorkspaceSelectionScreen> {
                 ? null
                 : () async {
                     final result = await store.signOutCloud();
-                    if (!mounted) {
+                    if (!context.mounted) {
                       return;
                     }
                     _showMessage(result.message ?? 'Signed out.');
