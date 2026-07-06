@@ -28,6 +28,7 @@ class Item {
     required this.purchaseUnitLabel,
     required this.barcode,
     required this.sku,
+    required this.supplierId,
     required this.supplier,
     required this.unitCost,
     required this.photoPath,
@@ -51,6 +52,7 @@ class Item {
   final String? purchaseUnitLabel;
   final String? barcode;
   final String? sku;
+  final String? supplierId;
   final String? supplier;
   final double? unitCost;
   final String? photoPath;
@@ -77,6 +79,7 @@ class Item {
     bool clearPurchaseUnitLabel = false,
     String? barcode,
     String? sku,
+    String? supplierId,
     String? supplier,
     double? unitCost,
     String? photoPath,
@@ -108,6 +111,7 @@ class Item {
           : purchaseUnitLabel ?? this.purchaseUnitLabel,
       barcode: barcode ?? this.barcode,
       sku: sku ?? this.sku,
+      supplierId: supplierId ?? this.supplierId,
       supplier: supplier ?? this.supplier,
       unitCost: unitCost ?? this.unitCost,
       photoPath: clearPhotoPath ? null : photoPath ?? this.photoPath,

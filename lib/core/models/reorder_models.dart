@@ -14,6 +14,7 @@ class ReorderRequest {
     required this.requestedQuantity,
     required this.receivedQuantity,
     required this.unitOfMeasureId,
+    required this.supplierId,
     required this.supplier,
     required this.status,
     required this.notes,
@@ -37,6 +38,7 @@ class ReorderRequest {
   final double requestedQuantity;
   final double receivedQuantity;
   final String unitOfMeasureId;
+  final String? supplierId;
   final String? supplier;
   final ReorderStatus status;
   final String? notes;
@@ -73,6 +75,7 @@ class ReorderRequest {
     double? requestedQuantity,
     double? receivedQuantity,
     String? unitOfMeasureId,
+    String? supplierId,
     String? supplier,
     ReorderStatus? status,
     String? notes,
@@ -90,6 +93,7 @@ class ReorderRequest {
     double? expectedCost,
     String? orderNumber,
     bool clearSupplier = false,
+    bool clearSupplierId = false,
     bool clearNotes = false,
     bool clearOrderedAt = false,
     bool clearReceivedAt = false,
@@ -102,6 +106,7 @@ class ReorderRequest {
       requestedQuantity: requestedQuantity ?? this.requestedQuantity,
       receivedQuantity: receivedQuantity ?? this.receivedQuantity,
       unitOfMeasureId: unitOfMeasureId ?? this.unitOfMeasureId,
+      supplierId: clearSupplierId ? null : supplierId ?? this.supplierId,
       supplier: clearSupplier ? null : supplier ?? this.supplier,
       status: status ?? this.status,
       notes: clearNotes ? null : notes ?? this.notes,

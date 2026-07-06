@@ -157,6 +157,17 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, ItemRecord> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _supplierIdMeta = const VerificationMeta(
+    'supplierId',
+  );
+  @override
+  late final GeneratedColumn<String> supplierId = GeneratedColumn<String>(
+    'supplier_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _supplierMeta = const VerificationMeta(
     'supplier',
   );
@@ -256,6 +267,7 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, ItemRecord> {
     purchaseUnitLabel,
     barcode,
     sku,
+    supplierId,
     supplier,
     unitCost,
     photoPath,
@@ -396,6 +408,12 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, ItemRecord> {
         sku.isAcceptableOrUnknown(data['sku']!, _skuMeta),
       );
     }
+    if (data.containsKey('supplier_id')) {
+      context.handle(
+        _supplierIdMeta,
+        supplierId.isAcceptableOrUnknown(data['supplier_id']!, _supplierIdMeta),
+      );
+    }
     if (data.containsKey('supplier')) {
       context.handle(
         _supplierMeta,
@@ -514,6 +532,10 @@ class $ItemsTable extends Items with TableInfo<$ItemsTable, ItemRecord> {
         DriftSqlType.string,
         data['${effectivePrefix}sku'],
       ),
+      supplierId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}supplier_id'],
+      ),
       supplier: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}supplier'],
@@ -566,6 +588,7 @@ class ItemRecord extends DataClass implements Insertable<ItemRecord> {
   final String? purchaseUnitLabel;
   final String? barcode;
   final String? sku;
+  final String? supplierId;
   final String? supplier;
   final double? unitCost;
   final String? photoPath;
@@ -588,6 +611,7 @@ class ItemRecord extends DataClass implements Insertable<ItemRecord> {
     this.purchaseUnitLabel,
     this.barcode,
     this.sku,
+    this.supplierId,
     this.supplier,
     this.unitCost,
     this.photoPath,
@@ -626,6 +650,9 @@ class ItemRecord extends DataClass implements Insertable<ItemRecord> {
     }
     if (!nullToAbsent || sku != null) {
       map['sku'] = Variable<String>(sku);
+    }
+    if (!nullToAbsent || supplierId != null) {
+      map['supplier_id'] = Variable<String>(supplierId);
     }
     if (!nullToAbsent || supplier != null) {
       map['supplier'] = Variable<String>(supplier);
@@ -668,6 +695,9 @@ class ItemRecord extends DataClass implements Insertable<ItemRecord> {
           ? const Value.absent()
           : Value(barcode),
       sku: sku == null && nullToAbsent ? const Value.absent() : Value(sku),
+      supplierId: supplierId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(supplierId),
       supplier: supplier == null && nullToAbsent
           ? const Value.absent()
           : Value(supplier),
@@ -710,6 +740,7 @@ class ItemRecord extends DataClass implements Insertable<ItemRecord> {
       ),
       barcode: serializer.fromJson<String?>(json['barcode']),
       sku: serializer.fromJson<String?>(json['sku']),
+      supplierId: serializer.fromJson<String?>(json['supplierId']),
       supplier: serializer.fromJson<String?>(json['supplier']),
       unitCost: serializer.fromJson<double?>(json['unitCost']),
       photoPath: serializer.fromJson<String?>(json['photoPath']),
@@ -743,6 +774,7 @@ class ItemRecord extends DataClass implements Insertable<ItemRecord> {
       'purchaseUnitLabel': serializer.toJson<String?>(purchaseUnitLabel),
       'barcode': serializer.toJson<String?>(barcode),
       'sku': serializer.toJson<String?>(sku),
+      'supplierId': serializer.toJson<String?>(supplierId),
       'supplier': serializer.toJson<String?>(supplier),
       'unitCost': serializer.toJson<double?>(unitCost),
       'photoPath': serializer.toJson<String?>(photoPath),
@@ -770,6 +802,7 @@ class ItemRecord extends DataClass implements Insertable<ItemRecord> {
     Value<String?> purchaseUnitLabel = const Value.absent(),
     Value<String?> barcode = const Value.absent(),
     Value<String?> sku = const Value.absent(),
+    Value<String?> supplierId = const Value.absent(),
     Value<String?> supplier = const Value.absent(),
     Value<double?> unitCost = const Value.absent(),
     Value<String?> photoPath = const Value.absent(),
@@ -798,6 +831,7 @@ class ItemRecord extends DataClass implements Insertable<ItemRecord> {
         : this.purchaseUnitLabel,
     barcode: barcode.present ? barcode.value : this.barcode,
     sku: sku.present ? sku.value : this.sku,
+    supplierId: supplierId.present ? supplierId.value : this.supplierId,
     supplier: supplier.present ? supplier.value : this.supplier,
     unitCost: unitCost.present ? unitCost.value : this.unitCost,
     photoPath: photoPath.present ? photoPath.value : this.photoPath,
@@ -840,6 +874,9 @@ class ItemRecord extends DataClass implements Insertable<ItemRecord> {
           : this.purchaseUnitLabel,
       barcode: data.barcode.present ? data.barcode.value : this.barcode,
       sku: data.sku.present ? data.sku.value : this.sku,
+      supplierId: data.supplierId.present
+          ? data.supplierId.value
+          : this.supplierId,
       supplier: data.supplier.present ? data.supplier.value : this.supplier,
       unitCost: data.unitCost.present ? data.unitCost.value : this.unitCost,
       photoPath: data.photoPath.present ? data.photoPath.value : this.photoPath,
@@ -871,6 +908,7 @@ class ItemRecord extends DataClass implements Insertable<ItemRecord> {
           ..write('purchaseUnitLabel: $purchaseUnitLabel, ')
           ..write('barcode: $barcode, ')
           ..write('sku: $sku, ')
+          ..write('supplierId: $supplierId, ')
           ..write('supplier: $supplier, ')
           ..write('unitCost: $unitCost, ')
           ..write('photoPath: $photoPath, ')
@@ -898,6 +936,7 @@ class ItemRecord extends DataClass implements Insertable<ItemRecord> {
     purchaseUnitLabel,
     barcode,
     sku,
+    supplierId,
     supplier,
     unitCost,
     photoPath,
@@ -925,6 +964,7 @@ class ItemRecord extends DataClass implements Insertable<ItemRecord> {
           other.purchaseUnitLabel == this.purchaseUnitLabel &&
           other.barcode == this.barcode &&
           other.sku == this.sku &&
+          other.supplierId == this.supplierId &&
           other.supplier == this.supplier &&
           other.unitCost == this.unitCost &&
           other.photoPath == this.photoPath &&
@@ -949,6 +989,7 @@ class ItemsCompanion extends UpdateCompanion<ItemRecord> {
   final Value<String?> purchaseUnitLabel;
   final Value<String?> barcode;
   final Value<String?> sku;
+  final Value<String?> supplierId;
   final Value<String?> supplier;
   final Value<double?> unitCost;
   final Value<String?> photoPath;
@@ -972,6 +1013,7 @@ class ItemsCompanion extends UpdateCompanion<ItemRecord> {
     this.purchaseUnitLabel = const Value.absent(),
     this.barcode = const Value.absent(),
     this.sku = const Value.absent(),
+    this.supplierId = const Value.absent(),
     this.supplier = const Value.absent(),
     this.unitCost = const Value.absent(),
     this.photoPath = const Value.absent(),
@@ -996,6 +1038,7 @@ class ItemsCompanion extends UpdateCompanion<ItemRecord> {
     this.purchaseUnitLabel = const Value.absent(),
     this.barcode = const Value.absent(),
     this.sku = const Value.absent(),
+    this.supplierId = const Value.absent(),
     this.supplier = const Value.absent(),
     this.unitCost = const Value.absent(),
     this.photoPath = const Value.absent(),
@@ -1032,6 +1075,7 @@ class ItemsCompanion extends UpdateCompanion<ItemRecord> {
     Expression<String>? purchaseUnitLabel,
     Expression<String>? barcode,
     Expression<String>? sku,
+    Expression<String>? supplierId,
     Expression<String>? supplier,
     Expression<double>? unitCost,
     Expression<String>? photoPath,
@@ -1058,6 +1102,7 @@ class ItemsCompanion extends UpdateCompanion<ItemRecord> {
       if (purchaseUnitLabel != null) 'purchase_unit_label': purchaseUnitLabel,
       if (barcode != null) 'barcode': barcode,
       if (sku != null) 'sku': sku,
+      if (supplierId != null) 'supplier_id': supplierId,
       if (supplier != null) 'supplier': supplier,
       if (unitCost != null) 'unit_cost': unitCost,
       if (photoPath != null) 'photo_path': photoPath,
@@ -1085,6 +1130,7 @@ class ItemsCompanion extends UpdateCompanion<ItemRecord> {
     Value<String?>? purchaseUnitLabel,
     Value<String?>? barcode,
     Value<String?>? sku,
+    Value<String?>? supplierId,
     Value<String?>? supplier,
     Value<double?>? unitCost,
     Value<String?>? photoPath,
@@ -1112,6 +1158,7 @@ class ItemsCompanion extends UpdateCompanion<ItemRecord> {
       purchaseUnitLabel: purchaseUnitLabel ?? this.purchaseUnitLabel,
       barcode: barcode ?? this.barcode,
       sku: sku ?? this.sku,
+      supplierId: supplierId ?? this.supplierId,
       supplier: supplier ?? this.supplier,
       unitCost: unitCost ?? this.unitCost,
       photoPath: photoPath ?? this.photoPath,
@@ -1173,6 +1220,9 @@ class ItemsCompanion extends UpdateCompanion<ItemRecord> {
     if (sku.present) {
       map['sku'] = Variable<String>(sku.value);
     }
+    if (supplierId.present) {
+      map['supplier_id'] = Variable<String>(supplierId.value);
+    }
     if (supplier.present) {
       map['supplier'] = Variable<String>(supplier.value);
     }
@@ -1221,6 +1271,7 @@ class ItemsCompanion extends UpdateCompanion<ItemRecord> {
           ..write('purchaseUnitLabel: $purchaseUnitLabel, ')
           ..write('barcode: $barcode, ')
           ..write('sku: $sku, ')
+          ..write('supplierId: $supplierId, ')
           ..write('supplier: $supplier, ')
           ..write('unitCost: $unitCost, ')
           ..write('photoPath: $photoPath, ')
@@ -4338,6 +4389,841 @@ class ItemLocationBalancesCompanion
   }
 }
 
+class $SuppliersTable extends Suppliers
+    with TableInfo<$SuppliersTable, SupplierRecord> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SuppliersTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _contactNameMeta = const VerificationMeta(
+    'contactName',
+  );
+  @override
+  late final GeneratedColumn<String> contactName = GeneratedColumn<String>(
+    'contact_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _emailMeta = const VerificationMeta('email');
+  @override
+  late final GeneratedColumn<String> email = GeneratedColumn<String>(
+    'email',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _phoneMeta = const VerificationMeta('phone');
+  @override
+  late final GeneratedColumn<String> phone = GeneratedColumn<String>(
+    'phone',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _websiteMeta = const VerificationMeta(
+    'website',
+  );
+  @override
+  late final GeneratedColumn<String> website = GeneratedColumn<String>(
+    'website',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _addressMeta = const VerificationMeta(
+    'address',
+  );
+  @override
+  late final GeneratedColumn<String> address = GeneratedColumn<String>(
+    'address',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _accountNumberMeta = const VerificationMeta(
+    'accountNumber',
+  );
+  @override
+  late final GeneratedColumn<String> accountNumber = GeneratedColumn<String>(
+    'account_number',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+    'notes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _defaultLeadTimeDaysMeta =
+      const VerificationMeta('defaultLeadTimeDays');
+  @override
+  late final GeneratedColumn<int> defaultLeadTimeDays = GeneratedColumn<int>(
+    'default_lead_time_days',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _minimumOrderAmountMeta =
+      const VerificationMeta('minimumOrderAmount');
+  @override
+  late final GeneratedColumn<double> minimumOrderAmount =
+      GeneratedColumn<double>(
+        'minimum_order_amount',
+        aliasedName,
+        true,
+        type: DriftSqlType.double,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _isActiveMeta = const VerificationMeta(
+    'isActive',
+  );
+  @override
+  late final GeneratedColumn<bool> isActive = GeneratedColumn<bool>(
+    'is_active',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_active" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    contactName,
+    email,
+    phone,
+    website,
+    address,
+    accountNumber,
+    notes,
+    defaultLeadTimeDays,
+    minimumOrderAmount,
+    isActive,
+    createdAt,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'suppliers';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SupplierRecord> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('contact_name')) {
+      context.handle(
+        _contactNameMeta,
+        contactName.isAcceptableOrUnknown(
+          data['contact_name']!,
+          _contactNameMeta,
+        ),
+      );
+    }
+    if (data.containsKey('email')) {
+      context.handle(
+        _emailMeta,
+        email.isAcceptableOrUnknown(data['email']!, _emailMeta),
+      );
+    }
+    if (data.containsKey('phone')) {
+      context.handle(
+        _phoneMeta,
+        phone.isAcceptableOrUnknown(data['phone']!, _phoneMeta),
+      );
+    }
+    if (data.containsKey('website')) {
+      context.handle(
+        _websiteMeta,
+        website.isAcceptableOrUnknown(data['website']!, _websiteMeta),
+      );
+    }
+    if (data.containsKey('address')) {
+      context.handle(
+        _addressMeta,
+        address.isAcceptableOrUnknown(data['address']!, _addressMeta),
+      );
+    }
+    if (data.containsKey('account_number')) {
+      context.handle(
+        _accountNumberMeta,
+        accountNumber.isAcceptableOrUnknown(
+          data['account_number']!,
+          _accountNumberMeta,
+        ),
+      );
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+        _notesMeta,
+        notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
+      );
+    }
+    if (data.containsKey('default_lead_time_days')) {
+      context.handle(
+        _defaultLeadTimeDaysMeta,
+        defaultLeadTimeDays.isAcceptableOrUnknown(
+          data['default_lead_time_days']!,
+          _defaultLeadTimeDaysMeta,
+        ),
+      );
+    }
+    if (data.containsKey('minimum_order_amount')) {
+      context.handle(
+        _minimumOrderAmountMeta,
+        minimumOrderAmount.isAcceptableOrUnknown(
+          data['minimum_order_amount']!,
+          _minimumOrderAmountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_active')) {
+      context.handle(
+        _isActiveMeta,
+        isActive.isAcceptableOrUnknown(data['is_active']!, _isActiveMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_isActiveMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  SupplierRecord map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SupplierRecord(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      contactName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}contact_name'],
+      ),
+      email: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}email'],
+      ),
+      phone: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}phone'],
+      ),
+      website: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}website'],
+      ),
+      address: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}address'],
+      ),
+      accountNumber: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}account_number'],
+      ),
+      notes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notes'],
+      ),
+      defaultLeadTimeDays: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}default_lead_time_days'],
+      ),
+      minimumOrderAmount: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}minimum_order_amount'],
+      ),
+      isActive: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_active'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $SuppliersTable createAlias(String alias) {
+    return $SuppliersTable(attachedDatabase, alias);
+  }
+}
+
+class SupplierRecord extends DataClass implements Insertable<SupplierRecord> {
+  final String id;
+  final String name;
+  final String? contactName;
+  final String? email;
+  final String? phone;
+  final String? website;
+  final String? address;
+  final String? accountNumber;
+  final String? notes;
+  final int? defaultLeadTimeDays;
+  final double? minimumOrderAmount;
+  final bool isActive;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  const SupplierRecord({
+    required this.id,
+    required this.name,
+    this.contactName,
+    this.email,
+    this.phone,
+    this.website,
+    this.address,
+    this.accountNumber,
+    this.notes,
+    this.defaultLeadTimeDays,
+    this.minimumOrderAmount,
+    required this.isActive,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
+    if (!nullToAbsent || contactName != null) {
+      map['contact_name'] = Variable<String>(contactName);
+    }
+    if (!nullToAbsent || email != null) {
+      map['email'] = Variable<String>(email);
+    }
+    if (!nullToAbsent || phone != null) {
+      map['phone'] = Variable<String>(phone);
+    }
+    if (!nullToAbsent || website != null) {
+      map['website'] = Variable<String>(website);
+    }
+    if (!nullToAbsent || address != null) {
+      map['address'] = Variable<String>(address);
+    }
+    if (!nullToAbsent || accountNumber != null) {
+      map['account_number'] = Variable<String>(accountNumber);
+    }
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
+    if (!nullToAbsent || defaultLeadTimeDays != null) {
+      map['default_lead_time_days'] = Variable<int>(defaultLeadTimeDays);
+    }
+    if (!nullToAbsent || minimumOrderAmount != null) {
+      map['minimum_order_amount'] = Variable<double>(minimumOrderAmount);
+    }
+    map['is_active'] = Variable<bool>(isActive);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  SuppliersCompanion toCompanion(bool nullToAbsent) {
+    return SuppliersCompanion(
+      id: Value(id),
+      name: Value(name),
+      contactName: contactName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(contactName),
+      email: email == null && nullToAbsent
+          ? const Value.absent()
+          : Value(email),
+      phone: phone == null && nullToAbsent
+          ? const Value.absent()
+          : Value(phone),
+      website: website == null && nullToAbsent
+          ? const Value.absent()
+          : Value(website),
+      address: address == null && nullToAbsent
+          ? const Value.absent()
+          : Value(address),
+      accountNumber: accountNumber == null && nullToAbsent
+          ? const Value.absent()
+          : Value(accountNumber),
+      notes: notes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(notes),
+      defaultLeadTimeDays: defaultLeadTimeDays == null && nullToAbsent
+          ? const Value.absent()
+          : Value(defaultLeadTimeDays),
+      minimumOrderAmount: minimumOrderAmount == null && nullToAbsent
+          ? const Value.absent()
+          : Value(minimumOrderAmount),
+      isActive: Value(isActive),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory SupplierRecord.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SupplierRecord(
+      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      contactName: serializer.fromJson<String?>(json['contactName']),
+      email: serializer.fromJson<String?>(json['email']),
+      phone: serializer.fromJson<String?>(json['phone']),
+      website: serializer.fromJson<String?>(json['website']),
+      address: serializer.fromJson<String?>(json['address']),
+      accountNumber: serializer.fromJson<String?>(json['accountNumber']),
+      notes: serializer.fromJson<String?>(json['notes']),
+      defaultLeadTimeDays: serializer.fromJson<int?>(
+        json['defaultLeadTimeDays'],
+      ),
+      minimumOrderAmount: serializer.fromJson<double?>(
+        json['minimumOrderAmount'],
+      ),
+      isActive: serializer.fromJson<bool>(json['isActive']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
+      'contactName': serializer.toJson<String?>(contactName),
+      'email': serializer.toJson<String?>(email),
+      'phone': serializer.toJson<String?>(phone),
+      'website': serializer.toJson<String?>(website),
+      'address': serializer.toJson<String?>(address),
+      'accountNumber': serializer.toJson<String?>(accountNumber),
+      'notes': serializer.toJson<String?>(notes),
+      'defaultLeadTimeDays': serializer.toJson<int?>(defaultLeadTimeDays),
+      'minimumOrderAmount': serializer.toJson<double?>(minimumOrderAmount),
+      'isActive': serializer.toJson<bool>(isActive),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  SupplierRecord copyWith({
+    String? id,
+    String? name,
+    Value<String?> contactName = const Value.absent(),
+    Value<String?> email = const Value.absent(),
+    Value<String?> phone = const Value.absent(),
+    Value<String?> website = const Value.absent(),
+    Value<String?> address = const Value.absent(),
+    Value<String?> accountNumber = const Value.absent(),
+    Value<String?> notes = const Value.absent(),
+    Value<int?> defaultLeadTimeDays = const Value.absent(),
+    Value<double?> minimumOrderAmount = const Value.absent(),
+    bool? isActive,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) => SupplierRecord(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    contactName: contactName.present ? contactName.value : this.contactName,
+    email: email.present ? email.value : this.email,
+    phone: phone.present ? phone.value : this.phone,
+    website: website.present ? website.value : this.website,
+    address: address.present ? address.value : this.address,
+    accountNumber: accountNumber.present
+        ? accountNumber.value
+        : this.accountNumber,
+    notes: notes.present ? notes.value : this.notes,
+    defaultLeadTimeDays: defaultLeadTimeDays.present
+        ? defaultLeadTimeDays.value
+        : this.defaultLeadTimeDays,
+    minimumOrderAmount: minimumOrderAmount.present
+        ? minimumOrderAmount.value
+        : this.minimumOrderAmount,
+    isActive: isActive ?? this.isActive,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  SupplierRecord copyWithCompanion(SuppliersCompanion data) {
+    return SupplierRecord(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      contactName: data.contactName.present
+          ? data.contactName.value
+          : this.contactName,
+      email: data.email.present ? data.email.value : this.email,
+      phone: data.phone.present ? data.phone.value : this.phone,
+      website: data.website.present ? data.website.value : this.website,
+      address: data.address.present ? data.address.value : this.address,
+      accountNumber: data.accountNumber.present
+          ? data.accountNumber.value
+          : this.accountNumber,
+      notes: data.notes.present ? data.notes.value : this.notes,
+      defaultLeadTimeDays: data.defaultLeadTimeDays.present
+          ? data.defaultLeadTimeDays.value
+          : this.defaultLeadTimeDays,
+      minimumOrderAmount: data.minimumOrderAmount.present
+          ? data.minimumOrderAmount.value
+          : this.minimumOrderAmount,
+      isActive: data.isActive.present ? data.isActive.value : this.isActive,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SupplierRecord(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('contactName: $contactName, ')
+          ..write('email: $email, ')
+          ..write('phone: $phone, ')
+          ..write('website: $website, ')
+          ..write('address: $address, ')
+          ..write('accountNumber: $accountNumber, ')
+          ..write('notes: $notes, ')
+          ..write('defaultLeadTimeDays: $defaultLeadTimeDays, ')
+          ..write('minimumOrderAmount: $minimumOrderAmount, ')
+          ..write('isActive: $isActive, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    name,
+    contactName,
+    email,
+    phone,
+    website,
+    address,
+    accountNumber,
+    notes,
+    defaultLeadTimeDays,
+    minimumOrderAmount,
+    isActive,
+    createdAt,
+    updatedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SupplierRecord &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.contactName == this.contactName &&
+          other.email == this.email &&
+          other.phone == this.phone &&
+          other.website == this.website &&
+          other.address == this.address &&
+          other.accountNumber == this.accountNumber &&
+          other.notes == this.notes &&
+          other.defaultLeadTimeDays == this.defaultLeadTimeDays &&
+          other.minimumOrderAmount == this.minimumOrderAmount &&
+          other.isActive == this.isActive &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class SuppliersCompanion extends UpdateCompanion<SupplierRecord> {
+  final Value<String> id;
+  final Value<String> name;
+  final Value<String?> contactName;
+  final Value<String?> email;
+  final Value<String?> phone;
+  final Value<String?> website;
+  final Value<String?> address;
+  final Value<String?> accountNumber;
+  final Value<String?> notes;
+  final Value<int?> defaultLeadTimeDays;
+  final Value<double?> minimumOrderAmount;
+  final Value<bool> isActive;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const SuppliersCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.contactName = const Value.absent(),
+    this.email = const Value.absent(),
+    this.phone = const Value.absent(),
+    this.website = const Value.absent(),
+    this.address = const Value.absent(),
+    this.accountNumber = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.defaultLeadTimeDays = const Value.absent(),
+    this.minimumOrderAmount = const Value.absent(),
+    this.isActive = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SuppliersCompanion.insert({
+    required String id,
+    required String name,
+    this.contactName = const Value.absent(),
+    this.email = const Value.absent(),
+    this.phone = const Value.absent(),
+    this.website = const Value.absent(),
+    this.address = const Value.absent(),
+    this.accountNumber = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.defaultLeadTimeDays = const Value.absent(),
+    this.minimumOrderAmount = const Value.absent(),
+    required bool isActive,
+    required DateTime createdAt,
+    required DateTime updatedAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       name = Value(name),
+       isActive = Value(isActive),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<SupplierRecord> custom({
+    Expression<String>? id,
+    Expression<String>? name,
+    Expression<String>? contactName,
+    Expression<String>? email,
+    Expression<String>? phone,
+    Expression<String>? website,
+    Expression<String>? address,
+    Expression<String>? accountNumber,
+    Expression<String>? notes,
+    Expression<int>? defaultLeadTimeDays,
+    Expression<double>? minimumOrderAmount,
+    Expression<bool>? isActive,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (contactName != null) 'contact_name': contactName,
+      if (email != null) 'email': email,
+      if (phone != null) 'phone': phone,
+      if (website != null) 'website': website,
+      if (address != null) 'address': address,
+      if (accountNumber != null) 'account_number': accountNumber,
+      if (notes != null) 'notes': notes,
+      if (defaultLeadTimeDays != null)
+        'default_lead_time_days': defaultLeadTimeDays,
+      if (minimumOrderAmount != null)
+        'minimum_order_amount': minimumOrderAmount,
+      if (isActive != null) 'is_active': isActive,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SuppliersCompanion copyWith({
+    Value<String>? id,
+    Value<String>? name,
+    Value<String?>? contactName,
+    Value<String?>? email,
+    Value<String?>? phone,
+    Value<String?>? website,
+    Value<String?>? address,
+    Value<String?>? accountNumber,
+    Value<String?>? notes,
+    Value<int?>? defaultLeadTimeDays,
+    Value<double?>? minimumOrderAmount,
+    Value<bool>? isActive,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return SuppliersCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      contactName: contactName ?? this.contactName,
+      email: email ?? this.email,
+      phone: phone ?? this.phone,
+      website: website ?? this.website,
+      address: address ?? this.address,
+      accountNumber: accountNumber ?? this.accountNumber,
+      notes: notes ?? this.notes,
+      defaultLeadTimeDays: defaultLeadTimeDays ?? this.defaultLeadTimeDays,
+      minimumOrderAmount: minimumOrderAmount ?? this.minimumOrderAmount,
+      isActive: isActive ?? this.isActive,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (contactName.present) {
+      map['contact_name'] = Variable<String>(contactName.value);
+    }
+    if (email.present) {
+      map['email'] = Variable<String>(email.value);
+    }
+    if (phone.present) {
+      map['phone'] = Variable<String>(phone.value);
+    }
+    if (website.present) {
+      map['website'] = Variable<String>(website.value);
+    }
+    if (address.present) {
+      map['address'] = Variable<String>(address.value);
+    }
+    if (accountNumber.present) {
+      map['account_number'] = Variable<String>(accountNumber.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    if (defaultLeadTimeDays.present) {
+      map['default_lead_time_days'] = Variable<int>(defaultLeadTimeDays.value);
+    }
+    if (minimumOrderAmount.present) {
+      map['minimum_order_amount'] = Variable<double>(minimumOrderAmount.value);
+    }
+    if (isActive.present) {
+      map['is_active'] = Variable<bool>(isActive.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SuppliersCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('contactName: $contactName, ')
+          ..write('email: $email, ')
+          ..write('phone: $phone, ')
+          ..write('website: $website, ')
+          ..write('address: $address, ')
+          ..write('accountNumber: $accountNumber, ')
+          ..write('notes: $notes, ')
+          ..write('defaultLeadTimeDays: $defaultLeadTimeDays, ')
+          ..write('minimumOrderAmount: $minimumOrderAmount, ')
+          ..write('isActive: $isActive, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $ReorderRequestsTable extends ReorderRequests
     with TableInfo<$ReorderRequestsTable, ReorderRequestRecord> {
   @override
@@ -4374,6 +5260,18 @@ class $ReorderRequestsTable extends ReorderRequests
         type: DriftSqlType.double,
         requiredDuringInsert: true,
       );
+  static const VerificationMeta _receivedQuantityMeta = const VerificationMeta(
+    'receivedQuantity',
+  );
+  @override
+  late final GeneratedColumn<double> receivedQuantity = GeneratedColumn<double>(
+    'received_quantity',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   static const VerificationMeta _unitOfMeasureIdMeta = const VerificationMeta(
     'unitOfMeasureId',
   );
@@ -4384,6 +5282,17 @@ class $ReorderRequestsTable extends ReorderRequests
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: true,
+  );
+  static const VerificationMeta _supplierIdMeta = const VerificationMeta(
+    'supplierId',
+  );
+  @override
+  late final GeneratedColumn<String> supplierId = GeneratedColumn<String>(
+    'supplier_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
   );
   static const VerificationMeta _supplierMeta = const VerificationMeta(
     'supplier',
@@ -4447,6 +5356,17 @@ class $ReorderRequestsTable extends ReorderRequests
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _cancelledAtMeta = const VerificationMeta(
+    'cancelledAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> cancelledAt = GeneratedColumn<DateTime>(
+    'cancelled_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdByUserIdMeta = const VerificationMeta(
     'createdByUserId',
   );
@@ -4458,19 +5378,118 @@ class $ReorderRequestsTable extends ReorderRequests
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _orderedByUserIdMeta = const VerificationMeta(
+    'orderedByUserId',
+  );
+  @override
+  late final GeneratedColumn<String> orderedByUserId = GeneratedColumn<String>(
+    'ordered_by_user_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _receivedByUserIdMeta = const VerificationMeta(
+    'receivedByUserId',
+  );
+  @override
+  late final GeneratedColumn<String> receivedByUserId = GeneratedColumn<String>(
+    'received_by_user_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _destinationLocationIdMeta =
+      const VerificationMeta('destinationLocationId');
+  @override
+  late final GeneratedColumn<String> destinationLocationId =
+      GeneratedColumn<String>(
+        'destination_location_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _purchaseUnitOfMeasureIdMeta =
+      const VerificationMeta('purchaseUnitOfMeasureId');
+  @override
+  late final GeneratedColumn<String> purchaseUnitOfMeasureId =
+      GeneratedColumn<String>(
+        'purchase_unit_of_measure_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _purchaseQuantityMeta = const VerificationMeta(
+    'purchaseQuantity',
+  );
+  @override
+  late final GeneratedColumn<double> purchaseQuantity = GeneratedColumn<double>(
+    'purchase_quantity',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _purchaseToStockConversionFactorMeta =
+      const VerificationMeta('purchaseToStockConversionFactor');
+  @override
+  late final GeneratedColumn<double> purchaseToStockConversionFactor =
+      GeneratedColumn<double>(
+        'purchase_to_stock_conversion_factor',
+        aliasedName,
+        true,
+        type: DriftSqlType.double,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _expectedCostMeta = const VerificationMeta(
+    'expectedCost',
+  );
+  @override
+  late final GeneratedColumn<double> expectedCost = GeneratedColumn<double>(
+    'expected_cost',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _orderNumberMeta = const VerificationMeta(
+    'orderNumber',
+  );
+  @override
+  late final GeneratedColumn<String> orderNumber = GeneratedColumn<String>(
+    'order_number',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
     itemId,
     requestedQuantity,
+    receivedQuantity,
     unitOfMeasureId,
+    supplierId,
     supplier,
     status,
     notes,
     createdAt,
     orderedAt,
     receivedAt,
+    cancelledAt,
     createdByUserId,
+    orderedByUserId,
+    receivedByUserId,
+    destinationLocationId,
+    purchaseUnitOfMeasureId,
+    purchaseQuantity,
+    purchaseToStockConversionFactor,
+    expectedCost,
+    orderNumber,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4508,6 +5527,15 @@ class $ReorderRequestsTable extends ReorderRequests
     } else if (isInserting) {
       context.missing(_requestedQuantityMeta);
     }
+    if (data.containsKey('received_quantity')) {
+      context.handle(
+        _receivedQuantityMeta,
+        receivedQuantity.isAcceptableOrUnknown(
+          data['received_quantity']!,
+          _receivedQuantityMeta,
+        ),
+      );
+    }
     if (data.containsKey('unit_of_measure_id')) {
       context.handle(
         _unitOfMeasureIdMeta,
@@ -4518,6 +5546,12 @@ class $ReorderRequestsTable extends ReorderRequests
       );
     } else if (isInserting) {
       context.missing(_unitOfMeasureIdMeta);
+    }
+    if (data.containsKey('supplier_id')) {
+      context.handle(
+        _supplierIdMeta,
+        supplierId.isAcceptableOrUnknown(data['supplier_id']!, _supplierIdMeta),
+      );
     }
     if (data.containsKey('supplier')) {
       context.handle(
@@ -4559,12 +5593,93 @@ class $ReorderRequestsTable extends ReorderRequests
         receivedAt.isAcceptableOrUnknown(data['received_at']!, _receivedAtMeta),
       );
     }
+    if (data.containsKey('cancelled_at')) {
+      context.handle(
+        _cancelledAtMeta,
+        cancelledAt.isAcceptableOrUnknown(
+          data['cancelled_at']!,
+          _cancelledAtMeta,
+        ),
+      );
+    }
     if (data.containsKey('created_by_user_id')) {
       context.handle(
         _createdByUserIdMeta,
         createdByUserId.isAcceptableOrUnknown(
           data['created_by_user_id']!,
           _createdByUserIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('ordered_by_user_id')) {
+      context.handle(
+        _orderedByUserIdMeta,
+        orderedByUserId.isAcceptableOrUnknown(
+          data['ordered_by_user_id']!,
+          _orderedByUserIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('received_by_user_id')) {
+      context.handle(
+        _receivedByUserIdMeta,
+        receivedByUserId.isAcceptableOrUnknown(
+          data['received_by_user_id']!,
+          _receivedByUserIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('destination_location_id')) {
+      context.handle(
+        _destinationLocationIdMeta,
+        destinationLocationId.isAcceptableOrUnknown(
+          data['destination_location_id']!,
+          _destinationLocationIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('purchase_unit_of_measure_id')) {
+      context.handle(
+        _purchaseUnitOfMeasureIdMeta,
+        purchaseUnitOfMeasureId.isAcceptableOrUnknown(
+          data['purchase_unit_of_measure_id']!,
+          _purchaseUnitOfMeasureIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('purchase_quantity')) {
+      context.handle(
+        _purchaseQuantityMeta,
+        purchaseQuantity.isAcceptableOrUnknown(
+          data['purchase_quantity']!,
+          _purchaseQuantityMeta,
+        ),
+      );
+    }
+    if (data.containsKey('purchase_to_stock_conversion_factor')) {
+      context.handle(
+        _purchaseToStockConversionFactorMeta,
+        purchaseToStockConversionFactor.isAcceptableOrUnknown(
+          data['purchase_to_stock_conversion_factor']!,
+          _purchaseToStockConversionFactorMeta,
+        ),
+      );
+    }
+    if (data.containsKey('expected_cost')) {
+      context.handle(
+        _expectedCostMeta,
+        expectedCost.isAcceptableOrUnknown(
+          data['expected_cost']!,
+          _expectedCostMeta,
+        ),
+      );
+    }
+    if (data.containsKey('order_number')) {
+      context.handle(
+        _orderNumberMeta,
+        orderNumber.isAcceptableOrUnknown(
+          data['order_number']!,
+          _orderNumberMeta,
         ),
       );
     }
@@ -4589,10 +5704,18 @@ class $ReorderRequestsTable extends ReorderRequests
         DriftSqlType.double,
         data['${effectivePrefix}requested_quantity'],
       )!,
+      receivedQuantity: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}received_quantity'],
+      )!,
       unitOfMeasureId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}unit_of_measure_id'],
       )!,
+      supplierId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}supplier_id'],
+      ),
       supplier: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}supplier'],
@@ -4617,9 +5740,45 @@ class $ReorderRequestsTable extends ReorderRequests
         DriftSqlType.dateTime,
         data['${effectivePrefix}received_at'],
       ),
+      cancelledAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}cancelled_at'],
+      ),
       createdByUserId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}created_by_user_id'],
+      ),
+      orderedByUserId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}ordered_by_user_id'],
+      ),
+      receivedByUserId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}received_by_user_id'],
+      ),
+      destinationLocationId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}destination_location_id'],
+      ),
+      purchaseUnitOfMeasureId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}purchase_unit_of_measure_id'],
+      ),
+      purchaseQuantity: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}purchase_quantity'],
+      ),
+      purchaseToStockConversionFactor: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}purchase_to_stock_conversion_factor'],
+      ),
+      expectedCost: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}expected_cost'],
+      ),
+      orderNumber: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}order_number'],
       ),
     );
   }
@@ -4635,26 +5794,48 @@ class ReorderRequestRecord extends DataClass
   final String id;
   final String itemId;
   final double requestedQuantity;
+  final double receivedQuantity;
   final String unitOfMeasureId;
+  final String? supplierId;
   final String? supplier;
   final String status;
   final String? notes;
   final DateTime createdAt;
   final DateTime? orderedAt;
   final DateTime? receivedAt;
+  final DateTime? cancelledAt;
   final String? createdByUserId;
+  final String? orderedByUserId;
+  final String? receivedByUserId;
+  final String? destinationLocationId;
+  final String? purchaseUnitOfMeasureId;
+  final double? purchaseQuantity;
+  final double? purchaseToStockConversionFactor;
+  final double? expectedCost;
+  final String? orderNumber;
   const ReorderRequestRecord({
     required this.id,
     required this.itemId,
     required this.requestedQuantity,
+    required this.receivedQuantity,
     required this.unitOfMeasureId,
+    this.supplierId,
     this.supplier,
     required this.status,
     this.notes,
     required this.createdAt,
     this.orderedAt,
     this.receivedAt,
+    this.cancelledAt,
     this.createdByUserId,
+    this.orderedByUserId,
+    this.receivedByUserId,
+    this.destinationLocationId,
+    this.purchaseUnitOfMeasureId,
+    this.purchaseQuantity,
+    this.purchaseToStockConversionFactor,
+    this.expectedCost,
+    this.orderNumber,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4662,7 +5843,11 @@ class ReorderRequestRecord extends DataClass
     map['id'] = Variable<String>(id);
     map['item_id'] = Variable<String>(itemId);
     map['requested_quantity'] = Variable<double>(requestedQuantity);
+    map['received_quantity'] = Variable<double>(receivedQuantity);
     map['unit_of_measure_id'] = Variable<String>(unitOfMeasureId);
+    if (!nullToAbsent || supplierId != null) {
+      map['supplier_id'] = Variable<String>(supplierId);
+    }
     if (!nullToAbsent || supplier != null) {
       map['supplier'] = Variable<String>(supplier);
     }
@@ -4677,8 +5862,39 @@ class ReorderRequestRecord extends DataClass
     if (!nullToAbsent || receivedAt != null) {
       map['received_at'] = Variable<DateTime>(receivedAt);
     }
+    if (!nullToAbsent || cancelledAt != null) {
+      map['cancelled_at'] = Variable<DateTime>(cancelledAt);
+    }
     if (!nullToAbsent || createdByUserId != null) {
       map['created_by_user_id'] = Variable<String>(createdByUserId);
+    }
+    if (!nullToAbsent || orderedByUserId != null) {
+      map['ordered_by_user_id'] = Variable<String>(orderedByUserId);
+    }
+    if (!nullToAbsent || receivedByUserId != null) {
+      map['received_by_user_id'] = Variable<String>(receivedByUserId);
+    }
+    if (!nullToAbsent || destinationLocationId != null) {
+      map['destination_location_id'] = Variable<String>(destinationLocationId);
+    }
+    if (!nullToAbsent || purchaseUnitOfMeasureId != null) {
+      map['purchase_unit_of_measure_id'] = Variable<String>(
+        purchaseUnitOfMeasureId,
+      );
+    }
+    if (!nullToAbsent || purchaseQuantity != null) {
+      map['purchase_quantity'] = Variable<double>(purchaseQuantity);
+    }
+    if (!nullToAbsent || purchaseToStockConversionFactor != null) {
+      map['purchase_to_stock_conversion_factor'] = Variable<double>(
+        purchaseToStockConversionFactor,
+      );
+    }
+    if (!nullToAbsent || expectedCost != null) {
+      map['expected_cost'] = Variable<double>(expectedCost);
+    }
+    if (!nullToAbsent || orderNumber != null) {
+      map['order_number'] = Variable<String>(orderNumber);
     }
     return map;
   }
@@ -4688,7 +5904,11 @@ class ReorderRequestRecord extends DataClass
       id: Value(id),
       itemId: Value(itemId),
       requestedQuantity: Value(requestedQuantity),
+      receivedQuantity: Value(receivedQuantity),
       unitOfMeasureId: Value(unitOfMeasureId),
+      supplierId: supplierId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(supplierId),
       supplier: supplier == null && nullToAbsent
           ? const Value.absent()
           : Value(supplier),
@@ -4703,9 +5923,37 @@ class ReorderRequestRecord extends DataClass
       receivedAt: receivedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(receivedAt),
+      cancelledAt: cancelledAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(cancelledAt),
       createdByUserId: createdByUserId == null && nullToAbsent
           ? const Value.absent()
           : Value(createdByUserId),
+      orderedByUserId: orderedByUserId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(orderedByUserId),
+      receivedByUserId: receivedByUserId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(receivedByUserId),
+      destinationLocationId: destinationLocationId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(destinationLocationId),
+      purchaseUnitOfMeasureId: purchaseUnitOfMeasureId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(purchaseUnitOfMeasureId),
+      purchaseQuantity: purchaseQuantity == null && nullToAbsent
+          ? const Value.absent()
+          : Value(purchaseQuantity),
+      purchaseToStockConversionFactor:
+          purchaseToStockConversionFactor == null && nullToAbsent
+          ? const Value.absent()
+          : Value(purchaseToStockConversionFactor),
+      expectedCost: expectedCost == null && nullToAbsent
+          ? const Value.absent()
+          : Value(expectedCost),
+      orderNumber: orderNumber == null && nullToAbsent
+          ? const Value.absent()
+          : Value(orderNumber),
     );
   }
 
@@ -4718,14 +5966,31 @@ class ReorderRequestRecord extends DataClass
       id: serializer.fromJson<String>(json['id']),
       itemId: serializer.fromJson<String>(json['itemId']),
       requestedQuantity: serializer.fromJson<double>(json['requestedQuantity']),
+      receivedQuantity: serializer.fromJson<double>(json['receivedQuantity']),
       unitOfMeasureId: serializer.fromJson<String>(json['unitOfMeasureId']),
+      supplierId: serializer.fromJson<String?>(json['supplierId']),
       supplier: serializer.fromJson<String?>(json['supplier']),
       status: serializer.fromJson<String>(json['status']),
       notes: serializer.fromJson<String?>(json['notes']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       orderedAt: serializer.fromJson<DateTime?>(json['orderedAt']),
       receivedAt: serializer.fromJson<DateTime?>(json['receivedAt']),
+      cancelledAt: serializer.fromJson<DateTime?>(json['cancelledAt']),
       createdByUserId: serializer.fromJson<String?>(json['createdByUserId']),
+      orderedByUserId: serializer.fromJson<String?>(json['orderedByUserId']),
+      receivedByUserId: serializer.fromJson<String?>(json['receivedByUserId']),
+      destinationLocationId: serializer.fromJson<String?>(
+        json['destinationLocationId'],
+      ),
+      purchaseUnitOfMeasureId: serializer.fromJson<String?>(
+        json['purchaseUnitOfMeasureId'],
+      ),
+      purchaseQuantity: serializer.fromJson<double?>(json['purchaseQuantity']),
+      purchaseToStockConversionFactor: serializer.fromJson<double?>(
+        json['purchaseToStockConversionFactor'],
+      ),
+      expectedCost: serializer.fromJson<double?>(json['expectedCost']),
+      orderNumber: serializer.fromJson<String?>(json['orderNumber']),
     );
   }
   @override
@@ -4735,14 +6000,31 @@ class ReorderRequestRecord extends DataClass
       'id': serializer.toJson<String>(id),
       'itemId': serializer.toJson<String>(itemId),
       'requestedQuantity': serializer.toJson<double>(requestedQuantity),
+      'receivedQuantity': serializer.toJson<double>(receivedQuantity),
       'unitOfMeasureId': serializer.toJson<String>(unitOfMeasureId),
+      'supplierId': serializer.toJson<String?>(supplierId),
       'supplier': serializer.toJson<String?>(supplier),
       'status': serializer.toJson<String>(status),
       'notes': serializer.toJson<String?>(notes),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'orderedAt': serializer.toJson<DateTime?>(orderedAt),
       'receivedAt': serializer.toJson<DateTime?>(receivedAt),
+      'cancelledAt': serializer.toJson<DateTime?>(cancelledAt),
       'createdByUserId': serializer.toJson<String?>(createdByUserId),
+      'orderedByUserId': serializer.toJson<String?>(orderedByUserId),
+      'receivedByUserId': serializer.toJson<String?>(receivedByUserId),
+      'destinationLocationId': serializer.toJson<String?>(
+        destinationLocationId,
+      ),
+      'purchaseUnitOfMeasureId': serializer.toJson<String?>(
+        purchaseUnitOfMeasureId,
+      ),
+      'purchaseQuantity': serializer.toJson<double?>(purchaseQuantity),
+      'purchaseToStockConversionFactor': serializer.toJson<double?>(
+        purchaseToStockConversionFactor,
+      ),
+      'expectedCost': serializer.toJson<double?>(expectedCost),
+      'orderNumber': serializer.toJson<String?>(orderNumber),
     };
   }
 
@@ -4750,28 +6032,62 @@ class ReorderRequestRecord extends DataClass
     String? id,
     String? itemId,
     double? requestedQuantity,
+    double? receivedQuantity,
     String? unitOfMeasureId,
+    Value<String?> supplierId = const Value.absent(),
     Value<String?> supplier = const Value.absent(),
     String? status,
     Value<String?> notes = const Value.absent(),
     DateTime? createdAt,
     Value<DateTime?> orderedAt = const Value.absent(),
     Value<DateTime?> receivedAt = const Value.absent(),
+    Value<DateTime?> cancelledAt = const Value.absent(),
     Value<String?> createdByUserId = const Value.absent(),
+    Value<String?> orderedByUserId = const Value.absent(),
+    Value<String?> receivedByUserId = const Value.absent(),
+    Value<String?> destinationLocationId = const Value.absent(),
+    Value<String?> purchaseUnitOfMeasureId = const Value.absent(),
+    Value<double?> purchaseQuantity = const Value.absent(),
+    Value<double?> purchaseToStockConversionFactor = const Value.absent(),
+    Value<double?> expectedCost = const Value.absent(),
+    Value<String?> orderNumber = const Value.absent(),
   }) => ReorderRequestRecord(
     id: id ?? this.id,
     itemId: itemId ?? this.itemId,
     requestedQuantity: requestedQuantity ?? this.requestedQuantity,
+    receivedQuantity: receivedQuantity ?? this.receivedQuantity,
     unitOfMeasureId: unitOfMeasureId ?? this.unitOfMeasureId,
+    supplierId: supplierId.present ? supplierId.value : this.supplierId,
     supplier: supplier.present ? supplier.value : this.supplier,
     status: status ?? this.status,
     notes: notes.present ? notes.value : this.notes,
     createdAt: createdAt ?? this.createdAt,
     orderedAt: orderedAt.present ? orderedAt.value : this.orderedAt,
     receivedAt: receivedAt.present ? receivedAt.value : this.receivedAt,
+    cancelledAt: cancelledAt.present ? cancelledAt.value : this.cancelledAt,
     createdByUserId: createdByUserId.present
         ? createdByUserId.value
         : this.createdByUserId,
+    orderedByUserId: orderedByUserId.present
+        ? orderedByUserId.value
+        : this.orderedByUserId,
+    receivedByUserId: receivedByUserId.present
+        ? receivedByUserId.value
+        : this.receivedByUserId,
+    destinationLocationId: destinationLocationId.present
+        ? destinationLocationId.value
+        : this.destinationLocationId,
+    purchaseUnitOfMeasureId: purchaseUnitOfMeasureId.present
+        ? purchaseUnitOfMeasureId.value
+        : this.purchaseUnitOfMeasureId,
+    purchaseQuantity: purchaseQuantity.present
+        ? purchaseQuantity.value
+        : this.purchaseQuantity,
+    purchaseToStockConversionFactor: purchaseToStockConversionFactor.present
+        ? purchaseToStockConversionFactor.value
+        : this.purchaseToStockConversionFactor,
+    expectedCost: expectedCost.present ? expectedCost.value : this.expectedCost,
+    orderNumber: orderNumber.present ? orderNumber.value : this.orderNumber,
   );
   ReorderRequestRecord copyWithCompanion(ReorderRequestsCompanion data) {
     return ReorderRequestRecord(
@@ -4780,9 +6096,15 @@ class ReorderRequestRecord extends DataClass
       requestedQuantity: data.requestedQuantity.present
           ? data.requestedQuantity.value
           : this.requestedQuantity,
+      receivedQuantity: data.receivedQuantity.present
+          ? data.receivedQuantity.value
+          : this.receivedQuantity,
       unitOfMeasureId: data.unitOfMeasureId.present
           ? data.unitOfMeasureId.value
           : this.unitOfMeasureId,
+      supplierId: data.supplierId.present
+          ? data.supplierId.value
+          : this.supplierId,
       supplier: data.supplier.present ? data.supplier.value : this.supplier,
       status: data.status.present ? data.status.value : this.status,
       notes: data.notes.present ? data.notes.value : this.notes,
@@ -4791,9 +6113,37 @@ class ReorderRequestRecord extends DataClass
       receivedAt: data.receivedAt.present
           ? data.receivedAt.value
           : this.receivedAt,
+      cancelledAt: data.cancelledAt.present
+          ? data.cancelledAt.value
+          : this.cancelledAt,
       createdByUserId: data.createdByUserId.present
           ? data.createdByUserId.value
           : this.createdByUserId,
+      orderedByUserId: data.orderedByUserId.present
+          ? data.orderedByUserId.value
+          : this.orderedByUserId,
+      receivedByUserId: data.receivedByUserId.present
+          ? data.receivedByUserId.value
+          : this.receivedByUserId,
+      destinationLocationId: data.destinationLocationId.present
+          ? data.destinationLocationId.value
+          : this.destinationLocationId,
+      purchaseUnitOfMeasureId: data.purchaseUnitOfMeasureId.present
+          ? data.purchaseUnitOfMeasureId.value
+          : this.purchaseUnitOfMeasureId,
+      purchaseQuantity: data.purchaseQuantity.present
+          ? data.purchaseQuantity.value
+          : this.purchaseQuantity,
+      purchaseToStockConversionFactor:
+          data.purchaseToStockConversionFactor.present
+          ? data.purchaseToStockConversionFactor.value
+          : this.purchaseToStockConversionFactor,
+      expectedCost: data.expectedCost.present
+          ? data.expectedCost.value
+          : this.expectedCost,
+      orderNumber: data.orderNumber.present
+          ? data.orderNumber.value
+          : this.orderNumber,
     );
   }
 
@@ -4803,32 +6153,56 @@ class ReorderRequestRecord extends DataClass
           ..write('id: $id, ')
           ..write('itemId: $itemId, ')
           ..write('requestedQuantity: $requestedQuantity, ')
+          ..write('receivedQuantity: $receivedQuantity, ')
           ..write('unitOfMeasureId: $unitOfMeasureId, ')
+          ..write('supplierId: $supplierId, ')
           ..write('supplier: $supplier, ')
           ..write('status: $status, ')
           ..write('notes: $notes, ')
           ..write('createdAt: $createdAt, ')
           ..write('orderedAt: $orderedAt, ')
           ..write('receivedAt: $receivedAt, ')
-          ..write('createdByUserId: $createdByUserId')
+          ..write('cancelledAt: $cancelledAt, ')
+          ..write('createdByUserId: $createdByUserId, ')
+          ..write('orderedByUserId: $orderedByUserId, ')
+          ..write('receivedByUserId: $receivedByUserId, ')
+          ..write('destinationLocationId: $destinationLocationId, ')
+          ..write('purchaseUnitOfMeasureId: $purchaseUnitOfMeasureId, ')
+          ..write('purchaseQuantity: $purchaseQuantity, ')
+          ..write(
+            'purchaseToStockConversionFactor: $purchaseToStockConversionFactor, ',
+          )
+          ..write('expectedCost: $expectedCost, ')
+          ..write('orderNumber: $orderNumber')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     itemId,
     requestedQuantity,
+    receivedQuantity,
     unitOfMeasureId,
+    supplierId,
     supplier,
     status,
     notes,
     createdAt,
     orderedAt,
     receivedAt,
+    cancelledAt,
     createdByUserId,
-  );
+    orderedByUserId,
+    receivedByUserId,
+    destinationLocationId,
+    purchaseUnitOfMeasureId,
+    purchaseQuantity,
+    purchaseToStockConversionFactor,
+    expectedCost,
+    orderNumber,
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -4836,55 +6210,100 @@ class ReorderRequestRecord extends DataClass
           other.id == this.id &&
           other.itemId == this.itemId &&
           other.requestedQuantity == this.requestedQuantity &&
+          other.receivedQuantity == this.receivedQuantity &&
           other.unitOfMeasureId == this.unitOfMeasureId &&
+          other.supplierId == this.supplierId &&
           other.supplier == this.supplier &&
           other.status == this.status &&
           other.notes == this.notes &&
           other.createdAt == this.createdAt &&
           other.orderedAt == this.orderedAt &&
           other.receivedAt == this.receivedAt &&
-          other.createdByUserId == this.createdByUserId);
+          other.cancelledAt == this.cancelledAt &&
+          other.createdByUserId == this.createdByUserId &&
+          other.orderedByUserId == this.orderedByUserId &&
+          other.receivedByUserId == this.receivedByUserId &&
+          other.destinationLocationId == this.destinationLocationId &&
+          other.purchaseUnitOfMeasureId == this.purchaseUnitOfMeasureId &&
+          other.purchaseQuantity == this.purchaseQuantity &&
+          other.purchaseToStockConversionFactor ==
+              this.purchaseToStockConversionFactor &&
+          other.expectedCost == this.expectedCost &&
+          other.orderNumber == this.orderNumber);
 }
 
 class ReorderRequestsCompanion extends UpdateCompanion<ReorderRequestRecord> {
   final Value<String> id;
   final Value<String> itemId;
   final Value<double> requestedQuantity;
+  final Value<double> receivedQuantity;
   final Value<String> unitOfMeasureId;
+  final Value<String?> supplierId;
   final Value<String?> supplier;
   final Value<String> status;
   final Value<String?> notes;
   final Value<DateTime> createdAt;
   final Value<DateTime?> orderedAt;
   final Value<DateTime?> receivedAt;
+  final Value<DateTime?> cancelledAt;
   final Value<String?> createdByUserId;
+  final Value<String?> orderedByUserId;
+  final Value<String?> receivedByUserId;
+  final Value<String?> destinationLocationId;
+  final Value<String?> purchaseUnitOfMeasureId;
+  final Value<double?> purchaseQuantity;
+  final Value<double?> purchaseToStockConversionFactor;
+  final Value<double?> expectedCost;
+  final Value<String?> orderNumber;
   final Value<int> rowid;
   const ReorderRequestsCompanion({
     this.id = const Value.absent(),
     this.itemId = const Value.absent(),
     this.requestedQuantity = const Value.absent(),
+    this.receivedQuantity = const Value.absent(),
     this.unitOfMeasureId = const Value.absent(),
+    this.supplierId = const Value.absent(),
     this.supplier = const Value.absent(),
     this.status = const Value.absent(),
     this.notes = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.orderedAt = const Value.absent(),
     this.receivedAt = const Value.absent(),
+    this.cancelledAt = const Value.absent(),
     this.createdByUserId = const Value.absent(),
+    this.orderedByUserId = const Value.absent(),
+    this.receivedByUserId = const Value.absent(),
+    this.destinationLocationId = const Value.absent(),
+    this.purchaseUnitOfMeasureId = const Value.absent(),
+    this.purchaseQuantity = const Value.absent(),
+    this.purchaseToStockConversionFactor = const Value.absent(),
+    this.expectedCost = const Value.absent(),
+    this.orderNumber = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ReorderRequestsCompanion.insert({
     required String id,
     required String itemId,
     required double requestedQuantity,
+    this.receivedQuantity = const Value.absent(),
     required String unitOfMeasureId,
+    this.supplierId = const Value.absent(),
     this.supplier = const Value.absent(),
     required String status,
     this.notes = const Value.absent(),
     required DateTime createdAt,
     this.orderedAt = const Value.absent(),
     this.receivedAt = const Value.absent(),
+    this.cancelledAt = const Value.absent(),
     this.createdByUserId = const Value.absent(),
+    this.orderedByUserId = const Value.absent(),
+    this.receivedByUserId = const Value.absent(),
+    this.destinationLocationId = const Value.absent(),
+    this.purchaseUnitOfMeasureId = const Value.absent(),
+    this.purchaseQuantity = const Value.absent(),
+    this.purchaseToStockConversionFactor = const Value.absent(),
+    this.expectedCost = const Value.absent(),
+    this.orderNumber = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        itemId = Value(itemId),
@@ -4896,28 +6315,53 @@ class ReorderRequestsCompanion extends UpdateCompanion<ReorderRequestRecord> {
     Expression<String>? id,
     Expression<String>? itemId,
     Expression<double>? requestedQuantity,
+    Expression<double>? receivedQuantity,
     Expression<String>? unitOfMeasureId,
+    Expression<String>? supplierId,
     Expression<String>? supplier,
     Expression<String>? status,
     Expression<String>? notes,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? orderedAt,
     Expression<DateTime>? receivedAt,
+    Expression<DateTime>? cancelledAt,
     Expression<String>? createdByUserId,
+    Expression<String>? orderedByUserId,
+    Expression<String>? receivedByUserId,
+    Expression<String>? destinationLocationId,
+    Expression<String>? purchaseUnitOfMeasureId,
+    Expression<double>? purchaseQuantity,
+    Expression<double>? purchaseToStockConversionFactor,
+    Expression<double>? expectedCost,
+    Expression<String>? orderNumber,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (itemId != null) 'item_id': itemId,
       if (requestedQuantity != null) 'requested_quantity': requestedQuantity,
+      if (receivedQuantity != null) 'received_quantity': receivedQuantity,
       if (unitOfMeasureId != null) 'unit_of_measure_id': unitOfMeasureId,
+      if (supplierId != null) 'supplier_id': supplierId,
       if (supplier != null) 'supplier': supplier,
       if (status != null) 'status': status,
       if (notes != null) 'notes': notes,
       if (createdAt != null) 'created_at': createdAt,
       if (orderedAt != null) 'ordered_at': orderedAt,
       if (receivedAt != null) 'received_at': receivedAt,
+      if (cancelledAt != null) 'cancelled_at': cancelledAt,
       if (createdByUserId != null) 'created_by_user_id': createdByUserId,
+      if (orderedByUserId != null) 'ordered_by_user_id': orderedByUserId,
+      if (receivedByUserId != null) 'received_by_user_id': receivedByUserId,
+      if (destinationLocationId != null)
+        'destination_location_id': destinationLocationId,
+      if (purchaseUnitOfMeasureId != null)
+        'purchase_unit_of_measure_id': purchaseUnitOfMeasureId,
+      if (purchaseQuantity != null) 'purchase_quantity': purchaseQuantity,
+      if (purchaseToStockConversionFactor != null)
+        'purchase_to_stock_conversion_factor': purchaseToStockConversionFactor,
+      if (expectedCost != null) 'expected_cost': expectedCost,
+      if (orderNumber != null) 'order_number': orderNumber,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -4926,28 +6370,54 @@ class ReorderRequestsCompanion extends UpdateCompanion<ReorderRequestRecord> {
     Value<String>? id,
     Value<String>? itemId,
     Value<double>? requestedQuantity,
+    Value<double>? receivedQuantity,
     Value<String>? unitOfMeasureId,
+    Value<String?>? supplierId,
     Value<String?>? supplier,
     Value<String>? status,
     Value<String?>? notes,
     Value<DateTime>? createdAt,
     Value<DateTime?>? orderedAt,
     Value<DateTime?>? receivedAt,
+    Value<DateTime?>? cancelledAt,
     Value<String?>? createdByUserId,
+    Value<String?>? orderedByUserId,
+    Value<String?>? receivedByUserId,
+    Value<String?>? destinationLocationId,
+    Value<String?>? purchaseUnitOfMeasureId,
+    Value<double?>? purchaseQuantity,
+    Value<double?>? purchaseToStockConversionFactor,
+    Value<double?>? expectedCost,
+    Value<String?>? orderNumber,
     Value<int>? rowid,
   }) {
     return ReorderRequestsCompanion(
       id: id ?? this.id,
       itemId: itemId ?? this.itemId,
       requestedQuantity: requestedQuantity ?? this.requestedQuantity,
+      receivedQuantity: receivedQuantity ?? this.receivedQuantity,
       unitOfMeasureId: unitOfMeasureId ?? this.unitOfMeasureId,
+      supplierId: supplierId ?? this.supplierId,
       supplier: supplier ?? this.supplier,
       status: status ?? this.status,
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
       orderedAt: orderedAt ?? this.orderedAt,
       receivedAt: receivedAt ?? this.receivedAt,
+      cancelledAt: cancelledAt ?? this.cancelledAt,
       createdByUserId: createdByUserId ?? this.createdByUserId,
+      orderedByUserId: orderedByUserId ?? this.orderedByUserId,
+      receivedByUserId: receivedByUserId ?? this.receivedByUserId,
+      destinationLocationId:
+          destinationLocationId ?? this.destinationLocationId,
+      purchaseUnitOfMeasureId:
+          purchaseUnitOfMeasureId ?? this.purchaseUnitOfMeasureId,
+      purchaseQuantity: purchaseQuantity ?? this.purchaseQuantity,
+      purchaseToStockConversionFactor:
+          purchaseToStockConversionFactor ??
+          this.purchaseToStockConversionFactor,
+      expectedCost: expectedCost ?? this.expectedCost,
+      orderNumber: orderNumber ?? this.orderNumber,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -4964,8 +6434,14 @@ class ReorderRequestsCompanion extends UpdateCompanion<ReorderRequestRecord> {
     if (requestedQuantity.present) {
       map['requested_quantity'] = Variable<double>(requestedQuantity.value);
     }
+    if (receivedQuantity.present) {
+      map['received_quantity'] = Variable<double>(receivedQuantity.value);
+    }
     if (unitOfMeasureId.present) {
       map['unit_of_measure_id'] = Variable<String>(unitOfMeasureId.value);
+    }
+    if (supplierId.present) {
+      map['supplier_id'] = Variable<String>(supplierId.value);
     }
     if (supplier.present) {
       map['supplier'] = Variable<String>(supplier.value);
@@ -4985,8 +6461,41 @@ class ReorderRequestsCompanion extends UpdateCompanion<ReorderRequestRecord> {
     if (receivedAt.present) {
       map['received_at'] = Variable<DateTime>(receivedAt.value);
     }
+    if (cancelledAt.present) {
+      map['cancelled_at'] = Variable<DateTime>(cancelledAt.value);
+    }
     if (createdByUserId.present) {
       map['created_by_user_id'] = Variable<String>(createdByUserId.value);
+    }
+    if (orderedByUserId.present) {
+      map['ordered_by_user_id'] = Variable<String>(orderedByUserId.value);
+    }
+    if (receivedByUserId.present) {
+      map['received_by_user_id'] = Variable<String>(receivedByUserId.value);
+    }
+    if (destinationLocationId.present) {
+      map['destination_location_id'] = Variable<String>(
+        destinationLocationId.value,
+      );
+    }
+    if (purchaseUnitOfMeasureId.present) {
+      map['purchase_unit_of_measure_id'] = Variable<String>(
+        purchaseUnitOfMeasureId.value,
+      );
+    }
+    if (purchaseQuantity.present) {
+      map['purchase_quantity'] = Variable<double>(purchaseQuantity.value);
+    }
+    if (purchaseToStockConversionFactor.present) {
+      map['purchase_to_stock_conversion_factor'] = Variable<double>(
+        purchaseToStockConversionFactor.value,
+      );
+    }
+    if (expectedCost.present) {
+      map['expected_cost'] = Variable<double>(expectedCost.value);
+    }
+    if (orderNumber.present) {
+      map['order_number'] = Variable<String>(orderNumber.value);
     }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
@@ -5000,14 +6509,27 @@ class ReorderRequestsCompanion extends UpdateCompanion<ReorderRequestRecord> {
           ..write('id: $id, ')
           ..write('itemId: $itemId, ')
           ..write('requestedQuantity: $requestedQuantity, ')
+          ..write('receivedQuantity: $receivedQuantity, ')
           ..write('unitOfMeasureId: $unitOfMeasureId, ')
+          ..write('supplierId: $supplierId, ')
           ..write('supplier: $supplier, ')
           ..write('status: $status, ')
           ..write('notes: $notes, ')
           ..write('createdAt: $createdAt, ')
           ..write('orderedAt: $orderedAt, ')
           ..write('receivedAt: $receivedAt, ')
+          ..write('cancelledAt: $cancelledAt, ')
           ..write('createdByUserId: $createdByUserId, ')
+          ..write('orderedByUserId: $orderedByUserId, ')
+          ..write('receivedByUserId: $receivedByUserId, ')
+          ..write('destinationLocationId: $destinationLocationId, ')
+          ..write('purchaseUnitOfMeasureId: $purchaseUnitOfMeasureId, ')
+          ..write('purchaseQuantity: $purchaseQuantity, ')
+          ..write(
+            'purchaseToStockConversionFactor: $purchaseToStockConversionFactor, ',
+          )
+          ..write('expectedCost: $expectedCost, ')
+          ..write('orderNumber: $orderNumber, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -10424,6 +11946,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $InventoryTransactionsTable(this);
   late final $ItemLocationBalancesTable itemLocationBalances =
       $ItemLocationBalancesTable(this);
+  late final $SuppliersTable suppliers = $SuppliersTable(this);
   late final $ReorderRequestsTable reorderRequests = $ReorderRequestsTable(
     this,
   );
@@ -10456,6 +11979,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     appUsers,
     inventoryTransactions,
     itemLocationBalances,
+    suppliers,
     reorderRequests,
     checkoutRecords,
     assignmentTargets,
@@ -10485,6 +12009,7 @@ typedef $$ItemsTableCreateCompanionBuilder =
       Value<String?> purchaseUnitLabel,
       Value<String?> barcode,
       Value<String?> sku,
+      Value<String?> supplierId,
       Value<String?> supplier,
       Value<double?> unitCost,
       Value<String?> photoPath,
@@ -10510,6 +12035,7 @@ typedef $$ItemsTableUpdateCompanionBuilder =
       Value<String?> purchaseUnitLabel,
       Value<String?> barcode,
       Value<String?> sku,
+      Value<String?> supplierId,
       Value<String?> supplier,
       Value<double?> unitCost,
       Value<String?> photoPath,
@@ -10596,6 +12122,11 @@ class $$ItemsTableFilterComposer extends Composer<_$AppDatabase, $ItemsTable> {
 
   ColumnFilters<String> get sku => $composableBuilder(
     column: $table.sku,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get supplierId => $composableBuilder(
+    column: $table.supplierId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -10715,6 +12246,11 @@ class $$ItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get supplierId => $composableBuilder(
+    column: $table.supplierId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get supplier => $composableBuilder(
     column: $table.supplier,
     builder: (column) => ColumnOrderings(column),
@@ -10819,6 +12355,11 @@ class $$ItemsTableAnnotationComposer
   GeneratedColumn<String> get sku =>
       $composableBuilder(column: $table.sku, builder: (column) => column);
 
+  GeneratedColumn<String> get supplierId => $composableBuilder(
+    column: $table.supplierId,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get supplier =>
       $composableBuilder(column: $table.supplier, builder: (column) => column);
 
@@ -10886,6 +12427,7 @@ class $$ItemsTableTableManager
                 Value<String?> purchaseUnitLabel = const Value.absent(),
                 Value<String?> barcode = const Value.absent(),
                 Value<String?> sku = const Value.absent(),
+                Value<String?> supplierId = const Value.absent(),
                 Value<String?> supplier = const Value.absent(),
                 Value<double?> unitCost = const Value.absent(),
                 Value<String?> photoPath = const Value.absent(),
@@ -10910,6 +12452,7 @@ class $$ItemsTableTableManager
                 purchaseUnitLabel: purchaseUnitLabel,
                 barcode: barcode,
                 sku: sku,
+                supplierId: supplierId,
                 supplier: supplier,
                 unitCost: unitCost,
                 photoPath: photoPath,
@@ -10936,6 +12479,7 @@ class $$ItemsTableTableManager
                 Value<String?> purchaseUnitLabel = const Value.absent(),
                 Value<String?> barcode = const Value.absent(),
                 Value<String?> sku = const Value.absent(),
+                Value<String?> supplierId = const Value.absent(),
                 Value<String?> supplier = const Value.absent(),
                 Value<double?> unitCost = const Value.absent(),
                 Value<String?> photoPath = const Value.absent(),
@@ -10960,6 +12504,7 @@ class $$ItemsTableTableManager
                 purchaseUnitLabel: purchaseUnitLabel,
                 barcode: barcode,
                 sku: sku,
+                supplierId: supplierId,
                 supplier: supplier,
                 unitCost: unitCost,
                 photoPath: photoPath,
@@ -12575,19 +14120,409 @@ typedef $$ItemLocationBalancesTableProcessedTableManager =
       ItemLocationBalanceRecord,
       PrefetchHooks Function()
     >;
+typedef $$SuppliersTableCreateCompanionBuilder =
+    SuppliersCompanion Function({
+      required String id,
+      required String name,
+      Value<String?> contactName,
+      Value<String?> email,
+      Value<String?> phone,
+      Value<String?> website,
+      Value<String?> address,
+      Value<String?> accountNumber,
+      Value<String?> notes,
+      Value<int?> defaultLeadTimeDays,
+      Value<double?> minimumOrderAmount,
+      required bool isActive,
+      required DateTime createdAt,
+      required DateTime updatedAt,
+      Value<int> rowid,
+    });
+typedef $$SuppliersTableUpdateCompanionBuilder =
+    SuppliersCompanion Function({
+      Value<String> id,
+      Value<String> name,
+      Value<String?> contactName,
+      Value<String?> email,
+      Value<String?> phone,
+      Value<String?> website,
+      Value<String?> address,
+      Value<String?> accountNumber,
+      Value<String?> notes,
+      Value<int?> defaultLeadTimeDays,
+      Value<double?> minimumOrderAmount,
+      Value<bool> isActive,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+
+class $$SuppliersTableFilterComposer
+    extends Composer<_$AppDatabase, $SuppliersTable> {
+  $$SuppliersTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get contactName => $composableBuilder(
+    column: $table.contactName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get email => $composableBuilder(
+    column: $table.email,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get phone => $composableBuilder(
+    column: $table.phone,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get website => $composableBuilder(
+    column: $table.website,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get address => $composableBuilder(
+    column: $table.address,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get accountNumber => $composableBuilder(
+    column: $table.accountNumber,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get defaultLeadTimeDays => $composableBuilder(
+    column: $table.defaultLeadTimeDays,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get minimumOrderAmount => $composableBuilder(
+    column: $table.minimumOrderAmount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isActive => $composableBuilder(
+    column: $table.isActive,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SuppliersTableOrderingComposer
+    extends Composer<_$AppDatabase, $SuppliersTable> {
+  $$SuppliersTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get contactName => $composableBuilder(
+    column: $table.contactName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get email => $composableBuilder(
+    column: $table.email,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get phone => $composableBuilder(
+    column: $table.phone,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get website => $composableBuilder(
+    column: $table.website,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get address => $composableBuilder(
+    column: $table.address,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get accountNumber => $composableBuilder(
+    column: $table.accountNumber,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get defaultLeadTimeDays => $composableBuilder(
+    column: $table.defaultLeadTimeDays,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get minimumOrderAmount => $composableBuilder(
+    column: $table.minimumOrderAmount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isActive => $composableBuilder(
+    column: $table.isActive,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SuppliersTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SuppliersTable> {
+  $$SuppliersTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get contactName => $composableBuilder(
+    column: $table.contactName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get email =>
+      $composableBuilder(column: $table.email, builder: (column) => column);
+
+  GeneratedColumn<String> get phone =>
+      $composableBuilder(column: $table.phone, builder: (column) => column);
+
+  GeneratedColumn<String> get website =>
+      $composableBuilder(column: $table.website, builder: (column) => column);
+
+  GeneratedColumn<String> get address =>
+      $composableBuilder(column: $table.address, builder: (column) => column);
+
+  GeneratedColumn<String> get accountNumber => $composableBuilder(
+    column: $table.accountNumber,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<int> get defaultLeadTimeDays => $composableBuilder(
+    column: $table.defaultLeadTimeDays,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get minimumOrderAmount => $composableBuilder(
+    column: $table.minimumOrderAmount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isActive =>
+      $composableBuilder(column: $table.isActive, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$SuppliersTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SuppliersTable,
+          SupplierRecord,
+          $$SuppliersTableFilterComposer,
+          $$SuppliersTableOrderingComposer,
+          $$SuppliersTableAnnotationComposer,
+          $$SuppliersTableCreateCompanionBuilder,
+          $$SuppliersTableUpdateCompanionBuilder,
+          (
+            SupplierRecord,
+            BaseReferences<_$AppDatabase, $SuppliersTable, SupplierRecord>,
+          ),
+          SupplierRecord,
+          PrefetchHooks Function()
+        > {
+  $$SuppliersTableTableManager(_$AppDatabase db, $SuppliersTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SuppliersTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SuppliersTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SuppliersTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String?> contactName = const Value.absent(),
+                Value<String?> email = const Value.absent(),
+                Value<String?> phone = const Value.absent(),
+                Value<String?> website = const Value.absent(),
+                Value<String?> address = const Value.absent(),
+                Value<String?> accountNumber = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<int?> defaultLeadTimeDays = const Value.absent(),
+                Value<double?> minimumOrderAmount = const Value.absent(),
+                Value<bool> isActive = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SuppliersCompanion(
+                id: id,
+                name: name,
+                contactName: contactName,
+                email: email,
+                phone: phone,
+                website: website,
+                address: address,
+                accountNumber: accountNumber,
+                notes: notes,
+                defaultLeadTimeDays: defaultLeadTimeDays,
+                minimumOrderAmount: minimumOrderAmount,
+                isActive: isActive,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String name,
+                Value<String?> contactName = const Value.absent(),
+                Value<String?> email = const Value.absent(),
+                Value<String?> phone = const Value.absent(),
+                Value<String?> website = const Value.absent(),
+                Value<String?> address = const Value.absent(),
+                Value<String?> accountNumber = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<int?> defaultLeadTimeDays = const Value.absent(),
+                Value<double?> minimumOrderAmount = const Value.absent(),
+                required bool isActive,
+                required DateTime createdAt,
+                required DateTime updatedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => SuppliersCompanion.insert(
+                id: id,
+                name: name,
+                contactName: contactName,
+                email: email,
+                phone: phone,
+                website: website,
+                address: address,
+                accountNumber: accountNumber,
+                notes: notes,
+                defaultLeadTimeDays: defaultLeadTimeDays,
+                minimumOrderAmount: minimumOrderAmount,
+                isActive: isActive,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SuppliersTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SuppliersTable,
+      SupplierRecord,
+      $$SuppliersTableFilterComposer,
+      $$SuppliersTableOrderingComposer,
+      $$SuppliersTableAnnotationComposer,
+      $$SuppliersTableCreateCompanionBuilder,
+      $$SuppliersTableUpdateCompanionBuilder,
+      (
+        SupplierRecord,
+        BaseReferences<_$AppDatabase, $SuppliersTable, SupplierRecord>,
+      ),
+      SupplierRecord,
+      PrefetchHooks Function()
+    >;
 typedef $$ReorderRequestsTableCreateCompanionBuilder =
     ReorderRequestsCompanion Function({
       required String id,
       required String itemId,
       required double requestedQuantity,
+      Value<double> receivedQuantity,
       required String unitOfMeasureId,
+      Value<String?> supplierId,
       Value<String?> supplier,
       required String status,
       Value<String?> notes,
       required DateTime createdAt,
       Value<DateTime?> orderedAt,
       Value<DateTime?> receivedAt,
+      Value<DateTime?> cancelledAt,
       Value<String?> createdByUserId,
+      Value<String?> orderedByUserId,
+      Value<String?> receivedByUserId,
+      Value<String?> destinationLocationId,
+      Value<String?> purchaseUnitOfMeasureId,
+      Value<double?> purchaseQuantity,
+      Value<double?> purchaseToStockConversionFactor,
+      Value<double?> expectedCost,
+      Value<String?> orderNumber,
       Value<int> rowid,
     });
 typedef $$ReorderRequestsTableUpdateCompanionBuilder =
@@ -12595,14 +14530,25 @@ typedef $$ReorderRequestsTableUpdateCompanionBuilder =
       Value<String> id,
       Value<String> itemId,
       Value<double> requestedQuantity,
+      Value<double> receivedQuantity,
       Value<String> unitOfMeasureId,
+      Value<String?> supplierId,
       Value<String?> supplier,
       Value<String> status,
       Value<String?> notes,
       Value<DateTime> createdAt,
       Value<DateTime?> orderedAt,
       Value<DateTime?> receivedAt,
+      Value<DateTime?> cancelledAt,
       Value<String?> createdByUserId,
+      Value<String?> orderedByUserId,
+      Value<String?> receivedByUserId,
+      Value<String?> destinationLocationId,
+      Value<String?> purchaseUnitOfMeasureId,
+      Value<double?> purchaseQuantity,
+      Value<double?> purchaseToStockConversionFactor,
+      Value<double?> expectedCost,
+      Value<String?> orderNumber,
       Value<int> rowid,
     });
 
@@ -12630,8 +14576,18 @@ class $$ReorderRequestsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<double> get receivedQuantity => $composableBuilder(
+    column: $table.receivedQuantity,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get unitOfMeasureId => $composableBuilder(
     column: $table.unitOfMeasureId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get supplierId => $composableBuilder(
+    column: $table.supplierId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -12665,8 +14621,54 @@ class $$ReorderRequestsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<DateTime> get cancelledAt => $composableBuilder(
+    column: $table.cancelledAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get createdByUserId => $composableBuilder(
     column: $table.createdByUserId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get orderedByUserId => $composableBuilder(
+    column: $table.orderedByUserId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get receivedByUserId => $composableBuilder(
+    column: $table.receivedByUserId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get destinationLocationId => $composableBuilder(
+    column: $table.destinationLocationId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get purchaseUnitOfMeasureId => $composableBuilder(
+    column: $table.purchaseUnitOfMeasureId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get purchaseQuantity => $composableBuilder(
+    column: $table.purchaseQuantity,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get purchaseToStockConversionFactor =>
+      $composableBuilder(
+        column: $table.purchaseToStockConversionFactor,
+        builder: (column) => ColumnFilters(column),
+      );
+
+  ColumnFilters<double> get expectedCost => $composableBuilder(
+    column: $table.expectedCost,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get orderNumber => $composableBuilder(
+    column: $table.orderNumber,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -12695,8 +14697,18 @@ class $$ReorderRequestsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get receivedQuantity => $composableBuilder(
+    column: $table.receivedQuantity,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get unitOfMeasureId => $composableBuilder(
     column: $table.unitOfMeasureId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get supplierId => $composableBuilder(
+    column: $table.supplierId,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -12730,8 +14742,54 @@ class $$ReorderRequestsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get cancelledAt => $composableBuilder(
+    column: $table.cancelledAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get createdByUserId => $composableBuilder(
     column: $table.createdByUserId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get orderedByUserId => $composableBuilder(
+    column: $table.orderedByUserId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get receivedByUserId => $composableBuilder(
+    column: $table.receivedByUserId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get destinationLocationId => $composableBuilder(
+    column: $table.destinationLocationId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get purchaseUnitOfMeasureId => $composableBuilder(
+    column: $table.purchaseUnitOfMeasureId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get purchaseQuantity => $composableBuilder(
+    column: $table.purchaseQuantity,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get purchaseToStockConversionFactor =>
+      $composableBuilder(
+        column: $table.purchaseToStockConversionFactor,
+        builder: (column) => ColumnOrderings(column),
+      );
+
+  ColumnOrderings<double> get expectedCost => $composableBuilder(
+    column: $table.expectedCost,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get orderNumber => $composableBuilder(
+    column: $table.orderNumber,
     builder: (column) => ColumnOrderings(column),
   );
 }
@@ -12756,8 +14814,18 @@ class $$ReorderRequestsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<double> get receivedQuantity => $composableBuilder(
+    column: $table.receivedQuantity,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get unitOfMeasureId => $composableBuilder(
     column: $table.unitOfMeasureId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get supplierId => $composableBuilder(
+    column: $table.supplierId,
     builder: (column) => column,
   );
 
@@ -12781,8 +14849,54 @@ class $$ReorderRequestsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<DateTime> get cancelledAt => $composableBuilder(
+    column: $table.cancelledAt,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get createdByUserId => $composableBuilder(
     column: $table.createdByUserId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get orderedByUserId => $composableBuilder(
+    column: $table.orderedByUserId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get receivedByUserId => $composableBuilder(
+    column: $table.receivedByUserId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get destinationLocationId => $composableBuilder(
+    column: $table.destinationLocationId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get purchaseUnitOfMeasureId => $composableBuilder(
+    column: $table.purchaseUnitOfMeasureId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get purchaseQuantity => $composableBuilder(
+    column: $table.purchaseQuantity,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get purchaseToStockConversionFactor =>
+      $composableBuilder(
+        column: $table.purchaseToStockConversionFactor,
+        builder: (column) => column,
+      );
+
+  GeneratedColumn<double> get expectedCost => $composableBuilder(
+    column: $table.expectedCost,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get orderNumber => $composableBuilder(
+    column: $table.orderNumber,
     builder: (column) => column,
   );
 }
@@ -12827,27 +14941,51 @@ class $$ReorderRequestsTableTableManager
                 Value<String> id = const Value.absent(),
                 Value<String> itemId = const Value.absent(),
                 Value<double> requestedQuantity = const Value.absent(),
+                Value<double> receivedQuantity = const Value.absent(),
                 Value<String> unitOfMeasureId = const Value.absent(),
+                Value<String?> supplierId = const Value.absent(),
                 Value<String?> supplier = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime?> orderedAt = const Value.absent(),
                 Value<DateTime?> receivedAt = const Value.absent(),
+                Value<DateTime?> cancelledAt = const Value.absent(),
                 Value<String?> createdByUserId = const Value.absent(),
+                Value<String?> orderedByUserId = const Value.absent(),
+                Value<String?> receivedByUserId = const Value.absent(),
+                Value<String?> destinationLocationId = const Value.absent(),
+                Value<String?> purchaseUnitOfMeasureId = const Value.absent(),
+                Value<double?> purchaseQuantity = const Value.absent(),
+                Value<double?> purchaseToStockConversionFactor =
+                    const Value.absent(),
+                Value<double?> expectedCost = const Value.absent(),
+                Value<String?> orderNumber = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ReorderRequestsCompanion(
                 id: id,
                 itemId: itemId,
                 requestedQuantity: requestedQuantity,
+                receivedQuantity: receivedQuantity,
                 unitOfMeasureId: unitOfMeasureId,
+                supplierId: supplierId,
                 supplier: supplier,
                 status: status,
                 notes: notes,
                 createdAt: createdAt,
                 orderedAt: orderedAt,
                 receivedAt: receivedAt,
+                cancelledAt: cancelledAt,
                 createdByUserId: createdByUserId,
+                orderedByUserId: orderedByUserId,
+                receivedByUserId: receivedByUserId,
+                destinationLocationId: destinationLocationId,
+                purchaseUnitOfMeasureId: purchaseUnitOfMeasureId,
+                purchaseQuantity: purchaseQuantity,
+                purchaseToStockConversionFactor:
+                    purchaseToStockConversionFactor,
+                expectedCost: expectedCost,
+                orderNumber: orderNumber,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -12855,27 +14993,51 @@ class $$ReorderRequestsTableTableManager
                 required String id,
                 required String itemId,
                 required double requestedQuantity,
+                Value<double> receivedQuantity = const Value.absent(),
                 required String unitOfMeasureId,
+                Value<String?> supplierId = const Value.absent(),
                 Value<String?> supplier = const Value.absent(),
                 required String status,
                 Value<String?> notes = const Value.absent(),
                 required DateTime createdAt,
                 Value<DateTime?> orderedAt = const Value.absent(),
                 Value<DateTime?> receivedAt = const Value.absent(),
+                Value<DateTime?> cancelledAt = const Value.absent(),
                 Value<String?> createdByUserId = const Value.absent(),
+                Value<String?> orderedByUserId = const Value.absent(),
+                Value<String?> receivedByUserId = const Value.absent(),
+                Value<String?> destinationLocationId = const Value.absent(),
+                Value<String?> purchaseUnitOfMeasureId = const Value.absent(),
+                Value<double?> purchaseQuantity = const Value.absent(),
+                Value<double?> purchaseToStockConversionFactor =
+                    const Value.absent(),
+                Value<double?> expectedCost = const Value.absent(),
+                Value<String?> orderNumber = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ReorderRequestsCompanion.insert(
                 id: id,
                 itemId: itemId,
                 requestedQuantity: requestedQuantity,
+                receivedQuantity: receivedQuantity,
                 unitOfMeasureId: unitOfMeasureId,
+                supplierId: supplierId,
                 supplier: supplier,
                 status: status,
                 notes: notes,
                 createdAt: createdAt,
                 orderedAt: orderedAt,
                 receivedAt: receivedAt,
+                cancelledAt: cancelledAt,
                 createdByUserId: createdByUserId,
+                orderedByUserId: orderedByUserId,
+                receivedByUserId: receivedByUserId,
+                destinationLocationId: destinationLocationId,
+                purchaseUnitOfMeasureId: purchaseUnitOfMeasureId,
+                purchaseQuantity: purchaseQuantity,
+                purchaseToStockConversionFactor:
+                    purchaseToStockConversionFactor,
+                expectedCost: expectedCost,
+                orderNumber: orderNumber,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -15602,6 +17764,8 @@ class $AppDatabaseManager {
       $$InventoryTransactionsTableTableManager(_db, _db.inventoryTransactions);
   $$ItemLocationBalancesTableTableManager get itemLocationBalances =>
       $$ItemLocationBalancesTableTableManager(_db, _db.itemLocationBalances);
+  $$SuppliersTableTableManager get suppliers =>
+      $$SuppliersTableTableManager(_db, _db.suppliers);
   $$ReorderRequestsTableTableManager get reorderRequests =>
       $$ReorderRequestsTableTableManager(_db, _db.reorderRequests);
   $$CheckoutRecordsTableTableManager get checkoutRecords =>

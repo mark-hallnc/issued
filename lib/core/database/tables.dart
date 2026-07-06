@@ -16,6 +16,7 @@ class Items extends Table {
   TextColumn get purchaseUnitLabel => text().nullable()();
   TextColumn get barcode => text().nullable()();
   TextColumn get sku => text().nullable()();
+  TextColumn get supplierId => text().nullable()();
   TextColumn get supplier => text().nullable()();
   RealColumn get unitCost => real().nullable()();
   TextColumn get photoPath => text().nullable()();
@@ -116,6 +117,27 @@ class ItemLocationBalances extends Table {
   Set<Column<Object>> get primaryKey => {id};
 }
 
+@DataClassName('SupplierRecord')
+class Suppliers extends Table {
+  TextColumn get id => text()();
+  TextColumn get name => text()();
+  TextColumn get contactName => text().nullable()();
+  TextColumn get email => text().nullable()();
+  TextColumn get phone => text().nullable()();
+  TextColumn get website => text().nullable()();
+  TextColumn get address => text().nullable()();
+  TextColumn get accountNumber => text().nullable()();
+  TextColumn get notes => text().nullable()();
+  IntColumn get defaultLeadTimeDays => integer().nullable()();
+  RealColumn get minimumOrderAmount => real().nullable()();
+  BoolColumn get isActive => boolean()();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
 @DataClassName('ReorderRequestRecord')
 class ReorderRequests extends Table {
   TextColumn get id => text()();
@@ -123,6 +145,7 @@ class ReorderRequests extends Table {
   RealColumn get requestedQuantity => real()();
   RealColumn get receivedQuantity => real().withDefault(const Constant(0))();
   TextColumn get unitOfMeasureId => text()();
+  TextColumn get supplierId => text().nullable()();
   TextColumn get supplier => text().nullable()();
   TextColumn get status => text()();
   TextColumn get notes => text().nullable()();

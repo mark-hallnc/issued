@@ -8,3 +8,4 @@ export 'item_location_balance_models.dart';
 export 'people_models.dart';
 export 'plan_models.dart';
 export 'reorder_models.dart';
+export 'supplier_models.dart';

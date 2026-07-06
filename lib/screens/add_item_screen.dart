@@ -447,6 +447,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
       purchaseUnitLabel: null,
       barcode: _emptyToNull(_barcodeController.text),
       sku: _emptyToNull(_skuController.text),
+      supplierId: null,
       supplier: _emptyToNull(_supplierController.text),
       unitCost: _emptyToNull(_unitCostController.text) == null
           ? null
@@ -489,6 +490,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
       purchaseUnitLabel: null,
       barcode: null,
       sku: null,
+      supplierId: null,
       supplier: null,
       unitCost: null,
       photoPath: null,

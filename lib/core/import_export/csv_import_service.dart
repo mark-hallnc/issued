@@ -530,6 +530,7 @@ void _validateCustomFields(
     purchaseUnitLabel: null,
     barcode: parsed.barcode,
     sku: parsed.sku,
+    supplierId: null,
     supplier: parsed.supplier,
     unitCost: parsed.unitCost,
     photoPath: null,

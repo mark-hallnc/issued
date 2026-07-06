@@ -455,6 +455,7 @@ class _EditItemScreenState extends State<EditItemScreen> {
       purchaseUnitLabel: null,
       barcode: barcode,
       sku: sku,
+      supplierId: widget.item.supplierId,
       supplier: _emptyToNull(_supplierController.text),
       unitCost: store.permissions.canViewCosts
           ? _optionalDouble(_unitCostController.text)
@@ -571,6 +572,7 @@ class _EditItemScreenState extends State<EditItemScreen> {
       purchaseUnitLabel: null,
       barcode: _emptyToNull(_barcodeController.text),
       sku: _emptyToNull(_skuController.text),
+      supplierId: widget.item.supplierId,
       supplier: _emptyToNull(_supplierController.text),
       unitCost: widget.item.unitCost,
       photoPath: widget.item.photoPath,

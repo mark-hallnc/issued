@@ -385,6 +385,7 @@ class _ImportPreviewScreenState extends State<ImportPreviewScreen> {
           locationId: updatedLocationId,
           barcode: row.barcode ?? duplicate.barcode,
           sku: row.sku ?? duplicate.sku,
+          supplierId: duplicate.supplierId,
           supplier: row.supplier ?? duplicate.supplier,
           unitCost: row.unitCostProvided ? row.unitCost : duplicate.unitCost,
           allowFractionalQuantity: row.allowFractionalQuantityProvided
@@ -430,6 +431,7 @@ class _ImportPreviewScreenState extends State<ImportPreviewScreen> {
           purchaseUnitLabel: null,
           barcode: row.barcode,
           sku: row.sku,
+          supplierId: null,
           supplier: row.supplier,
           unitCost: row.unitCost,
           photoPath: null,

@@ -329,6 +329,7 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
       purchaseUnitLabel: parsed.purchaseUnitOfMeasure,
       barcode: parsed.barcode,
       sku: parsed.sku,
+      supplierId: null,
       supplier: parsed.supplier,
       unitCost: parsed.unitCost,
       photoPath: null,

@@ -14,6 +14,7 @@ part 'app_database.g.dart';
     AppUsers,
     InventoryTransactions,
     ItemLocationBalances,
+    Suppliers,
     ReorderRequests,
     CheckoutRecords,
     AssignmentTargets,
@@ -31,7 +32,7 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? openDatabaseConnection());
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
 
   @override
   MigrationStrategy get migration {
@@ -161,6 +162,11 @@ class AppDatabase extends _$AppDatabase {
             reorderRequests.orderNumber,
           );
         }
+        if (from < 13) {
+          await migrator.createTable(suppliers);
+          await migrator.addColumn(items, items.supplierId);
+          await migrator.addColumn(reorderRequests, reorderRequests.supplierId);
+        }
       },
     );
   }
@@ -180,6 +186,7 @@ class AppDatabase extends _$AppDatabase {
       select(inventoryTransactions).get();
   Future<List<ItemLocationBalanceRecord>> getAllItemLocationBalances() =>
       select(itemLocationBalances).get();
+  Future<List<SupplierRecord>> getAllSuppliers() => select(suppliers).get();
   Future<List<ReorderRequestRecord>> getAllReorderRequests() =>
       select(reorderRequests).get();
   Future<List<CheckoutRecordRow>> getAllCheckoutRecords() =>
@@ -233,6 +240,10 @@ class AppDatabase extends _$AppDatabase {
     return (delete(
       itemLocationBalances,
     )..where((row) => row.id.equals(id))).go();
+  }
+
+  Future<void> upsertSupplier(SuppliersCompanion supplier) {
+    return into(suppliers).insertOnConflictUpdate(supplier);
   }
 
   Future<void> upsertReorderRequest(ReorderRequestsCompanion request) {
@@ -290,6 +301,7 @@ class AppDatabase extends _$AppDatabase {
     required List<AppUsersCompanion> userRows,
     required List<ItemsCompanion> itemRows,
     required List<ItemLocationBalancesCompanion> balanceRows,
+    required List<SuppliersCompanion> supplierRows,
     required List<InventoryTransactionsCompanion> transactionRows,
     required List<CheckoutRecordsCompanion> checkoutRows,
     required List<AssignmentTargetsCompanion> assignmentTargetRows,
@@ -313,6 +325,7 @@ class AppDatabase extends _$AppDatabase {
       await delete(itemLocationBalances).go();
       await delete(inventoryTransactions).go();
       await delete(items).go();
+      await delete(suppliers).go();
       await delete(appUsers).go();
       await delete(people).go();
       await delete(locations).go();
@@ -333,6 +346,11 @@ class AppDatabase extends _$AppDatabase {
         );
         batch.insertAll(people, personRows, mode: InsertMode.insertOrReplace);
         batch.insertAll(appUsers, userRows, mode: InsertMode.insertOrReplace);
+        batch.insertAll(
+          suppliers,
+          supplierRows,
+          mode: InsertMode.insertOrReplace,
+        );
         batch.insertAll(items, itemRows, mode: InsertMode.insertOrReplace);
         batch.insertAll(
           itemLocationBalances,

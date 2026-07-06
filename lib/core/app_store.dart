@@ -25,6 +25,7 @@ class AppStore extends ChangeNotifier {
   final List<ItemLocationBalance> _itemLocationBalances = [];
   final List<CheckoutRecord> _checkoutRecords = [];
   final List<AssignmentTarget> _assignmentTargets = [];
+  final List<Supplier> _suppliers = [];
   final List<ReorderRequest> _reorderRequests = [];
   final List<CycleCountSession> _cycleCountSessions = [];
   final List<CycleCountLine> _cycleCountLines = [];
@@ -56,6 +57,9 @@ class AppStore extends ChangeNotifier {
       List.unmodifiable(_assignmentTargets);
   List<AssignmentTarget> get activeAssignmentTargets =>
       List.unmodifiable(_assignmentTargets.where((target) => target.isActive));
+  List<Supplier> get suppliers => List.unmodifiable(_suppliers);
+  List<Supplier> get activeSuppliers =>
+      List.unmodifiable(_suppliers.where((supplier) => supplier.isActive));
   List<ReorderRequest> get reorderRequests =>
       List.unmodifiable(_reorderRequests);
   List<CycleCountSession> get cycleCountSessions =>
@@ -664,6 +668,11 @@ class AppStore extends ChangeNotifier {
           (row) => row.toDomain(),
         ),
       );
+    _suppliers
+      ..clear()
+      ..addAll(
+        (await _database.getAllSuppliers()).map((row) => row.toDomain()),
+      );
     _reorderRequests
       ..clear()
       ..addAll(
@@ -1260,6 +1269,9 @@ class AppStore extends ChangeNotifier {
       balanceRows: backup.itemLocationBalances
           .map((balance) => balance.toCompanion())
           .toList(),
+      supplierRows: backup.suppliers
+          .map((supplier) => supplier.toCompanion())
+          .toList(),
       transactionRows: backup.transactions
           .map((transaction) => transaction.toCompanion())
           .toList(),
@@ -1588,6 +1600,7 @@ class AppStore extends ChangeNotifier {
       purchaseUnitLabel: updatedItem.purchaseUnitLabel,
       barcode: updatedItem.barcode,
       sku: updatedItem.sku,
+      supplierId: updatedItem.supplierId,
       supplier: updatedItem.supplier,
       unitCost: updatedItem.unitCost,
       photoPath: existingItem.photoPath,
@@ -1666,6 +1679,166 @@ class AppStore extends ChangeNotifier {
           item.id != excludingItemId &&
           (item.sku ?? '').trim().toLowerCase() == normalized;
     });
+  }
+
+  bool get canManageSuppliers => permissions.canManageSettings;
+
+  Supplier? supplierById(String? supplierId) {
+    if (supplierId == null) {
+      return null;
+    }
+    for (final supplier in _suppliers) {
+      if (supplier.id == supplierId) {
+        return supplier;
+      }
+    }
+    return null;
+  }
+
+  String? resolveSupplierName(String? supplierId, {String? fallback}) {
+    final supplier = supplierById(supplierId);
+    if (supplier != null) {
+      return supplier.name;
+    }
+    final trimmed = fallback?.trim();
+    return trimmed == null || trimmed.isEmpty ? null : trimmed;
+  }
+
+  List<Item> getItemsForSupplier(String supplierId) {
+    final supplier = supplierById(supplierId);
+    final supplierName = supplier?.name.trim().toLowerCase();
+    return _items.where((item) {
+      if (item.supplierId == supplierId) {
+        return true;
+      }
+      if (supplierName == null || supplierName.isEmpty) {
+        return false;
+      }
+      return item.supplier?.trim().toLowerCase() == supplierName;
+    }).toList()..sort((left, right) => left.name.compareTo(right.name));
+  }
+
+  List<ReorderRequest> getReordersForSupplier(String supplierId) {
+    final supplier = supplierById(supplierId);
+    final supplierName = supplier?.name.trim().toLowerCase();
+    return _sortedReorders(
+      _reorderRequests.where((request) {
+        if (request.supplierId == supplierId) {
+          return true;
+        }
+        if (supplierName == null || supplierName.isEmpty) {
+          return false;
+        }
+        return request.supplier?.trim().toLowerCase() == supplierName;
+      }).toList(),
+    );
+  }
+
+  bool isSupplierNameInUse(String name, {String? excludingSupplierId}) {
+    final normalized = _normalizeSupplierName(name);
+    if (normalized.isEmpty) {
+      return false;
+    }
+    return _suppliers.any((supplier) {
+      return supplier.isActive &&
+          supplier.id != excludingSupplierId &&
+          _normalizeSupplierName(supplier.name) == normalized;
+    });
+  }
+
+  bool addSupplier(Supplier supplier) {
+    if (!canManageSuppliers) {
+      return false;
+    }
+    final name = supplier.name.trim();
+    if (name.isEmpty || isSupplierNameInUse(name)) {
+      return false;
+    }
+    final saved = supplier.copyWith(name: name);
+    _suppliers.add(saved);
+    unawaited(_database.upsertSupplier(saved.toCompanion()));
+    notifyListeners();
+    return true;
+  }
+
+  bool updateSupplier(Supplier supplier) {
+    if (!canManageSuppliers) {
+      return false;
+    }
+    final supplierIndex = _suppliers.indexWhere(
+      (storedSupplier) => storedSupplier.id == supplier.id,
+    );
+    final name = supplier.name.trim();
+    if (supplierIndex == -1 ||
+        name.isEmpty ||
+        isSupplierNameInUse(name, excludingSupplierId: supplier.id)) {
+      return false;
+    }
+    final saved = supplier.copyWith(name: name, updatedAt: DateTime.now());
+    _suppliers[supplierIndex] = saved;
+    unawaited(_database.upsertSupplier(saved.toCompanion()));
+    notifyListeners();
+    return true;
+  }
+
+  bool archiveSupplier(String supplierId) {
+    if (!canManageSuppliers) {
+      return false;
+    }
+    final supplierIndex = _suppliers.indexWhere(
+      (supplier) => supplier.id == supplierId,
+    );
+    if (supplierIndex == -1) {
+      return false;
+    }
+    final archived = _suppliers[supplierIndex].copyWith(
+      isActive: false,
+      updatedAt: DateTime.now(),
+    );
+    _suppliers[supplierIndex] = archived;
+    unawaited(_database.upsertSupplier(archived.toCompanion()));
+    notifyListeners();
+    return true;
+  }
+
+  Supplier? findOrCreateSupplierByName(String name) {
+    final normalized = _normalizeSupplierName(name);
+    if (normalized.isEmpty) {
+      return null;
+    }
+    for (final supplier in _suppliers) {
+      if (_normalizeSupplierName(supplier.name) == normalized) {
+        return supplier;
+      }
+    }
+    if (!canManageSuppliers) {
+      return null;
+    }
+    final now = DateTime.now();
+    final supplier = Supplier(
+      id: 'supplier-${now.microsecondsSinceEpoch}',
+      name: name.trim(),
+      contactName: null,
+      email: null,
+      phone: null,
+      website: null,
+      address: null,
+      accountNumber: null,
+      notes: null,
+      defaultLeadTimeDays: null,
+      minimumOrderAmount: null,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    );
+    _suppliers.add(supplier);
+    unawaited(_database.upsertSupplier(supplier.toCompanion()));
+    notifyListeners();
+    return supplier;
+  }
+
+  String _normalizeSupplierName(String name) {
+    return name.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
   }
 
   AppActionResult addTransaction(InventoryTransaction transaction) {
@@ -3060,6 +3233,7 @@ class AppStore extends ChangeNotifier {
     String itemId,
     double quantity,
     String? notes, {
+    String? supplierId,
     String? supplier,
     String? destinationLocationId,
     String? orderNumber,
@@ -3083,6 +3257,7 @@ class AppStore extends ChangeNotifier {
     final now = DateTime.now();
     final normalizedNotes = notes?.trim();
     final normalizedSupplier = supplier?.trim();
+    final selectedSupplier = supplierById(supplierId);
     final normalizedOrderNumber = orderNumber?.trim();
     final request = ReorderRequest(
       id: 'reorder-${now.microsecondsSinceEpoch}',
@@ -3090,8 +3265,9 @@ class AppStore extends ChangeNotifier {
       requestedQuantity: quantity,
       receivedQuantity: 0,
       unitOfMeasureId: item.unitOfMeasureId,
+      supplierId: selectedSupplier?.id ?? item.supplierId,
       supplier: normalizedSupplier == null || normalizedSupplier.isEmpty
-          ? item.supplier
+          ? selectedSupplier?.name ?? item.supplier
           : normalizedSupplier,
       status: ReorderStatus.needed,
       notes: normalizedNotes == null || normalizedNotes.isEmpty
@@ -3126,6 +3302,7 @@ class AppStore extends ChangeNotifier {
   bool updateReorderRequest(
     String reorderId, {
     double? requestedQuantity,
+    String? supplierId,
     String? supplier,
     String? destinationLocationId,
     String? notes,
@@ -3157,10 +3334,13 @@ class AppStore extends ChangeNotifier {
       return false;
     }
     final trimmedSupplier = supplier?.trim();
+    final selectedSupplier = supplierById(supplierId);
     final trimmedNotes = notes?.trim();
     final trimmedOrderNumber = orderNumber?.trim();
     final updatedRequest = request.copyWith(
       requestedQuantity: updatedQuantity,
+      supplierId: selectedSupplier?.id ?? supplierId,
+      clearSupplierId: supplierId != null && supplierId.isEmpty,
       supplier: trimmedSupplier,
       clearSupplier: trimmedSupplier != null && trimmedSupplier.isEmpty,
       destinationLocationId:

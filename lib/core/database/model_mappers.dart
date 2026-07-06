@@ -23,6 +23,7 @@ extension ItemRecordMapper on ItemRecord {
       purchaseUnitLabel: purchaseUnitLabel,
       barcode: barcode,
       sku: sku,
+      supplierId: supplierId,
       supplier: supplier,
       unitCost: unitCost,
       photoPath: photoPath,
@@ -51,6 +52,7 @@ extension ItemDomainMapper on domain.Item {
       purchaseUnitLabel: Value(purchaseUnitLabel),
       barcode: Value(barcode),
       sku: Value(sku),
+      supplierId: Value(supplierId),
       supplier: Value(supplier),
       unitCost: Value(unitCost),
       photoPath: Value(photoPath),
@@ -241,6 +243,48 @@ extension ItemLocationBalanceDomainMapper on domain.ItemLocationBalance {
   }
 }
 
+extension SupplierRecordMapper on SupplierRecord {
+  domain.Supplier toDomain() {
+    return domain.Supplier(
+      id: id,
+      name: name,
+      contactName: contactName,
+      email: email,
+      phone: phone,
+      website: website,
+      address: address,
+      accountNumber: accountNumber,
+      notes: notes,
+      defaultLeadTimeDays: defaultLeadTimeDays,
+      minimumOrderAmount: minimumOrderAmount,
+      isActive: isActive,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+    );
+  }
+}
+
+extension SupplierDomainMapper on domain.Supplier {
+  SuppliersCompanion toCompanion() {
+    return SuppliersCompanion(
+      id: Value(id),
+      name: Value(name),
+      contactName: Value(contactName),
+      email: Value(email),
+      phone: Value(phone),
+      website: Value(website),
+      address: Value(address),
+      accountNumber: Value(accountNumber),
+      notes: Value(notes),
+      defaultLeadTimeDays: Value(defaultLeadTimeDays),
+      minimumOrderAmount: Value(minimumOrderAmount),
+      isActive: Value(isActive),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+}
+
 extension ReorderRequestRecordMapper on ReorderRequestRecord {
   domain.ReorderRequest toDomain() {
     return domain.ReorderRequest(
@@ -249,6 +293,7 @@ extension ReorderRequestRecordMapper on ReorderRequestRecord {
       requestedQuantity: requestedQuantity,
       receivedQuantity: receivedQuantity,
       unitOfMeasureId: unitOfMeasureId,
+      supplierId: supplierId,
       supplier: supplier,
       status: _enumByName(domain.ReorderStatus.values, status),
       notes: notes,
@@ -277,6 +322,7 @@ extension ReorderRequestDomainMapper on domain.ReorderRequest {
       requestedQuantity: Value(requestedQuantity),
       receivedQuantity: Value(receivedQuantity),
       unitOfMeasureId: Value(unitOfMeasureId),
+      supplierId: Value(supplierId),
       supplier: Value(supplier),
       status: Value(status.name),
       notes: Value(notes),

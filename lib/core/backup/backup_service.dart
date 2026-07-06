@@ -23,6 +23,7 @@ class BackupService {
       'assignmentTargets': store.assignmentTargets
           .map(_assignmentTarget)
           .toList(),
+      'suppliers': store.suppliers.map(_supplier).toList(),
       'items': store.items.map(_item).toList(),
       'itemLocationBalances': store.itemLocationBalances.map(_balance).toList(),
       'inventoryTransactions': store.transactions.map(_transaction).toList(),
@@ -94,6 +95,7 @@ class BackupService {
         'checkoutRecords',
         'reorderRequests',
         'assignmentTargets',
+        'suppliers',
       ]) {
         if (decoded[key] == null) {
           warnings.add('$key is not included in this backup.');
@@ -158,6 +160,10 @@ class BackupService {
       assignmentTargets: _list(decoded['assignmentTargets'])
           .map((row) => _parseAssignmentTarget(row, warnings))
           .whereType<AssignmentTarget>()
+          .toList(),
+      suppliers: _list(decoded['suppliers'])
+          .map((row) => _parseSupplier(row, warnings))
+          .whereType<Supplier>()
           .toList(),
       items: _list(
         decoded['items'],
@@ -309,6 +315,7 @@ class BackupService {
       'purchaseUnitLabel': item.purchaseUnitLabel,
       'barcode': item.barcode,
       'sku': item.sku,
+      'supplierId': item.supplierId,
       'supplier': item.supplier,
       'unitCost': item.unitCost,
       'photoPath': item.photoPath,
@@ -382,6 +389,7 @@ class BackupService {
       'requestedQuantity': request.requestedQuantity,
       'receivedQuantity': request.receivedQuantity,
       'unitOfMeasureId': request.unitOfMeasureId,
+      'supplierId': request.supplierId,
       'supplier': request.supplier,
       'status': request.status.name,
       'notes': request.notes,
@@ -399,6 +407,25 @@ class BackupService {
           request.purchaseToStockConversionFactor,
       'expectedCost': request.expectedCost,
       'orderNumber': request.orderNumber,
+    };
+  }
+
+  static Map<String, Object?> _supplier(Supplier supplier) {
+    return {
+      'id': supplier.id,
+      'name': supplier.name,
+      'contactName': supplier.contactName,
+      'email': supplier.email,
+      'phone': supplier.phone,
+      'website': supplier.website,
+      'address': supplier.address,
+      'accountNumber': supplier.accountNumber,
+      'notes': supplier.notes,
+      'defaultLeadTimeDays': supplier.defaultLeadTimeDays,
+      'minimumOrderAmount': supplier.minimumOrderAmount,
+      'isActive': supplier.isActive,
+      'createdAt': supplier.createdAt.toIso8601String(),
+      'updatedAt': supplier.updatedAt.toIso8601String(),
     };
   }
 
@@ -686,6 +713,36 @@ class BackupService {
     );
   }
 
+  static Supplier? _parseSupplier(
+    Map<String, dynamic> row,
+    List<String> warnings,
+  ) {
+    final id = row['id']?.toString();
+    if (id == null) {
+      warnings.add('Skipped supplier without an id.');
+      return null;
+    }
+    final now = DateTime.now();
+    return Supplier(
+      id: id,
+      name: _string(row, 'name', id),
+      contactName: row['contactName']?.toString(),
+      email: row['email']?.toString(),
+      phone: row['phone']?.toString(),
+      website: row['website']?.toString(),
+      address: row['address']?.toString(),
+      accountNumber: row['accountNumber']?.toString(),
+      notes: row['notes']?.toString(),
+      defaultLeadTimeDays: row['defaultLeadTimeDays'] == null
+          ? null
+          : _int(row, 'defaultLeadTimeDays'),
+      minimumOrderAmount: _nullableDouble(row, 'minimumOrderAmount'),
+      isActive: _bool(row, 'isActive', true),
+      createdAt: _date(row['createdAt']) ?? now,
+      updatedAt: _date(row['updatedAt']) ?? now,
+    );
+  }
+
   static Item? _parseItem(Map<String, dynamic> row, List<String> warnings) {
     final type = _enum(ItemType.values, row['itemType'], warnings, 'item type');
     final id = row['id']?.toString();
@@ -711,6 +768,7 @@ class BackupService {
       purchaseUnitLabel: row['purchaseUnitLabel']?.toString(),
       barcode: row['barcode']?.toString(),
       sku: row['sku']?.toString(),
+      supplierId: row['supplierId']?.toString(),
       supplier: row['supplier']?.toString(),
       unitCost: row['unitCost'] == null ? null : _double(row, 'unitCost'),
       photoPath: row['photoPath']?.toString(),
@@ -845,6 +903,7 @@ class BackupService {
       requestedQuantity: _double(row, 'requestedQuantity'),
       receivedQuantity: _double(row, 'receivedQuantity'),
       unitOfMeasureId: _string(row, 'unitOfMeasureId', ''),
+      supplierId: row['supplierId']?.toString(),
       supplier: row['supplier']?.toString(),
       status: status,
       notes: row['notes']?.toString(),
@@ -1023,6 +1082,7 @@ class BackupCounts {
     this.checkouts = 0,
     this.reorderRequests = 0,
     this.assignmentTargets = 0,
+    this.suppliers = 0,
     this.customFields = 0,
   });
 
@@ -1039,6 +1099,7 @@ class BackupCounts {
       checkouts: count('checkoutRecords'),
       reorderRequests: count('reorderRequests'),
       assignmentTargets: count('assignmentTargets'),
+      suppliers: count('suppliers'),
       customFields: count('customFieldDefinitions'),
     );
   }
@@ -1053,6 +1114,7 @@ class BackupCounts {
   final int checkouts;
   final int reorderRequests;
   final int assignmentTargets;
+  final int suppliers;
   final int customFields;
 }
 
@@ -1066,6 +1128,7 @@ class IssuedBackupData {
     required this.people,
     required this.users,
     required this.assignmentTargets,
+    required this.suppliers,
     required this.items,
     required this.itemLocationBalances,
     required this.transactions,
@@ -1086,6 +1149,7 @@ class IssuedBackupData {
   final List<Person> people;
   final List<AppUser> users;
   final List<AssignmentTarget> assignmentTargets;
+  final List<Supplier> suppliers;
   final List<Item> items;
   final List<ItemLocationBalance> itemLocationBalances;
   final List<InventoryTransaction> transactions;
