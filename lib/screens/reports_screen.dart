@@ -900,26 +900,46 @@ String _checkedOutCsv(AppStore store, List<CheckoutRecord> records) {
   return const CsvEncoder().convert([
     [
       'item',
-      'quantity',
+      'quantity_checked_out',
+      'quantity_returned',
+      'quantity_open',
       'uom',
+      'status',
       'assigned_person',
+      'assigned_location',
       'assigned_target',
       'assigned_target_type',
       'assigned_text',
+      'source_location',
+      'checked_out_at',
       'due_at',
+      'returned_at',
       'notes',
+      'return_notes',
+      'condition_on_return',
     ],
     for (final record in records)
       [
         store.resolveItemName(record.itemId),
         record.quantity,
+        record.quantityReturned,
+        record.quantityOpen,
         store.resolveUomAbbreviation(record.unitOfMeasureId),
+        checkoutStatusLabel(record.status),
         store.resolvePersonName(record.assignedToPersonId) ?? '',
+        store.resolveLocationName(record.assignedToLocationId) ?? '',
         store.resolveAssignmentTargetName(record.assignedToTargetId) ?? '',
         _assignmentTargetTypeLabel(store, record.assignedToTargetId),
         record.assignedToText ?? '',
+        store.resolveLocationName(record.sourceLocationId) ?? '',
+        record.checkedOutAt.toIso8601String(),
         record.dueAt?.toIso8601String() ?? '',
+        record.returnedAt?.toIso8601String() ?? '',
         record.notes ?? '',
+        record.returnNotes ?? '',
+        record.conditionOnReturn == null
+            ? ''
+            : checkoutReturnConditionLabel(record.conditionOnReturn!),
       ],
   ]);
 }

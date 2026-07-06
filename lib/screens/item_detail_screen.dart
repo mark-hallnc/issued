@@ -713,7 +713,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
         quantityLabel: 'Quantity returned',
         store: store,
         item: _item,
-        initialQuantity: record.quantity,
+        initialQuantity: record.quantityOpen,
         initialLocationId: record.assignedToLocationId,
       ),
     );
@@ -722,8 +722,8 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
       return;
     }
 
-    if (result.quantity != record.quantity) {
-      _showMessage('Partial returns are not supported yet.');
+    if (result.quantity > record.quantityOpen) {
+      _showMessage('Return quantity cannot exceed open quantity.');
       return;
     }
 

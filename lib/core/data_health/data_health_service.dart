@@ -296,7 +296,80 @@ class DataHealthService {
     Map<String, Item> itemsById,
     Map<String, AssignmentTarget> targetsById,
   ) {
+    final peopleById = {for (final person in store.people) person.id: person};
+    final locationsById = {
+      for (final location in store.locations) location.id: location,
+    };
     for (final checkout in store.openCheckoutRecords) {
+      if (checkout.quantityReturned > checkout.quantity) {
+        issues.add(
+          DataHealthIssue(
+            id: 'checkout-returned-exceeds-checked-out-${checkout.id}',
+            severity: DataHealthSeverity.error,
+            title: 'Checkout returned quantity is too high',
+            description:
+                'Checkout ${checkout.id} has more returned than checked out.',
+            affectedRecordType: 'checkoutRecord',
+            affectedRecordId: checkout.id,
+            repairAction: null,
+            canRepair: false,
+          ),
+        );
+      }
+      if (checkout.quantityOpen < 0) {
+        issues.add(
+          DataHealthIssue(
+            id: 'checkout-negative-open-${checkout.id}',
+            severity: DataHealthSeverity.error,
+            title: 'Checkout has negative open quantity',
+            description:
+                'Checkout ${checkout.id} has a negative open quantity.',
+            affectedRecordType: 'checkoutRecord',
+            affectedRecordId: checkout.id,
+            repairAction: null,
+            canRepair: false,
+          ),
+        );
+      }
+      if (checkout.isOpen && checkout.returnedAt != null) {
+        issues.add(
+          DataHealthIssue(
+            id: 'checkout-open-with-returned-at-${checkout.id}',
+            severity: DataHealthSeverity.warning,
+            title: 'Open checkout has a returned date',
+            description:
+                'Checkout ${checkout.id} is still open but has returnedAt set.',
+            affectedRecordType: 'checkoutRecord',
+            affectedRecordId: checkout.id,
+            repairAction: null,
+            canRepair: false,
+          ),
+        );
+      }
+      final personId = checkout.assignedToPersonId;
+      if (personId != null && !peopleById.containsKey(personId)) {
+        _missingLinkIssue(
+          issues,
+          id: 'checkout-missing-person-${checkout.id}',
+          title: 'Checkout references a missing person',
+          description: 'Checkout ${checkout.id} references person $personId.',
+          type: 'checkoutRecord',
+          recordId: checkout.id,
+        );
+      }
+      final assignedLocationId = checkout.assignedToLocationId;
+      if (assignedLocationId != null &&
+          !locationsById.containsKey(assignedLocationId)) {
+        _missingLinkIssue(
+          issues,
+          id: 'checkout-missing-assigned-location-${checkout.id}',
+          title: 'Checkout references a missing assigned location',
+          description:
+              'Checkout ${checkout.id} references location $assignedLocationId.',
+          type: 'checkoutRecord',
+          recordId: checkout.id,
+        );
+      }
       final targetId = checkout.assignedToTargetId;
       if (targetId != null && !targetsById.containsKey(targetId)) {
         _missingLinkIssue(
@@ -324,14 +397,28 @@ class DataHealthService {
             canRepair: false,
           ),
         );
-      } else if (checkout.quantity > item.quantityOnHand) {
+      } else if (item.itemType == ItemType.consumable) {
+        issues.add(
+          DataHealthIssue(
+            id: 'checkout-consumable-item-${checkout.id}',
+            severity: DataHealthSeverity.warning,
+            title: 'Consumable item has an open checkout',
+            description:
+                '${item.name} is a consumable but has an open checkout record.',
+            affectedRecordType: 'checkoutRecord',
+            affectedRecordId: checkout.id,
+            repairAction: null,
+            canRepair: false,
+          ),
+        );
+      } else if (checkout.quantityOpen > item.quantityOnHand) {
         issues.add(
           DataHealthIssue(
             id: 'checkout-exceeds-total-${checkout.id}',
             severity: DataHealthSeverity.warning,
             title: 'Checked-out quantity is higher than available total',
             description:
-                '${item.name} has ${checkout.quantity} checked out and ${item.quantityOnHand} available. This can be normal if checked-out stock is not counted as available.',
+                '${item.name} has ${checkout.quantityOpen} open and ${item.quantityOnHand} available. This can be normal if checked-out stock is not counted as available.',
             affectedRecordType: 'checkoutRecord',
             affectedRecordId: checkout.id,
             repairAction: null,

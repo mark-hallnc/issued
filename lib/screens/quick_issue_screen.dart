@@ -205,7 +205,7 @@ class _QuickIssueScreenState extends State<QuickIssueScreen> {
         _selectedCheckout = open.isNotEmpty ? open.first : null;
         _quantityController.text = _selectedCheckout == null
             ? ''
-            : _formatQuantity(_selectedCheckout!.quantity);
+            : _formatQuantity(_selectedCheckout!.quantityOpen);
         _selectedDestinationLocationId = activeLocations.isNotEmpty
             ? activeLocations.first.id
             : null;
@@ -377,7 +377,7 @@ class _QuickIssueScreenState extends State<QuickIssueScreen> {
         setState(() {
           _selectedCheckout = record;
           if (record != null) {
-            _quantityController.text = _formatQuantity(record.quantity);
+            _quantityController.text = _formatQuantity(record.quantityOpen);
           }
         });
       },
@@ -583,8 +583,8 @@ class _QuickIssueScreenState extends State<QuickIssueScreen> {
     if (record == null) {
       return false;
     }
-    if (quantity != record.quantity) {
-      _showMessage('Partial returns are not supported yet.');
+    if (quantity > record.quantityOpen) {
+      _showMessage('Return quantity cannot exceed open quantity.');
       return false;
     }
 
@@ -595,8 +595,21 @@ class _QuickIssueScreenState extends State<QuickIssueScreen> {
         returnToLocationId: _selectedDestinationLocationId!,
         notes: notes,
       ),
-      _ReturnCondition.damaged => store.markCheckoutDamaged(record.id, notes),
-      _ReturnCondition.lost => store.markCheckoutLost(record.id, notes),
+      _ReturnCondition.damaged => store.returnCheckout(
+        checkoutRecordId: record.id,
+        returnedQuantity: quantity,
+        returnToLocationId: _selectedDestinationLocationId!,
+        notes: notes,
+        condition: CheckoutReturnCondition.damaged,
+        returnDamagedToStock: false,
+      ),
+      _ReturnCondition.lost => store.returnCheckout(
+        checkoutRecordId: record.id,
+        returnedQuantity: quantity,
+        returnToLocationId: _selectedDestinationLocationId!,
+        notes: notes,
+        condition: CheckoutReturnCondition.lost,
+      ),
     };
   }
 
@@ -630,8 +643,8 @@ class _QuickIssueScreenState extends State<QuickIssueScreen> {
     }
 
     if (action == _QuickAction.returnItem && _selectedCheckout != null) {
-      if (quantity != _selectedCheckout!.quantity) {
-        return 'Partial returns are not supported yet.';
+      if (quantity > _selectedCheckout!.quantityOpen) {
+        return 'Return quantity cannot exceed open quantity.';
       }
       if (_returnCondition != _ReturnCondition.good &&
           !store.permissions.canAdjustQuantity) {
@@ -1270,7 +1283,7 @@ String _itemTypeLabel(ItemType type) {
 String _checkoutLabel(AppStore store, CheckoutRecord record) {
   return [
     _assignedToText(store, record),
-    store.formatStockQuantity(store.itemById(record.itemId)!, record.quantity),
+    '${store.formatStockQuantity(store.itemById(record.itemId)!, record.quantityOpen)} open',
   ].join(' · ');
 }
 

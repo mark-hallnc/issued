@@ -5,6 +5,10 @@ import '../core/models/models.dart';
 import 'item_detail_screen.dart';
 
 enum _CheckedOutFilter {
+  open,
+  dueSoon,
+  returnedClosed,
+  lostDamaged,
   all,
   overdue,
   byPerson,
@@ -22,14 +26,22 @@ class CheckedOutScreen extends StatefulWidget {
 }
 
 class _CheckedOutScreenState extends State<CheckedOutScreen> {
-  _CheckedOutFilter _filter = _CheckedOutFilter.all;
+  _CheckedOutFilter _filter = _CheckedOutFilter.open;
 
   @override
   Widget build(BuildContext context) {
     final store = AppStoreScope.of(context);
-    final records = store.openCheckoutRecords.where((record) {
+    final records = store.checkoutRecords.where((record) {
       final item = _itemById(store, record.itemId);
       return switch (_filter) {
+        _CheckedOutFilter.open => record.isOpen,
+        _CheckedOutFilter.dueSoon => _isDueSoon(record),
+        _CheckedOutFilter.returnedClosed =>
+          record.status == CheckoutStatus.returned ||
+              record.status == CheckoutStatus.cancelled,
+        _CheckedOutFilter.lostDamaged =>
+          record.status == CheckoutStatus.lost ||
+              record.status == CheckoutStatus.damaged,
         _CheckedOutFilter.all => true,
         _CheckedOutFilter.overdue => _isOverdue(record),
         _CheckedOutFilter.byPerson => record.assignedToPersonId != null,
@@ -50,14 +62,35 @@ class _CheckedOutScreenState extends State<CheckedOutScreen> {
             child: Row(
               children: [
                 _FilterChip(
-                  label: 'All',
-                  selected: _filter == _CheckedOutFilter.all,
-                  onSelected: () => _setFilter(_CheckedOutFilter.all),
+                  label: 'Open',
+                  selected: _filter == _CheckedOutFilter.open,
+                  onSelected: () => _setFilter(_CheckedOutFilter.open),
                 ),
                 _FilterChip(
                   label: 'Overdue',
                   selected: _filter == _CheckedOutFilter.overdue,
                   onSelected: () => _setFilter(_CheckedOutFilter.overdue),
+                ),
+                _FilterChip(
+                  label: 'Due Soon',
+                  selected: _filter == _CheckedOutFilter.dueSoon,
+                  onSelected: () => _setFilter(_CheckedOutFilter.dueSoon),
+                ),
+                _FilterChip(
+                  label: 'Returned/Closed',
+                  selected: _filter == _CheckedOutFilter.returnedClosed,
+                  onSelected: () =>
+                      _setFilter(_CheckedOutFilter.returnedClosed),
+                ),
+                _FilterChip(
+                  label: 'Lost/Damaged',
+                  selected: _filter == _CheckedOutFilter.lostDamaged,
+                  onSelected: () => _setFilter(_CheckedOutFilter.lostDamaged),
+                ),
+                _FilterChip(
+                  label: 'All',
+                  selected: _filter == _CheckedOutFilter.all,
+                  onSelected: () => _setFilter(_CheckedOutFilter.all),
                 ),
                 _FilterChip(
                   label: 'By Person',
@@ -148,14 +181,24 @@ class _CheckoutRecordCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Quantity: ${_formatQuantity(record.quantity)} ${unit?.abbreviation ?? ''}',
+              'Open Quantity: ${_formatQuantity(record.quantityOpen)} / ${_formatQuantity(record.quantity)} ${unit?.abbreviation ?? ''}',
+            ),
+            Text(
+              'Returned Quantity: ${_formatQuantity(record.quantityReturned)}',
             ),
             Text('Assigned to: $assignedTo'),
+            if (record.sourceLocationId != null)
+              Text(
+                'Source: ${store.resolveLocationName(record.sourceLocationId) ?? 'Unknown location'}',
+              ),
             Text('Checked out: ${_formatDate(record.checkedOutAt)}'),
             if (record.dueAt != null)
               Text('Due: ${_formatDate(record.dueAt!)}'),
+            Text('Status: ${checkoutStatusLabel(record.status)}'),
             if ((record.notes ?? '').trim().isNotEmpty)
               Text('Notes: ${record.notes}'),
+            if ((record.returnNotes ?? '').trim().isNotEmpty)
+              Text('Return notes: ${record.returnNotes}'),
             const SizedBox(height: 12),
             Wrap(
               spacing: 10,
@@ -168,19 +211,19 @@ class _CheckoutRecordCard extends StatelessWidget {
                   child: const Text('Open Item'),
                 ),
                 FilledButton(
-                  onPressed: canReturn
+                  onPressed: canReturn && record.isOpen
                       ? () => _showReturnDialog(context, record)
                       : null,
                   child: const Text('Return'),
                 ),
                 OutlinedButton(
-                  onPressed: canMarkLostDamaged
+                  onPressed: canMarkLostDamaged && record.isOpen
                       ? () => _markLost(context, record.id)
                       : null,
                   child: const Text('Mark Lost'),
                 ),
                 OutlinedButton(
-                  onPressed: canMarkLostDamaged
+                  onPressed: canMarkLostDamaged && record.isOpen
                       ? () => _markDamaged(context, record.id)
                       : null,
                   child: const Text('Mark Damaged'),
@@ -236,9 +279,18 @@ class _EmptyState extends StatelessWidget {
 }
 
 class _QuantityNotesResult {
-  const _QuantityNotesResult({required this.quantity, required this.notes});
+  const _QuantityNotesResult({
+    required this.quantity,
+    required this.locationId,
+    required this.condition,
+    required this.returnDamagedToStock,
+    required this.notes,
+  });
 
   final double quantity;
+  final String locationId;
+  final CheckoutReturnCondition condition;
+  final bool returnDamagedToStock;
   final String? notes;
 }
 
@@ -256,36 +308,20 @@ Future<void> _showReturnDialog(
     context,
     title: 'Return Checked Out Item',
     quantityLabel: 'Quantity returned',
-    initialQuantity: record.quantity,
+    initialQuantity: record.quantityOpen,
+    record: record,
   );
   if (result == null || !context.mounted) {
-    return;
-  }
-
-  if (result.quantity != record.quantity) {
-    _showMessage(context, 'Partial returns are not supported yet.');
-    return;
-  }
-
-  Location? returnLocation = store.primaryLocationForItem(record.itemId);
-  if (returnLocation == null) {
-    for (final location in store.locations) {
-      if (location.isActive) {
-        returnLocation = location;
-        break;
-      }
-    }
-  }
-  if (returnLocation == null) {
-    _showMessage(context, 'Create a location before returning stock.');
     return;
   }
 
   final returned = store.returnCheckout(
     checkoutRecordId: record.id,
     returnedQuantity: result.quantity,
-    returnToLocationId: returnLocation.id,
+    returnToLocationId: result.locationId,
     notes: result.notes,
+    condition: result.condition,
+    returnDamagedToStock: result.returnDamagedToStock,
   );
   _showMessage(context, returned ? 'Item returned.' : 'Could not return item.');
 }
@@ -295,46 +331,118 @@ Future<_QuantityNotesResult?> _showQuantityNotesDialog(
   required String title,
   required String quantityLabel,
   required double initialQuantity,
+  required CheckoutRecord record,
 }) {
   final formKey = GlobalKey<FormState>();
   final quantityController = TextEditingController(
     text: _formatQuantity(initialQuantity),
   );
   final notesController = TextEditingController();
+  final store = AppStoreScope.of(context);
+  final locations = store.locations
+      .where((location) => location.isActive)
+      .toList();
+  var selectedLocationId =
+      store.primaryLocationForItem(record.itemId)?.id ??
+      locations.firstOrNull?.id;
+  var condition = CheckoutReturnCondition.good;
+  var returnDamagedToStock = true;
 
   return showDialog<_QuantityNotesResult>(
     context: context,
     builder: (context) {
       return AlertDialog(
         title: Text(title),
-        content: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: quantityController,
-                decoration: InputDecoration(labelText: quantityLabel),
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                validator: (value) {
-                  final quantity = double.tryParse(value?.trim() ?? '');
-                  if (quantity == null || quantity <= 0) {
-                    return 'Enter a quantity greater than 0.';
-                  }
-
-                  return null;
-                },
+        content: StatefulBuilder(
+          builder: (context, setState) {
+            return Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: quantityController,
+                    decoration: InputDecoration(labelText: quantityLabel),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    validator: (value) {
+                      final quantity = double.tryParse(value?.trim() ?? '');
+                      if (quantity == null || quantity <= 0) {
+                        return 'Enter a quantity greater than 0.';
+                      }
+                      if (quantity > record.quantityOpen) {
+                        return 'Return quantity cannot exceed open quantity.';
+                      }
+                      final unit = _unitById(store, record.unitOfMeasureId);
+                      if (unit != null &&
+                          !unit.allowsDecimal &&
+                          quantity != quantity.roundToDouble()) {
+                        return 'Quantity must be a whole number.';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedLocationId,
+                    decoration: const InputDecoration(labelText: 'Return to'),
+                    items: [
+                      for (final location in locations)
+                        DropdownMenuItem(
+                          value: location.id,
+                          child: Text(location.name),
+                        ),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        selectedLocationId = value;
+                      });
+                    },
+                    validator: (value) =>
+                        value == null ? 'Choose a return location.' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<CheckoutReturnCondition>(
+                    initialValue: condition,
+                    decoration: const InputDecoration(labelText: 'Condition'),
+                    items: [
+                      for (final option in CheckoutReturnCondition.values)
+                        DropdownMenuItem(
+                          value: option,
+                          child: Text(checkoutReturnConditionLabel(option)),
+                        ),
+                    ],
+                    onChanged: (value) {
+                      if (value == null) {
+                        return;
+                      }
+                      setState(() {
+                        condition = value;
+                      });
+                    },
+                  ),
+                  if (condition == CheckoutReturnCondition.damaged)
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Return damaged item to stock'),
+                      value: returnDamagedToStock,
+                      onChanged: (value) {
+                        setState(() {
+                          returnDamagedToStock = value;
+                        });
+                      },
+                    ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: notesController,
+                    decoration: const InputDecoration(labelText: 'Notes'),
+                    maxLines: 2,
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: notesController,
-                decoration: const InputDecoration(labelText: 'Notes'),
-                maxLines: 2,
-              ),
-            ],
-          ),
+            );
+          },
         ),
         actions: [
           TextButton(
@@ -351,6 +459,9 @@ Future<_QuantityNotesResult?> _showQuantityNotesDialog(
               Navigator.of(context).pop(
                 _QuantityNotesResult(
                   quantity: double.parse(quantityController.text.trim()),
+                  locationId: selectedLocationId!,
+                  condition: condition,
+                  returnDamagedToStock: returnDamagedToStock,
                   notes: notes.isEmpty ? null : notes,
                 ),
               );
@@ -419,6 +530,16 @@ bool _isOverdue(CheckoutRecord record) {
   final now = DateTime.now();
   final today = DateTime(now.year, now.month, now.day);
   return dueAt.isBefore(today);
+}
+
+bool _isDueSoon(CheckoutRecord record) {
+  final dueAt = record.dueAt;
+  if (dueAt == null || !record.isOpen || _isOverdue(record)) {
+    return false;
+  }
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  return dueAt.isBefore(today.add(const Duration(days: 7)));
 }
 
 String _assignedToText(AppStore store, CheckoutRecord record) {

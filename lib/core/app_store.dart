@@ -2513,7 +2513,7 @@ class AppStore extends ChangeNotifier {
 
   List<CheckoutRecord> get openCheckoutRecords {
     final records = _checkoutRecords
-        .where((record) => record.status == CheckoutStatus.checkedOut)
+        .where((record) => record.isOpen && record.quantityOpen > 0)
         .toList();
 
     records.sort((left, right) {
@@ -2549,6 +2549,51 @@ class AppStore extends ChangeNotifier {
         .toList();
   }
 
+  List<CheckoutRecord> getOpenCheckoutsForItem(String itemId) {
+    return openCheckoutRecordsForItem(itemId);
+  }
+
+  List<CheckoutRecord> getOpenCheckoutRecords() => openCheckoutRecords;
+
+  List<CheckoutRecord> getOverdueCheckoutRecords() => overdueCheckoutRecords;
+
+  List<CheckoutRecord> getDueSoonCheckoutRecords({int days = 7}) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final cutoff = today.add(Duration(days: days));
+    return openCheckoutRecords.where((record) {
+      final dueAt = record.dueAt;
+      return dueAt != null && !dueAt.isBefore(today) && dueAt.isBefore(cutoff);
+    }).toList();
+  }
+
+  double getCheckedOutQuantityForItem(String itemId) {
+    return openCheckoutRecordsForItem(
+      itemId,
+    ).fold<double>(0, (total, record) => total + record.quantityOpen);
+  }
+
+  String resolveCheckoutAssigneeName(CheckoutRecord record) {
+    final parts = <String>[];
+    final person = resolvePersonName(record.assignedToPersonId);
+    if (person != null) {
+      parts.add(person);
+    }
+    final location = resolveLocationName(record.assignedToLocationId);
+    if (location != null) {
+      parts.add(location);
+    }
+    final target = resolveAssignmentTargetName(record.assignedToTargetId);
+    if (target != null) {
+      parts.add(target);
+    }
+    final text = record.assignedToText?.trim();
+    if (text != null && text.isNotEmpty) {
+      parts.add(text);
+    }
+    return parts.isEmpty ? 'Unassigned' : parts.join(' / ');
+  }
+
   bool checkOutItem({
     required String itemId,
     required double quantity,
@@ -2571,6 +2616,9 @@ class AppStore extends ChangeNotifier {
     }
 
     final item = _items[itemIndex];
+    if (!item.isActive || item.itemType == ItemType.consumable) {
+      return false;
+    }
     final now = DateTime.now();
     final sourceBalance =
         _balanceFor(itemId, sourceLocationId)?.quantityOnHand ?? 0;
@@ -2578,6 +2626,14 @@ class AppStore extends ChangeNotifier {
       return false;
     }
     final normalizedAssignedText = assignedToText?.trim();
+    final hasAssignee =
+        assignedToPersonId != null ||
+        assignedToLocationId != null ||
+        assignedToTargetId != null ||
+        (normalizedAssignedText != null && normalizedAssignedText.isNotEmpty);
+    if (!hasAssignee) {
+      return false;
+    }
     final normalizedNotes = notes?.trim();
     _setBalanceQuantity(
       itemId,
@@ -2598,8 +2654,10 @@ class AppStore extends ChangeNotifier {
           ? null
           : normalizedAssignedText,
       quantity: quantity,
+      quantityReturned: 0,
+      sourceLocationId: sourceLocationId,
       unitOfMeasureId: item.unitOfMeasureId,
-      status: CheckoutStatus.checkedOut,
+      status: CheckoutStatus.open,
       checkedOutAt: now,
       dueAt: dueAt,
       returnedAt: null,
@@ -2608,6 +2666,8 @@ class AppStore extends ChangeNotifier {
       notes: normalizedNotes == null || normalizedNotes.isEmpty
           ? null
           : normalizedNotes,
+      returnNotes: null,
+      conditionOnReturn: null,
     );
     _checkoutRecords.add(record);
     unawaited(_database.upsertCheckoutRecord(record.toCompanion()));
@@ -2627,7 +2687,7 @@ class AppStore extends ChangeNotifier {
           ? null
           : normalizedAssignedText,
       performedByUserId: currentUser?.id,
-      notes: record.notes,
+      notes: _checkoutNote(record),
       createdAt: now,
     );
     _transactions.add(transaction);
@@ -2641,6 +2701,8 @@ class AppStore extends ChangeNotifier {
     required double returnedQuantity,
     required String returnToLocationId,
     String? notes,
+    CheckoutReturnCondition condition = CheckoutReturnCondition.good,
+    bool returnDamagedToStock = true,
   }) {
     if (!permissions.canIssueItems || returnedQuantity <= 0) {
       return false;
@@ -2654,8 +2716,7 @@ class AppStore extends ChangeNotifier {
     }
 
     final record = _checkoutRecords[recordIndex];
-    if (record.status != CheckoutStatus.checkedOut ||
-        returnedQuantity != record.quantity) {
+    if (!record.isOpen || returnedQuantity > record.quantityOpen) {
       return false;
     }
 
@@ -2666,24 +2727,48 @@ class AppStore extends ChangeNotifier {
 
     final now = DateTime.now();
     final item = _items[itemIndex];
-    final current =
-        _balanceFor(item.id, returnToLocationId)?.quantityOnHand ?? 0;
-    _setBalanceQuantity(
-      item.id,
-      returnToLocationId,
-      current + returnedQuantity,
-      now,
-    );
-    _syncItemCachedQuantity(item.id, now);
+    final shouldReturnToStock =
+        condition == CheckoutReturnCondition.good ||
+        (condition == CheckoutReturnCondition.damaged && returnDamagedToStock);
+    if (shouldReturnToStock) {
+      final current =
+          _balanceFor(item.id, returnToLocationId)?.quantityOnHand ?? 0;
+      _setBalanceQuantity(
+        item.id,
+        returnToLocationId,
+        current + returnedQuantity,
+        now,
+      );
+      _syncItemCachedQuantity(item.id, now);
+    }
 
     final normalizedNotes = notes?.trim();
+    final totalReturned = record.quantityReturned + returnedQuantity;
+    final fullyClosed = totalReturned >= record.quantity;
+    final status = switch (condition) {
+      CheckoutReturnCondition.good =>
+        fullyClosed
+            ? CheckoutStatus.returned
+            : CheckoutStatus.partiallyReturned,
+      CheckoutReturnCondition.damaged =>
+        fullyClosed && !returnDamagedToStock
+            ? CheckoutStatus.damaged
+            : fullyClosed
+            ? CheckoutStatus.returned
+            : CheckoutStatus.partiallyReturned,
+      CheckoutReturnCondition.lost =>
+        fullyClosed ? CheckoutStatus.lost : CheckoutStatus.partiallyReturned,
+    };
     final updatedRecord = record.copyWith(
-      status: CheckoutStatus.returned,
-      returnedAt: now,
+      status: status,
+      quantityReturned: totalReturned,
+      returnedAt: fullyClosed ? now : record.returnedAt,
       returnedByUserId: currentUser?.id,
       notes: normalizedNotes == null || normalizedNotes.isEmpty
           ? record.notes
           : normalizedNotes,
+      returnNotes: normalizedNotes,
+      conditionOnReturn: condition,
     );
     _checkoutRecords[recordIndex] = updatedRecord;
     unawaited(_database.upsertCheckoutRecord(updatedRecord.toCompanion()));
@@ -2691,18 +2776,28 @@ class AppStore extends ChangeNotifier {
     final transaction = InventoryTransaction(
       id: 'txn-return-${now.microsecondsSinceEpoch}',
       itemId: item.id,
-      transactionType: InventoryTransactionType.returnItem,
-      quantityDelta: returnedQuantity,
+      transactionType: switch (condition) {
+        CheckoutReturnCondition.good => InventoryTransactionType.returnItem,
+        CheckoutReturnCondition.damaged =>
+          shouldReturnToStock
+              ? InventoryTransactionType.returnItem
+              : InventoryTransactionType.markDamaged,
+        CheckoutReturnCondition.lost => InventoryTransactionType.markLost,
+      },
+      quantityDelta: shouldReturnToStock ? returnedQuantity : 0,
       unitOfMeasureId: item.unitOfMeasureId,
       fromLocationId: null,
-      toLocationId: returnToLocationId,
+      toLocationId: shouldReturnToStock ? returnToLocationId : null,
       assignedToPersonId: record.assignedToPersonId,
       assignedToTargetId: record.assignedToTargetId,
       assignedToText: record.assignedToText,
       performedByUserId: currentUser?.id,
-      notes: normalizedNotes == null || normalizedNotes.isEmpty
-          ? 'Returned checked out item'
-          : normalizedNotes,
+      notes: _returnNote(
+        condition: condition,
+        quantity: returnedQuantity,
+        returnedToStock: shouldReturnToStock,
+        notes: normalizedNotes,
+      ),
       createdAt: now,
     );
     _transactions.add(transaction);
@@ -2711,85 +2806,96 @@ class AppStore extends ChangeNotifier {
     return true;
   }
 
+  bool partiallyReturnCheckout({
+    required String checkoutRecordId,
+    required double returnedQuantity,
+    required String returnToLocationId,
+    String? notes,
+  }) {
+    return returnCheckout(
+      checkoutRecordId: checkoutRecordId,
+      returnedQuantity: returnedQuantity,
+      returnToLocationId: returnToLocationId,
+      notes: notes,
+    );
+  }
+
   bool markCheckoutLost(String checkoutRecordId, String? notes) {
-    return _closeCheckoutWithoutRestock(
-      checkoutRecordId,
-      CheckoutStatus.lost,
-      InventoryTransactionType.markLost,
-      notes,
+    if (!permissions.canAdjustQuantity) {
+      return false;
+    }
+    final record = _checkoutRecordById(checkoutRecordId);
+    if (record == null) {
+      return false;
+    }
+    return returnCheckout(
+      checkoutRecordId: checkoutRecordId,
+      returnedQuantity: record.quantityOpen,
+      returnToLocationId: record.sourceLocationId ?? '',
+      notes: notes,
+      condition: CheckoutReturnCondition.lost,
     );
   }
 
   bool markCheckoutDamaged(String checkoutRecordId, String? notes) {
-    return _closeCheckoutWithoutRestock(
-      checkoutRecordId,
-      CheckoutStatus.damaged,
-      InventoryTransactionType.markDamaged,
-      notes,
-    );
-  }
-
-  bool _closeCheckoutWithoutRestock(
-    String checkoutRecordId,
-    CheckoutStatus status,
-    InventoryTransactionType transactionType,
-    String? notes,
-  ) {
     if (!permissions.canAdjustQuantity) {
       return false;
     }
-
-    final recordIndex = _checkoutRecords.indexWhere(
-      (record) => record.id == checkoutRecordId,
-    );
-    if (recordIndex == -1) {
+    final record = _checkoutRecordById(checkoutRecordId);
+    if (record == null) {
       return false;
     }
-
-    final record = _checkoutRecords[recordIndex];
-    if (record.status != CheckoutStatus.checkedOut) {
-      return false;
-    }
-
-    final item = _itemById(record.itemId);
-    if (item == null) {
-      return false;
-    }
-
-    final now = DateTime.now();
-    final normalizedNotes = notes?.trim();
-    final updatedRecord = record.copyWith(
-      status: status,
-      returnedAt: now,
-      returnedByUserId: currentUser?.id,
-      notes: normalizedNotes == null || normalizedNotes.isEmpty
-          ? record.notes
-          : normalizedNotes,
+    return returnCheckout(
+      checkoutRecordId: checkoutRecordId,
+      returnedQuantity: record.quantityOpen,
+      returnToLocationId: record.sourceLocationId ?? '',
+      notes: notes,
+      condition: CheckoutReturnCondition.damaged,
+      returnDamagedToStock: false,
     );
-    _checkoutRecords[recordIndex] = updatedRecord;
-    unawaited(_database.upsertCheckoutRecord(updatedRecord.toCompanion()));
+  }
 
-    final transaction = InventoryTransaction(
-      id: 'txn-${transactionType.name}-${now.microsecondsSinceEpoch}',
-      itemId: item.id,
-      transactionType: transactionType,
-      quantityDelta: -record.quantity,
-      unitOfMeasureId: item.unitOfMeasureId,
-      fromLocationId: item.locationId,
-      toLocationId: null,
-      assignedToPersonId: record.assignedToPersonId,
-      assignedToTargetId: record.assignedToTargetId,
-      assignedToText: record.assignedToText,
-      performedByUserId: currentUser?.id,
-      notes: normalizedNotes == null || normalizedNotes.isEmpty
-          ? checkoutStatusLabel(status)
-          : normalizedNotes,
-      createdAt: now,
-    );
-    _transactions.add(transaction);
-    unawaited(_database.upsertTransaction(transaction.toCompanion()));
-    notifyListeners();
-    return true;
+  CheckoutRecord? _checkoutRecordById(String checkoutRecordId) {
+    for (final record in _checkoutRecords) {
+      if (record.id == checkoutRecordId) {
+        return record;
+      }
+    }
+    return null;
+  }
+
+  String _checkoutNote(CheckoutRecord record) {
+    final parts = ['Checked out to ${resolveCheckoutAssigneeName(record)}.'];
+    final dueAt = record.dueAt;
+    if (dueAt != null) {
+      parts.add(
+        'Due ${dueAt.year}-${dueAt.month.toString().padLeft(2, '0')}-${dueAt.day.toString().padLeft(2, '0')}.',
+      );
+    }
+    final notes = record.notes?.trim();
+    if (notes != null && notes.isNotEmpty) {
+      parts.add(notes);
+    }
+    return parts.join(' ');
+  }
+
+  String _returnNote({
+    required CheckoutReturnCondition condition,
+    required double quantity,
+    required bool returnedToStock,
+    String? notes,
+  }) {
+    final parts = [
+      '${checkoutReturnConditionLabel(condition)} return: ${_formatQuantity(quantity)}.',
+    ];
+    if (!returnedToStock) {
+      parts.add('Closed out without returning to stock.');
+    }
+    final trimmed = notes?.trim();
+    if (trimmed != null && trimmed.isNotEmpty) {
+      parts.add(trimmed);
+    }
+    return parts.join(' ');
   }
 
   List<Item> getLowStockItems() {

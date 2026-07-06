@@ -5032,6 +5032,29 @@ class $CheckoutRecordsTable extends CheckoutRecords
     type: DriftSqlType.double,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _quantityReturnedMeta = const VerificationMeta(
+    'quantityReturned',
+  );
+  @override
+  late final GeneratedColumn<double> quantityReturned = GeneratedColumn<double>(
+    'quantity_returned',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _sourceLocationIdMeta = const VerificationMeta(
+    'sourceLocationId',
+  );
+  @override
+  late final GeneratedColumn<String> sourceLocationId = GeneratedColumn<String>(
+    'source_location_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _unitOfMeasureIdMeta = const VerificationMeta(
     'unitOfMeasureId',
   );
@@ -5114,6 +5137,29 @@ class $CheckoutRecordsTable extends CheckoutRecords
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _returnNotesMeta = const VerificationMeta(
+    'returnNotes',
+  );
+  @override
+  late final GeneratedColumn<String> returnNotes = GeneratedColumn<String>(
+    'return_notes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _conditionOnReturnMeta = const VerificationMeta(
+    'conditionOnReturn',
+  );
+  @override
+  late final GeneratedColumn<String> conditionOnReturn =
+      GeneratedColumn<String>(
+        'condition_on_return',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -5123,6 +5169,8 @@ class $CheckoutRecordsTable extends CheckoutRecords
     assignedToTargetId,
     assignedToText,
     quantity,
+    quantityReturned,
+    sourceLocationId,
     unitOfMeasureId,
     status,
     checkedOutAt,
@@ -5131,6 +5179,8 @@ class $CheckoutRecordsTable extends CheckoutRecords
     checkedOutByUserId,
     returnedByUserId,
     notes,
+    returnNotes,
+    conditionOnReturn,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -5201,6 +5251,24 @@ class $CheckoutRecordsTable extends CheckoutRecords
     } else if (isInserting) {
       context.missing(_quantityMeta);
     }
+    if (data.containsKey('quantity_returned')) {
+      context.handle(
+        _quantityReturnedMeta,
+        quantityReturned.isAcceptableOrUnknown(
+          data['quantity_returned']!,
+          _quantityReturnedMeta,
+        ),
+      );
+    }
+    if (data.containsKey('source_location_id')) {
+      context.handle(
+        _sourceLocationIdMeta,
+        sourceLocationId.isAcceptableOrUnknown(
+          data['source_location_id']!,
+          _sourceLocationIdMeta,
+        ),
+      );
+    }
     if (data.containsKey('unit_of_measure_id')) {
       context.handle(
         _unitOfMeasureIdMeta,
@@ -5267,6 +5335,24 @@ class $CheckoutRecordsTable extends CheckoutRecords
         notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
       );
     }
+    if (data.containsKey('return_notes')) {
+      context.handle(
+        _returnNotesMeta,
+        returnNotes.isAcceptableOrUnknown(
+          data['return_notes']!,
+          _returnNotesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('condition_on_return')) {
+      context.handle(
+        _conditionOnReturnMeta,
+        conditionOnReturn.isAcceptableOrUnknown(
+          data['condition_on_return']!,
+          _conditionOnReturnMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -5304,6 +5390,14 @@ class $CheckoutRecordsTable extends CheckoutRecords
         DriftSqlType.double,
         data['${effectivePrefix}quantity'],
       )!,
+      quantityReturned: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}quantity_returned'],
+      )!,
+      sourceLocationId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_location_id'],
+      ),
       unitOfMeasureId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}unit_of_measure_id'],
@@ -5336,6 +5430,14 @@ class $CheckoutRecordsTable extends CheckoutRecords
         DriftSqlType.string,
         data['${effectivePrefix}notes'],
       ),
+      returnNotes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}return_notes'],
+      ),
+      conditionOnReturn: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}condition_on_return'],
+      ),
     );
   }
 
@@ -5354,6 +5456,8 @@ class CheckoutRecordRow extends DataClass
   final String? assignedToTargetId;
   final String? assignedToText;
   final double quantity;
+  final double quantityReturned;
+  final String? sourceLocationId;
   final String unitOfMeasureId;
   final String status;
   final DateTime checkedOutAt;
@@ -5362,6 +5466,8 @@ class CheckoutRecordRow extends DataClass
   final String? checkedOutByUserId;
   final String? returnedByUserId;
   final String? notes;
+  final String? returnNotes;
+  final String? conditionOnReturn;
   const CheckoutRecordRow({
     required this.id,
     required this.itemId,
@@ -5370,6 +5476,8 @@ class CheckoutRecordRow extends DataClass
     this.assignedToTargetId,
     this.assignedToText,
     required this.quantity,
+    required this.quantityReturned,
+    this.sourceLocationId,
     required this.unitOfMeasureId,
     required this.status,
     required this.checkedOutAt,
@@ -5378,6 +5486,8 @@ class CheckoutRecordRow extends DataClass
     this.checkedOutByUserId,
     this.returnedByUserId,
     this.notes,
+    this.returnNotes,
+    this.conditionOnReturn,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -5397,6 +5507,10 @@ class CheckoutRecordRow extends DataClass
       map['assigned_to_text'] = Variable<String>(assignedToText);
     }
     map['quantity'] = Variable<double>(quantity);
+    map['quantity_returned'] = Variable<double>(quantityReturned);
+    if (!nullToAbsent || sourceLocationId != null) {
+      map['source_location_id'] = Variable<String>(sourceLocationId);
+    }
     map['unit_of_measure_id'] = Variable<String>(unitOfMeasureId);
     map['status'] = Variable<String>(status);
     map['checked_out_at'] = Variable<DateTime>(checkedOutAt);
@@ -5414,6 +5528,12 @@ class CheckoutRecordRow extends DataClass
     }
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
+    }
+    if (!nullToAbsent || returnNotes != null) {
+      map['return_notes'] = Variable<String>(returnNotes);
+    }
+    if (!nullToAbsent || conditionOnReturn != null) {
+      map['condition_on_return'] = Variable<String>(conditionOnReturn);
     }
     return map;
   }
@@ -5435,6 +5555,10 @@ class CheckoutRecordRow extends DataClass
           ? const Value.absent()
           : Value(assignedToText),
       quantity: Value(quantity),
+      quantityReturned: Value(quantityReturned),
+      sourceLocationId: sourceLocationId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sourceLocationId),
       unitOfMeasureId: Value(unitOfMeasureId),
       status: Value(status),
       checkedOutAt: Value(checkedOutAt),
@@ -5453,6 +5577,12 @@ class CheckoutRecordRow extends DataClass
       notes: notes == null && nullToAbsent
           ? const Value.absent()
           : Value(notes),
+      returnNotes: returnNotes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(returnNotes),
+      conditionOnReturn: conditionOnReturn == null && nullToAbsent
+          ? const Value.absent()
+          : Value(conditionOnReturn),
     );
   }
 
@@ -5475,6 +5605,8 @@ class CheckoutRecordRow extends DataClass
       ),
       assignedToText: serializer.fromJson<String?>(json['assignedToText']),
       quantity: serializer.fromJson<double>(json['quantity']),
+      quantityReturned: serializer.fromJson<double>(json['quantityReturned']),
+      sourceLocationId: serializer.fromJson<String?>(json['sourceLocationId']),
       unitOfMeasureId: serializer.fromJson<String>(json['unitOfMeasureId']),
       status: serializer.fromJson<String>(json['status']),
       checkedOutAt: serializer.fromJson<DateTime>(json['checkedOutAt']),
@@ -5485,6 +5617,10 @@ class CheckoutRecordRow extends DataClass
       ),
       returnedByUserId: serializer.fromJson<String?>(json['returnedByUserId']),
       notes: serializer.fromJson<String?>(json['notes']),
+      returnNotes: serializer.fromJson<String?>(json['returnNotes']),
+      conditionOnReturn: serializer.fromJson<String?>(
+        json['conditionOnReturn'],
+      ),
     );
   }
   @override
@@ -5498,6 +5634,8 @@ class CheckoutRecordRow extends DataClass
       'assignedToTargetId': serializer.toJson<String?>(assignedToTargetId),
       'assignedToText': serializer.toJson<String?>(assignedToText),
       'quantity': serializer.toJson<double>(quantity),
+      'quantityReturned': serializer.toJson<double>(quantityReturned),
+      'sourceLocationId': serializer.toJson<String?>(sourceLocationId),
       'unitOfMeasureId': serializer.toJson<String>(unitOfMeasureId),
       'status': serializer.toJson<String>(status),
       'checkedOutAt': serializer.toJson<DateTime>(checkedOutAt),
@@ -5506,6 +5644,8 @@ class CheckoutRecordRow extends DataClass
       'checkedOutByUserId': serializer.toJson<String?>(checkedOutByUserId),
       'returnedByUserId': serializer.toJson<String?>(returnedByUserId),
       'notes': serializer.toJson<String?>(notes),
+      'returnNotes': serializer.toJson<String?>(returnNotes),
+      'conditionOnReturn': serializer.toJson<String?>(conditionOnReturn),
     };
   }
 
@@ -5517,6 +5657,8 @@ class CheckoutRecordRow extends DataClass
     Value<String?> assignedToTargetId = const Value.absent(),
     Value<String?> assignedToText = const Value.absent(),
     double? quantity,
+    double? quantityReturned,
+    Value<String?> sourceLocationId = const Value.absent(),
     String? unitOfMeasureId,
     String? status,
     DateTime? checkedOutAt,
@@ -5525,6 +5667,8 @@ class CheckoutRecordRow extends DataClass
     Value<String?> checkedOutByUserId = const Value.absent(),
     Value<String?> returnedByUserId = const Value.absent(),
     Value<String?> notes = const Value.absent(),
+    Value<String?> returnNotes = const Value.absent(),
+    Value<String?> conditionOnReturn = const Value.absent(),
   }) => CheckoutRecordRow(
     id: id ?? this.id,
     itemId: itemId ?? this.itemId,
@@ -5541,6 +5685,10 @@ class CheckoutRecordRow extends DataClass
         ? assignedToText.value
         : this.assignedToText,
     quantity: quantity ?? this.quantity,
+    quantityReturned: quantityReturned ?? this.quantityReturned,
+    sourceLocationId: sourceLocationId.present
+        ? sourceLocationId.value
+        : this.sourceLocationId,
     unitOfMeasureId: unitOfMeasureId ?? this.unitOfMeasureId,
     status: status ?? this.status,
     checkedOutAt: checkedOutAt ?? this.checkedOutAt,
@@ -5553,6 +5701,10 @@ class CheckoutRecordRow extends DataClass
         ? returnedByUserId.value
         : this.returnedByUserId,
     notes: notes.present ? notes.value : this.notes,
+    returnNotes: returnNotes.present ? returnNotes.value : this.returnNotes,
+    conditionOnReturn: conditionOnReturn.present
+        ? conditionOnReturn.value
+        : this.conditionOnReturn,
   );
   CheckoutRecordRow copyWithCompanion(CheckoutRecordsCompanion data) {
     return CheckoutRecordRow(
@@ -5571,6 +5723,12 @@ class CheckoutRecordRow extends DataClass
           ? data.assignedToText.value
           : this.assignedToText,
       quantity: data.quantity.present ? data.quantity.value : this.quantity,
+      quantityReturned: data.quantityReturned.present
+          ? data.quantityReturned.value
+          : this.quantityReturned,
+      sourceLocationId: data.sourceLocationId.present
+          ? data.sourceLocationId.value
+          : this.sourceLocationId,
       unitOfMeasureId: data.unitOfMeasureId.present
           ? data.unitOfMeasureId.value
           : this.unitOfMeasureId,
@@ -5589,6 +5747,12 @@ class CheckoutRecordRow extends DataClass
           ? data.returnedByUserId.value
           : this.returnedByUserId,
       notes: data.notes.present ? data.notes.value : this.notes,
+      returnNotes: data.returnNotes.present
+          ? data.returnNotes.value
+          : this.returnNotes,
+      conditionOnReturn: data.conditionOnReturn.present
+          ? data.conditionOnReturn.value
+          : this.conditionOnReturn,
     );
   }
 
@@ -5602,6 +5766,8 @@ class CheckoutRecordRow extends DataClass
           ..write('assignedToTargetId: $assignedToTargetId, ')
           ..write('assignedToText: $assignedToText, ')
           ..write('quantity: $quantity, ')
+          ..write('quantityReturned: $quantityReturned, ')
+          ..write('sourceLocationId: $sourceLocationId, ')
           ..write('unitOfMeasureId: $unitOfMeasureId, ')
           ..write('status: $status, ')
           ..write('checkedOutAt: $checkedOutAt, ')
@@ -5609,7 +5775,9 @@ class CheckoutRecordRow extends DataClass
           ..write('returnedAt: $returnedAt, ')
           ..write('checkedOutByUserId: $checkedOutByUserId, ')
           ..write('returnedByUserId: $returnedByUserId, ')
-          ..write('notes: $notes')
+          ..write('notes: $notes, ')
+          ..write('returnNotes: $returnNotes, ')
+          ..write('conditionOnReturn: $conditionOnReturn')
           ..write(')'))
         .toString();
   }
@@ -5623,6 +5791,8 @@ class CheckoutRecordRow extends DataClass
     assignedToTargetId,
     assignedToText,
     quantity,
+    quantityReturned,
+    sourceLocationId,
     unitOfMeasureId,
     status,
     checkedOutAt,
@@ -5631,6 +5801,8 @@ class CheckoutRecordRow extends DataClass
     checkedOutByUserId,
     returnedByUserId,
     notes,
+    returnNotes,
+    conditionOnReturn,
   );
   @override
   bool operator ==(Object other) =>
@@ -5643,6 +5815,8 @@ class CheckoutRecordRow extends DataClass
           other.assignedToTargetId == this.assignedToTargetId &&
           other.assignedToText == this.assignedToText &&
           other.quantity == this.quantity &&
+          other.quantityReturned == this.quantityReturned &&
+          other.sourceLocationId == this.sourceLocationId &&
           other.unitOfMeasureId == this.unitOfMeasureId &&
           other.status == this.status &&
           other.checkedOutAt == this.checkedOutAt &&
@@ -5650,7 +5824,9 @@ class CheckoutRecordRow extends DataClass
           other.returnedAt == this.returnedAt &&
           other.checkedOutByUserId == this.checkedOutByUserId &&
           other.returnedByUserId == this.returnedByUserId &&
-          other.notes == this.notes);
+          other.notes == this.notes &&
+          other.returnNotes == this.returnNotes &&
+          other.conditionOnReturn == this.conditionOnReturn);
 }
 
 class CheckoutRecordsCompanion extends UpdateCompanion<CheckoutRecordRow> {
@@ -5661,6 +5837,8 @@ class CheckoutRecordsCompanion extends UpdateCompanion<CheckoutRecordRow> {
   final Value<String?> assignedToTargetId;
   final Value<String?> assignedToText;
   final Value<double> quantity;
+  final Value<double> quantityReturned;
+  final Value<String?> sourceLocationId;
   final Value<String> unitOfMeasureId;
   final Value<String> status;
   final Value<DateTime> checkedOutAt;
@@ -5669,6 +5847,8 @@ class CheckoutRecordsCompanion extends UpdateCompanion<CheckoutRecordRow> {
   final Value<String?> checkedOutByUserId;
   final Value<String?> returnedByUserId;
   final Value<String?> notes;
+  final Value<String?> returnNotes;
+  final Value<String?> conditionOnReturn;
   final Value<int> rowid;
   const CheckoutRecordsCompanion({
     this.id = const Value.absent(),
@@ -5678,6 +5858,8 @@ class CheckoutRecordsCompanion extends UpdateCompanion<CheckoutRecordRow> {
     this.assignedToTargetId = const Value.absent(),
     this.assignedToText = const Value.absent(),
     this.quantity = const Value.absent(),
+    this.quantityReturned = const Value.absent(),
+    this.sourceLocationId = const Value.absent(),
     this.unitOfMeasureId = const Value.absent(),
     this.status = const Value.absent(),
     this.checkedOutAt = const Value.absent(),
@@ -5686,6 +5868,8 @@ class CheckoutRecordsCompanion extends UpdateCompanion<CheckoutRecordRow> {
     this.checkedOutByUserId = const Value.absent(),
     this.returnedByUserId = const Value.absent(),
     this.notes = const Value.absent(),
+    this.returnNotes = const Value.absent(),
+    this.conditionOnReturn = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   CheckoutRecordsCompanion.insert({
@@ -5696,6 +5880,8 @@ class CheckoutRecordsCompanion extends UpdateCompanion<CheckoutRecordRow> {
     this.assignedToTargetId = const Value.absent(),
     this.assignedToText = const Value.absent(),
     required double quantity,
+    this.quantityReturned = const Value.absent(),
+    this.sourceLocationId = const Value.absent(),
     required String unitOfMeasureId,
     required String status,
     required DateTime checkedOutAt,
@@ -5704,6 +5890,8 @@ class CheckoutRecordsCompanion extends UpdateCompanion<CheckoutRecordRow> {
     this.checkedOutByUserId = const Value.absent(),
     this.returnedByUserId = const Value.absent(),
     this.notes = const Value.absent(),
+    this.returnNotes = const Value.absent(),
+    this.conditionOnReturn = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        itemId = Value(itemId),
@@ -5719,6 +5907,8 @@ class CheckoutRecordsCompanion extends UpdateCompanion<CheckoutRecordRow> {
     Expression<String>? assignedToTargetId,
     Expression<String>? assignedToText,
     Expression<double>? quantity,
+    Expression<double>? quantityReturned,
+    Expression<String>? sourceLocationId,
     Expression<String>? unitOfMeasureId,
     Expression<String>? status,
     Expression<DateTime>? checkedOutAt,
@@ -5727,6 +5917,8 @@ class CheckoutRecordsCompanion extends UpdateCompanion<CheckoutRecordRow> {
     Expression<String>? checkedOutByUserId,
     Expression<String>? returnedByUserId,
     Expression<String>? notes,
+    Expression<String>? returnNotes,
+    Expression<String>? conditionOnReturn,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -5740,6 +5932,8 @@ class CheckoutRecordsCompanion extends UpdateCompanion<CheckoutRecordRow> {
         'assigned_to_target_id': assignedToTargetId,
       if (assignedToText != null) 'assigned_to_text': assignedToText,
       if (quantity != null) 'quantity': quantity,
+      if (quantityReturned != null) 'quantity_returned': quantityReturned,
+      if (sourceLocationId != null) 'source_location_id': sourceLocationId,
       if (unitOfMeasureId != null) 'unit_of_measure_id': unitOfMeasureId,
       if (status != null) 'status': status,
       if (checkedOutAt != null) 'checked_out_at': checkedOutAt,
@@ -5749,6 +5943,8 @@ class CheckoutRecordsCompanion extends UpdateCompanion<CheckoutRecordRow> {
         'checked_out_by_user_id': checkedOutByUserId,
       if (returnedByUserId != null) 'returned_by_user_id': returnedByUserId,
       if (notes != null) 'notes': notes,
+      if (returnNotes != null) 'return_notes': returnNotes,
+      if (conditionOnReturn != null) 'condition_on_return': conditionOnReturn,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -5761,6 +5957,8 @@ class CheckoutRecordsCompanion extends UpdateCompanion<CheckoutRecordRow> {
     Value<String?>? assignedToTargetId,
     Value<String?>? assignedToText,
     Value<double>? quantity,
+    Value<double>? quantityReturned,
+    Value<String?>? sourceLocationId,
     Value<String>? unitOfMeasureId,
     Value<String>? status,
     Value<DateTime>? checkedOutAt,
@@ -5769,6 +5967,8 @@ class CheckoutRecordsCompanion extends UpdateCompanion<CheckoutRecordRow> {
     Value<String?>? checkedOutByUserId,
     Value<String?>? returnedByUserId,
     Value<String?>? notes,
+    Value<String?>? returnNotes,
+    Value<String?>? conditionOnReturn,
     Value<int>? rowid,
   }) {
     return CheckoutRecordsCompanion(
@@ -5779,6 +5979,8 @@ class CheckoutRecordsCompanion extends UpdateCompanion<CheckoutRecordRow> {
       assignedToTargetId: assignedToTargetId ?? this.assignedToTargetId,
       assignedToText: assignedToText ?? this.assignedToText,
       quantity: quantity ?? this.quantity,
+      quantityReturned: quantityReturned ?? this.quantityReturned,
+      sourceLocationId: sourceLocationId ?? this.sourceLocationId,
       unitOfMeasureId: unitOfMeasureId ?? this.unitOfMeasureId,
       status: status ?? this.status,
       checkedOutAt: checkedOutAt ?? this.checkedOutAt,
@@ -5787,6 +5989,8 @@ class CheckoutRecordsCompanion extends UpdateCompanion<CheckoutRecordRow> {
       checkedOutByUserId: checkedOutByUserId ?? this.checkedOutByUserId,
       returnedByUserId: returnedByUserId ?? this.returnedByUserId,
       notes: notes ?? this.notes,
+      returnNotes: returnNotes ?? this.returnNotes,
+      conditionOnReturn: conditionOnReturn ?? this.conditionOnReturn,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -5817,6 +6021,12 @@ class CheckoutRecordsCompanion extends UpdateCompanion<CheckoutRecordRow> {
     if (quantity.present) {
       map['quantity'] = Variable<double>(quantity.value);
     }
+    if (quantityReturned.present) {
+      map['quantity_returned'] = Variable<double>(quantityReturned.value);
+    }
+    if (sourceLocationId.present) {
+      map['source_location_id'] = Variable<String>(sourceLocationId.value);
+    }
     if (unitOfMeasureId.present) {
       map['unit_of_measure_id'] = Variable<String>(unitOfMeasureId.value);
     }
@@ -5843,6 +6053,12 @@ class CheckoutRecordsCompanion extends UpdateCompanion<CheckoutRecordRow> {
     if (notes.present) {
       map['notes'] = Variable<String>(notes.value);
     }
+    if (returnNotes.present) {
+      map['return_notes'] = Variable<String>(returnNotes.value);
+    }
+    if (conditionOnReturn.present) {
+      map['condition_on_return'] = Variable<String>(conditionOnReturn.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -5859,6 +6075,8 @@ class CheckoutRecordsCompanion extends UpdateCompanion<CheckoutRecordRow> {
           ..write('assignedToTargetId: $assignedToTargetId, ')
           ..write('assignedToText: $assignedToText, ')
           ..write('quantity: $quantity, ')
+          ..write('quantityReturned: $quantityReturned, ')
+          ..write('sourceLocationId: $sourceLocationId, ')
           ..write('unitOfMeasureId: $unitOfMeasureId, ')
           ..write('status: $status, ')
           ..write('checkedOutAt: $checkedOutAt, ')
@@ -5867,6 +6085,8 @@ class CheckoutRecordsCompanion extends UpdateCompanion<CheckoutRecordRow> {
           ..write('checkedOutByUserId: $checkedOutByUserId, ')
           ..write('returnedByUserId: $returnedByUserId, ')
           ..write('notes: $notes, ')
+          ..write('returnNotes: $returnNotes, ')
+          ..write('conditionOnReturn: $conditionOnReturn, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -12569,6 +12789,8 @@ typedef $$CheckoutRecordsTableCreateCompanionBuilder =
       Value<String?> assignedToTargetId,
       Value<String?> assignedToText,
       required double quantity,
+      Value<double> quantityReturned,
+      Value<String?> sourceLocationId,
       required String unitOfMeasureId,
       required String status,
       required DateTime checkedOutAt,
@@ -12577,6 +12799,8 @@ typedef $$CheckoutRecordsTableCreateCompanionBuilder =
       Value<String?> checkedOutByUserId,
       Value<String?> returnedByUserId,
       Value<String?> notes,
+      Value<String?> returnNotes,
+      Value<String?> conditionOnReturn,
       Value<int> rowid,
     });
 typedef $$CheckoutRecordsTableUpdateCompanionBuilder =
@@ -12588,6 +12812,8 @@ typedef $$CheckoutRecordsTableUpdateCompanionBuilder =
       Value<String?> assignedToTargetId,
       Value<String?> assignedToText,
       Value<double> quantity,
+      Value<double> quantityReturned,
+      Value<String?> sourceLocationId,
       Value<String> unitOfMeasureId,
       Value<String> status,
       Value<DateTime> checkedOutAt,
@@ -12596,6 +12822,8 @@ typedef $$CheckoutRecordsTableUpdateCompanionBuilder =
       Value<String?> checkedOutByUserId,
       Value<String?> returnedByUserId,
       Value<String?> notes,
+      Value<String?> returnNotes,
+      Value<String?> conditionOnReturn,
       Value<int> rowid,
     });
 
@@ -12643,6 +12871,16 @@ class $$CheckoutRecordsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<double> get quantityReturned => $composableBuilder(
+    column: $table.quantityReturned,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceLocationId => $composableBuilder(
+    column: $table.sourceLocationId,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get unitOfMeasureId => $composableBuilder(
     column: $table.unitOfMeasureId,
     builder: (column) => ColumnFilters(column),
@@ -12680,6 +12918,16 @@ class $$CheckoutRecordsTableFilterComposer
 
   ColumnFilters<String> get notes => $composableBuilder(
     column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get returnNotes => $composableBuilder(
+    column: $table.returnNotes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get conditionOnReturn => $composableBuilder(
+    column: $table.conditionOnReturn,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -12728,6 +12976,16 @@ class $$CheckoutRecordsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get quantityReturned => $composableBuilder(
+    column: $table.quantityReturned,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceLocationId => $composableBuilder(
+    column: $table.sourceLocationId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get unitOfMeasureId => $composableBuilder(
     column: $table.unitOfMeasureId,
     builder: (column) => ColumnOrderings(column),
@@ -12765,6 +13023,16 @@ class $$CheckoutRecordsTableOrderingComposer
 
   ColumnOrderings<String> get notes => $composableBuilder(
     column: $table.notes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get returnNotes => $composableBuilder(
+    column: $table.returnNotes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get conditionOnReturn => $composableBuilder(
+    column: $table.conditionOnReturn,
     builder: (column) => ColumnOrderings(column),
   );
 }
@@ -12807,6 +13075,16 @@ class $$CheckoutRecordsTableAnnotationComposer
   GeneratedColumn<double> get quantity =>
       $composableBuilder(column: $table.quantity, builder: (column) => column);
 
+  GeneratedColumn<double> get quantityReturned => $composableBuilder(
+    column: $table.quantityReturned,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sourceLocationId => $composableBuilder(
+    column: $table.sourceLocationId,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get unitOfMeasureId => $composableBuilder(
     column: $table.unitOfMeasureId,
     builder: (column) => column,
@@ -12840,6 +13118,16 @@ class $$CheckoutRecordsTableAnnotationComposer
 
   GeneratedColumn<String> get notes =>
       $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<String> get returnNotes => $composableBuilder(
+    column: $table.returnNotes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get conditionOnReturn => $composableBuilder(
+    column: $table.conditionOnReturn,
+    builder: (column) => column,
+  );
 }
 
 class $$CheckoutRecordsTableTableManager
@@ -12886,6 +13174,8 @@ class $$CheckoutRecordsTableTableManager
                 Value<String?> assignedToTargetId = const Value.absent(),
                 Value<String?> assignedToText = const Value.absent(),
                 Value<double> quantity = const Value.absent(),
+                Value<double> quantityReturned = const Value.absent(),
+                Value<String?> sourceLocationId = const Value.absent(),
                 Value<String> unitOfMeasureId = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<DateTime> checkedOutAt = const Value.absent(),
@@ -12894,6 +13184,8 @@ class $$CheckoutRecordsTableTableManager
                 Value<String?> checkedOutByUserId = const Value.absent(),
                 Value<String?> returnedByUserId = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<String?> returnNotes = const Value.absent(),
+                Value<String?> conditionOnReturn = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CheckoutRecordsCompanion(
                 id: id,
@@ -12903,6 +13195,8 @@ class $$CheckoutRecordsTableTableManager
                 assignedToTargetId: assignedToTargetId,
                 assignedToText: assignedToText,
                 quantity: quantity,
+                quantityReturned: quantityReturned,
+                sourceLocationId: sourceLocationId,
                 unitOfMeasureId: unitOfMeasureId,
                 status: status,
                 checkedOutAt: checkedOutAt,
@@ -12911,6 +13205,8 @@ class $$CheckoutRecordsTableTableManager
                 checkedOutByUserId: checkedOutByUserId,
                 returnedByUserId: returnedByUserId,
                 notes: notes,
+                returnNotes: returnNotes,
+                conditionOnReturn: conditionOnReturn,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -12922,6 +13218,8 @@ class $$CheckoutRecordsTableTableManager
                 Value<String?> assignedToTargetId = const Value.absent(),
                 Value<String?> assignedToText = const Value.absent(),
                 required double quantity,
+                Value<double> quantityReturned = const Value.absent(),
+                Value<String?> sourceLocationId = const Value.absent(),
                 required String unitOfMeasureId,
                 required String status,
                 required DateTime checkedOutAt,
@@ -12930,6 +13228,8 @@ class $$CheckoutRecordsTableTableManager
                 Value<String?> checkedOutByUserId = const Value.absent(),
                 Value<String?> returnedByUserId = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<String?> returnNotes = const Value.absent(),
+                Value<String?> conditionOnReturn = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CheckoutRecordsCompanion.insert(
                 id: id,
@@ -12939,6 +13239,8 @@ class $$CheckoutRecordsTableTableManager
                 assignedToTargetId: assignedToTargetId,
                 assignedToText: assignedToText,
                 quantity: quantity,
+                quantityReturned: quantityReturned,
+                sourceLocationId: sourceLocationId,
                 unitOfMeasureId: unitOfMeasureId,
                 status: status,
                 checkedOutAt: checkedOutAt,
@@ -12947,6 +13249,8 @@ class $$CheckoutRecordsTableTableManager
                 checkedOutByUserId: checkedOutByUserId,
                 returnedByUserId: returnedByUserId,
                 notes: notes,
+                returnNotes: returnNotes,
+                conditionOnReturn: conditionOnReturn,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

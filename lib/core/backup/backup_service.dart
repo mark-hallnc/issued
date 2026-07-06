@@ -356,6 +356,10 @@ class BackupService {
       'assignedToTargetId': record.assignedToTargetId,
       'assignedToText': record.assignedToText,
       'quantity': record.quantity,
+      'quantityCheckedOut': record.quantityCheckedOut,
+      'quantityReturned': record.quantityReturned,
+      'quantityOpen': record.quantityOpen,
+      'sourceLocationId': record.sourceLocationId,
       'unitOfMeasureId': record.unitOfMeasureId,
       'status': record.status.name,
       'checkedOutAt': record.checkedOutAt.toIso8601String(),
@@ -364,6 +368,8 @@ class BackupService {
       'checkedOutByUserId': record.checkedOutByUserId,
       'returnedByUserId': record.returnedByUserId,
       'notes': record.notes,
+      'returnNotes': record.returnNotes,
+      'conditionOnReturn': record.conditionOnReturn?.name,
     };
   }
 
@@ -754,6 +760,15 @@ class BackupService {
     if (id == null || status == null) {
       return null;
     }
+    final quantity = _double(
+      row,
+      row.containsKey('quantityCheckedOut') ? 'quantityCheckedOut' : 'quantity',
+    );
+    final returned = row.containsKey('quantityReturned')
+        ? _double(row, 'quantityReturned')
+        : status == CheckoutStatus.returned
+        ? quantity
+        : 0.0;
     return CheckoutRecord(
       id: id,
       itemId: _string(row, 'itemId', ''),
@@ -761,7 +776,9 @@ class BackupService {
       assignedToLocationId: row['assignedToLocationId']?.toString(),
       assignedToTargetId: row['assignedToTargetId']?.toString(),
       assignedToText: row['assignedToText']?.toString(),
-      quantity: _double(row, 'quantity'),
+      quantity: quantity,
+      quantityReturned: returned,
+      sourceLocationId: row['sourceLocationId']?.toString(),
       unitOfMeasureId: _string(row, 'unitOfMeasureId', ''),
       status: status,
       checkedOutAt: _date(row['checkedOutAt']) ?? DateTime.now(),
@@ -770,6 +787,15 @@ class BackupService {
       checkedOutByUserId: row['checkedOutByUserId']?.toString(),
       returnedByUserId: row['returnedByUserId']?.toString(),
       notes: row['notes']?.toString(),
+      returnNotes: row['returnNotes']?.toString(),
+      conditionOnReturn: row['conditionOnReturn'] == null
+          ? null
+          : _enum(
+              CheckoutReturnCondition.values,
+              row['conditionOnReturn'],
+              warnings,
+              'checkout return condition',
+            ),
     );
   }
 

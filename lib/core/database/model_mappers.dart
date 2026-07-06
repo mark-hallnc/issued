@@ -285,6 +285,8 @@ extension CheckoutRecordRowMapper on CheckoutRecordRow {
       assignedToTargetId: assignedToTargetId,
       assignedToText: assignedToText,
       quantity: quantity,
+      quantityReturned: quantityReturned,
+      sourceLocationId: sourceLocationId,
       unitOfMeasureId: unitOfMeasureId,
       status: _enumByName(domain.CheckoutStatus.values, status),
       checkedOutAt: checkedOutAt,
@@ -293,6 +295,13 @@ extension CheckoutRecordRowMapper on CheckoutRecordRow {
       checkedOutByUserId: checkedOutByUserId,
       returnedByUserId: returnedByUserId,
       notes: notes,
+      returnNotes: returnNotes,
+      conditionOnReturn: conditionOnReturn == null
+          ? null
+          : _enumByName(
+              domain.CheckoutReturnCondition.values,
+              conditionOnReturn!,
+            ),
     );
   }
 }
@@ -307,6 +316,8 @@ extension CheckoutRecordDomainMapper on domain.CheckoutRecord {
       assignedToTargetId: Value(assignedToTargetId),
       assignedToText: Value(assignedToText),
       quantity: Value(quantity),
+      quantityReturned: Value(quantityReturned),
+      sourceLocationId: Value(sourceLocationId),
       unitOfMeasureId: Value(unitOfMeasureId),
       status: Value(status.name),
       checkedOutAt: Value(checkedOutAt),
@@ -315,6 +326,8 @@ extension CheckoutRecordDomainMapper on domain.CheckoutRecord {
       checkedOutByUserId: Value(checkedOutByUserId),
       returnedByUserId: Value(returnedByUserId),
       notes: Value(notes),
+      returnNotes: Value(returnNotes),
+      conditionOnReturn: Value(conditionOnReturn?.name),
     );
   }
 }

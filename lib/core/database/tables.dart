@@ -142,6 +142,8 @@ class CheckoutRecords extends Table {
   TextColumn get assignedToTargetId => text().nullable()();
   TextColumn get assignedToText => text().nullable()();
   RealColumn get quantity => real()();
+  RealColumn get quantityReturned => real().withDefault(const Constant(0))();
+  TextColumn get sourceLocationId => text().nullable()();
   TextColumn get unitOfMeasureId => text()();
   TextColumn get status => text()();
   DateTimeColumn get checkedOutAt => dateTime()();
@@ -150,6 +152,8 @@ class CheckoutRecords extends Table {
   TextColumn get checkedOutByUserId => text().nullable()();
   TextColumn get returnedByUserId => text().nullable()();
   TextColumn get notes => text().nullable()();
+  TextColumn get returnNotes => text().nullable()();
+  TextColumn get conditionOnReturn => text().nullable()();
 
   @override
   Set<Column<Object>> get primaryKey => {id};
