@@ -50,7 +50,11 @@ class AppStore extends ChangeNotifier {
   );
   supabase.User? _currentCloudUser;
   final List<CloudWorkspace> _availableWorkspaces = [];
+  final List<CloudWorkspaceMember> _workspaceMembers = [];
+  final List<CloudWorkspaceInvite> _workspaceInvites = [];
+  final List<CloudWorkspaceInvite> _pendingCloudInvites = [];
   CloudWorkspace? _activeWorkspace;
+  CloudWorkspaceRole? _currentCloudRole;
   bool _cloudModeEnabled = false;
   StreamSubscription<dynamic>? _cloudAuthSubscription;
 
@@ -61,7 +65,14 @@ class AppStore extends ChangeNotifier {
   supabase.User? get currentCloudUser => _currentCloudUser;
   List<CloudWorkspace> get availableWorkspaces =>
       List.unmodifiable(_availableWorkspaces);
+  List<CloudWorkspaceMember> get workspaceMembers =>
+      List.unmodifiable(_workspaceMembers);
+  List<CloudWorkspaceInvite> get workspaceInvites =>
+      List.unmodifiable(_workspaceInvites);
+  List<CloudWorkspaceInvite> get pendingCloudInvites =>
+      List.unmodifiable(_pendingCloudInvites);
   CloudWorkspace? get activeWorkspace => _activeWorkspace;
+  CloudWorkspaceRole? get currentCloudRole => _currentCloudRole;
   List<Item> get items => List.unmodifiable(_items);
   List<UnitOfMeasure> get unitsOfMeasure => List.unmodifiable(_unitsOfMeasure);
   List<Location> get locations => List.unmodifiable(_locations);
@@ -135,7 +146,19 @@ class AppStore extends ChangeNotifier {
     return currentUser?.role ?? UserRole.viewOnly;
   }
 
-  AppPermissions get permissions => AppPermissions(currentRole);
+  UserRole get currentEffectiveRole {
+    if (isLocked) {
+      return UserRole.viewOnly;
+    }
+    if (_cloudModeEnabled &&
+        _activeWorkspace != null &&
+        _currentCloudRole != null) {
+      return _localRoleForCloudRole(_currentCloudRole!);
+    }
+    return currentRole;
+  }
+
+  AppPermissions get permissions => AppPermissions(currentEffectiveRole);
   List<Plan> get availablePlans => List.unmodifiable(samplePlans);
   CompanyUsage get currentUsage {
     return CompanyUsage(
@@ -176,7 +199,11 @@ class AppStore extends ChangeNotifier {
     if (!isCloudConfigured) {
       _currentCloudUser = null;
       _availableWorkspaces.clear();
+      _workspaceMembers.clear();
+      _workspaceInvites.clear();
+      _pendingCloudInvites.clear();
       _activeWorkspace = null;
+      _currentCloudRole = null;
       _cloudModeEnabled = false;
       return;
     }
@@ -188,7 +215,11 @@ class AppStore extends ChangeNotifier {
       _currentCloudUser = authState.session?.user;
       if (_currentCloudUser == null) {
         _availableWorkspaces.clear();
+        _workspaceMembers.clear();
+        _workspaceInvites.clear();
+        _pendingCloudInvites.clear();
         _activeWorkspace = null;
+        _currentCloudRole = null;
         _cloudModeEnabled = false;
         workspaceService.clearActiveWorkspace();
       }
@@ -221,7 +252,7 @@ class AppStore extends ChangeNotifier {
     _currentCloudUser = cloudAuthService.currentUser;
     _cloudModeEnabled = _currentCloudUser != null;
     if (_cloudModeEnabled) {
-      await loadMyWorkspaces();
+      await refreshCloudWorkspaceState();
     } else {
       notifyListeners();
     }
@@ -234,7 +265,11 @@ class AppStore extends ChangeNotifier {
     final result = await cloudAuthService.signOut();
     _currentCloudUser = null;
     _availableWorkspaces.clear();
+    _workspaceMembers.clear();
+    _workspaceInvites.clear();
+    _pendingCloudInvites.clear();
     _activeWorkspace = null;
+    _currentCloudRole = null;
     _cloudModeEnabled = false;
     workspaceService.clearActiveWorkspace();
     notifyListeners();
@@ -259,8 +294,191 @@ class AppStore extends ChangeNotifier {
       _activeWorkspace = _availableWorkspaces.first;
       workspaceService.setActiveWorkspace(_activeWorkspace!);
     }
+    await loadPendingCloudInvites(notify: false);
+    if (_activeWorkspace != null) {
+      await loadWorkspaceMembers(notify: false);
+      await loadWorkspaceInvites(notify: false);
+    } else {
+      _workspaceMembers.clear();
+      _workspaceInvites.clear();
+      _currentCloudRole = null;
+    }
     notifyListeners();
     return const AppActionResult.success();
+  }
+
+  Future<AppActionResult> refreshCloudWorkspaceState() async {
+    final sessionResult = await refreshCloudSession();
+    if (!sessionResult.success) {
+      return sessionResult;
+    }
+    if (_currentCloudUser == null) {
+      return const AppActionResult.success();
+    }
+    return loadMyWorkspaces();
+  }
+
+  Future<AppActionResult> loadWorkspaceMembers({bool notify = true}) async {
+    final workspace = _activeWorkspace;
+    if (workspace == null) {
+      _workspaceMembers.clear();
+      _currentCloudRole = null;
+      if (notify) notifyListeners();
+      return const AppActionResult.failure('Select a workspace first.');
+    }
+    final result = await workspaceService.fetchMembersForWorkspace(
+      workspace.id,
+    );
+    if (!result.success) {
+      return AppActionResult.failure(result.message);
+    }
+    _workspaceMembers
+      ..clear()
+      ..addAll(result.data ?? const []);
+    _currentCloudRole = _roleForCurrentCloudUser();
+    if (notify) notifyListeners();
+    return const AppActionResult.success();
+  }
+
+  Future<AppActionResult> loadWorkspaceInvites({bool notify = true}) async {
+    final workspace = _activeWorkspace;
+    if (workspace == null) {
+      _workspaceInvites.clear();
+      if (notify) notifyListeners();
+      return const AppActionResult.failure('Select a workspace first.');
+    }
+    final result = await workspaceService.fetchInvitesForWorkspace(
+      workspace.id,
+    );
+    if (!result.success) {
+      return AppActionResult.failure(result.message);
+    }
+    _workspaceInvites
+      ..clear()
+      ..addAll(result.data ?? const []);
+    if (notify) notifyListeners();
+    return const AppActionResult.success();
+  }
+
+  Future<AppActionResult> loadPendingCloudInvites({bool notify = true}) async {
+    final result = await workspaceService.fetchPendingInvitesForCurrentUser();
+    if (!result.success) {
+      return AppActionResult.failure(result.message);
+    }
+    _pendingCloudInvites
+      ..clear()
+      ..addAll(result.data ?? const []);
+    if (notify) notifyListeners();
+    return const AppActionResult.success();
+  }
+
+  Future<AppActionResult> inviteCloudWorkspaceMember({
+    required String email,
+    required CloudWorkspaceRole role,
+    String? displayName,
+  }) async {
+    final workspace = _activeWorkspace;
+    if (workspace == null) {
+      return const AppActionResult.failure('Select a workspace first.');
+    }
+    final normalizedEmail = email.trim().toLowerCase();
+    if (_workspaceMembers.any(
+      (member) =>
+          member.email.toLowerCase() == normalizedEmail &&
+          member.status == CloudWorkspaceMemberStatus.active,
+    )) {
+      return const AppActionResult.failure(
+        'That person is already a workspace member.',
+      );
+    }
+    final result = await workspaceService.inviteWorkspaceMember(
+      workspaceId: workspace.id,
+      email: normalizedEmail,
+      role: role,
+      displayName: displayName,
+    );
+    if (result.success) {
+      await loadWorkspaceInvites(notify: false);
+      notifyListeners();
+      return AppActionResult.success(message: result.message);
+    }
+    return AppActionResult.failure(result.message);
+  }
+
+  Future<AppActionResult> resendCloudWorkspaceInvite(String inviteId) async {
+    final result = await workspaceService.resendWorkspaceInvite(inviteId);
+    if (result.success) {
+      await loadWorkspaceInvites(notify: false);
+      notifyListeners();
+      return AppActionResult.success(message: result.message);
+    }
+    return AppActionResult.failure(result.message);
+  }
+
+  Future<AppActionResult> revokeCloudWorkspaceInvite(String inviteId) async {
+    final result = await workspaceService.revokeWorkspaceInvite(inviteId);
+    if (result.success) {
+      await loadWorkspaceInvites(notify: false);
+      await loadPendingCloudInvites(notify: false);
+      notifyListeners();
+      return AppActionResult.success(message: result.message);
+    }
+    return AppActionResult.failure(result.message);
+  }
+
+  Future<AppActionResult> acceptCloudWorkspaceInvite(String inviteId) async {
+    final result = await workspaceService.acceptWorkspaceInvite(inviteId);
+    if (!result.success || result.data == null) {
+      return AppActionResult.failure(result.message);
+    }
+    final workspace = result.data!;
+    if (!_availableWorkspaces.any((item) => item.id == workspace.id)) {
+      _availableWorkspaces.add(workspace);
+    }
+    _activeWorkspace = workspace;
+    _cloudModeEnabled = true;
+    workspaceService.setActiveWorkspace(workspace);
+    await loadPendingCloudInvites(notify: false);
+    await loadWorkspaceMembers(notify: false);
+    await loadWorkspaceInvites(notify: false);
+    notifyListeners();
+    return AppActionResult.success(message: result.message);
+  }
+
+  Future<AppActionResult> updateCloudMemberRole({
+    required String memberId,
+    required CloudWorkspaceRole role,
+  }) async {
+    final result = await workspaceService.updateWorkspaceMemberRole(
+      memberId: memberId,
+      role: role,
+    );
+    if (result.success) {
+      await loadWorkspaceMembers(notify: false);
+      notifyListeners();
+      return AppActionResult.success(message: result.message);
+    }
+    return AppActionResult.failure(result.message);
+  }
+
+  Future<AppActionResult> disableCloudMember(String memberId) async {
+    final result = await workspaceService.disableWorkspaceMember(memberId);
+    if (result.success) {
+      await loadWorkspaceMembers(notify: false);
+      notifyListeners();
+      return AppActionResult.success(message: result.message);
+    }
+    return AppActionResult.failure(result.message);
+  }
+
+  Future<AppActionResult> enableCloudMember(String memberId) async {
+    final result = await workspaceService.enableWorkspaceMember(memberId);
+    if (result.success) {
+      await loadWorkspaceMembers(notify: false);
+      notifyListeners();
+      return AppActionResult.success(message: result.message);
+    }
+    return AppActionResult.failure(result.message);
   }
 
   Future<AppActionResult> createCloudWorkspace(String name) async {
@@ -275,6 +493,8 @@ class AppStore extends ChangeNotifier {
       _availableWorkspaces.add(result.data!);
     }
     _cloudModeEnabled = true;
+    await loadWorkspaceMembers(notify: false);
+    await loadWorkspaceInvites(notify: false);
     notifyListeners();
     return AppActionResult.success(message: result.message);
   }
@@ -284,13 +504,42 @@ class AppStore extends ChangeNotifier {
     _cloudModeEnabled = true;
     workspaceService.setActiveWorkspace(workspace);
     notifyListeners();
+    loadWorkspaceMembers();
+    loadWorkspaceInvites();
   }
 
   void disableCloudModeAndUseLocalOnly() {
     _cloudModeEnabled = false;
     _activeWorkspace = null;
+    _currentCloudRole = null;
+    _workspaceMembers.clear();
+    _workspaceInvites.clear();
+    _pendingCloudInvites.clear();
     workspaceService.clearActiveWorkspace();
     notifyListeners();
+  }
+
+  CloudWorkspaceRole? _roleForCurrentCloudUser() {
+    final userId = _currentCloudUser?.id;
+    if (userId == null) {
+      return null;
+    }
+    for (final member in _workspaceMembers) {
+      if (member.userId == userId &&
+          member.status == CloudWorkspaceMemberStatus.active) {
+        return member.role;
+      }
+    }
+    return null;
+  }
+
+  UserRole _localRoleForCloudRole(CloudWorkspaceRole role) {
+    return switch (role) {
+      CloudWorkspaceRole.owner || CloudWorkspaceRole.admin => UserRole.admin,
+      CloudWorkspaceRole.manager => UserRole.manager,
+      CloudWorkspaceRole.worker => UserRole.worker,
+      CloudWorkspaceRole.viewOnly => UserRole.viewOnly,
+    };
   }
 
   Future<void> _ensureBasePlanData() async {

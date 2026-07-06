@@ -91,6 +91,251 @@ class WorkspaceService {
     }
   }
 
+  Future<WorkspaceResult<List<CloudWorkspaceInvite>>> fetchInvitesForWorkspace(
+    String workspaceId,
+  ) async {
+    final client = _client;
+    if (client == null) {
+      return WorkspaceResult.failure(SupabaseConfig.missingConfigMessage);
+    }
+    if (_authService.currentUser == null) {
+      return const WorkspaceResult.failure('Sign in to view invites.');
+    }
+    try {
+      final rows = await client
+          .from('workspace_invites')
+          .select()
+          .eq('workspace_id', workspaceId)
+          .order('created_at', ascending: false);
+      return WorkspaceResult.success([
+        for (final row in rows as List<dynamic>)
+          CloudWorkspaceInvite.fromJson(row as Map<String, dynamic>),
+      ]);
+    } on PostgrestException catch (error) {
+      return WorkspaceResult.failure(_friendlyDatabaseError(error.message));
+    } catch (_) {
+      return const WorkspaceResult.failure('Could not load workspace invites.');
+    }
+  }
+
+  Future<WorkspaceResult<List<CloudWorkspaceInvite>>>
+  fetchPendingInvitesForCurrentUser() async {
+    final client = _client;
+    final email = _authService.currentUser?.email?.trim().toLowerCase();
+    if (client == null) {
+      return WorkspaceResult.failure(SupabaseConfig.missingConfigMessage);
+    }
+    if (email == null || email.isEmpty) {
+      return const WorkspaceResult.failure('Sign in to view invites.');
+    }
+    try {
+      final rows = await client
+          .from('workspace_invites')
+          .select('*,workspaces(name)')
+          .eq('email', email)
+          .eq('status', 'pending')
+          .order('created_at', ascending: false);
+      return WorkspaceResult.success([
+        for (final row in rows as List<dynamic>)
+          CloudWorkspaceInvite.fromJson(row as Map<String, dynamic>),
+      ]);
+    } on PostgrestException catch (error) {
+      return WorkspaceResult.failure(_friendlyDatabaseError(error.message));
+    } catch (_) {
+      return const WorkspaceResult.failure('Could not load pending invites.');
+    }
+  }
+
+  Future<WorkspaceResult<void>> inviteWorkspaceMember({
+    required String workspaceId,
+    required String email,
+    required CloudWorkspaceRole role,
+    String? displayName,
+  }) async {
+    final client = _client;
+    final normalizedEmail = email.trim().toLowerCase();
+    if (client == null) {
+      return WorkspaceResult.failure(SupabaseConfig.missingConfigMessage);
+    }
+    if (_authService.currentUser == null) {
+      return const WorkspaceResult.failure('Sign in to invite members.');
+    }
+    if (!_looksLikeEmail(normalizedEmail)) {
+      return const WorkspaceResult.failure('Enter a valid email address.');
+    }
+    if (role == CloudWorkspaceRole.owner) {
+      return const WorkspaceResult.failure('Owner cannot be invited.');
+    }
+    try {
+      final response = await client.functions.invoke(
+        'invite-workspace-member',
+        body: {
+          'workspaceId': workspaceId,
+          'email': normalizedEmail,
+          'role': role.name,
+          if (displayName != null && displayName.trim().isNotEmpty)
+            'displayName': displayName.trim(),
+        },
+      );
+      final data = response.data;
+      if (data is Map) {
+        final success = data['success'] == true;
+        final warning = data['warning']?.toString();
+        final message = warning ?? data['message']?.toString();
+        return success
+            ? WorkspaceResult.success(null, message: message ?? 'Invite sent.')
+            : WorkspaceResult.failure(message ?? 'Invite could not be sent.');
+      }
+      return const WorkspaceResult.success(null, message: 'Invite sent.');
+    } catch (error) {
+      return WorkspaceResult.failure(_friendlyDatabaseError(error.toString()));
+    }
+  }
+
+  Future<WorkspaceResult<void>> resendWorkspaceInvite(String inviteId) async {
+    final client = _client;
+    if (client == null) {
+      return WorkspaceResult.failure(SupabaseConfig.missingConfigMessage);
+    }
+    if (_authService.currentUser == null) {
+      return const WorkspaceResult.failure('Sign in to resend invites.');
+    }
+    try {
+      final row = await client
+          .from('workspace_invites')
+          .select()
+          .eq('id', inviteId)
+          .single();
+      final invite = CloudWorkspaceInvite.fromJson(row);
+      return inviteWorkspaceMember(
+        workspaceId: invite.workspaceId,
+        email: invite.email,
+        role: invite.role,
+      );
+    } on PostgrestException catch (error) {
+      return WorkspaceResult.failure(_friendlyDatabaseError(error.message));
+    } catch (_) {
+      return const WorkspaceResult.failure('Could not resend invite.');
+    }
+  }
+
+  Future<WorkspaceResult<void>> revokeWorkspaceInvite(String inviteId) async {
+    final client = _client;
+    if (client == null) {
+      return WorkspaceResult.failure(SupabaseConfig.missingConfigMessage);
+    }
+    if (_authService.currentUser == null) {
+      return const WorkspaceResult.failure('Sign in to revoke invites.');
+    }
+    try {
+      await client.rpc(
+        'revoke_workspace_invite',
+        params: {'invite_id': inviteId},
+      );
+      return const WorkspaceResult.success(null, message: 'Invite revoked.');
+    } on PostgrestException catch (error) {
+      return WorkspaceResult.failure(_friendlyDatabaseError(error.message));
+    } catch (_) {
+      return const WorkspaceResult.failure('Could not revoke invite.');
+    }
+  }
+
+  Future<WorkspaceResult<CloudWorkspace>> acceptWorkspaceInvite(
+    String inviteId,
+  ) async {
+    final client = _client;
+    if (client == null) {
+      return WorkspaceResult.failure(SupabaseConfig.missingConfigMessage);
+    }
+    if (_authService.currentUser == null) {
+      return const WorkspaceResult.failure('Sign in to accept invites.');
+    }
+    try {
+      final workspaceId = await client.rpc(
+        'accept_workspace_invite',
+        params: {'invite_id': inviteId},
+      );
+      final row = await client
+          .from('workspaces')
+          .select()
+          .eq('id', workspaceId.toString())
+          .single();
+      final workspace = CloudWorkspace.fromJson(row);
+      _activeWorkspace = workspace;
+      return WorkspaceResult.success(workspace, message: 'Invite accepted.');
+    } on PostgrestException catch (error) {
+      return WorkspaceResult.failure(_friendlyDatabaseError(error.message));
+    } catch (_) {
+      return const WorkspaceResult.failure('Could not accept invite.');
+    }
+  }
+
+  Future<WorkspaceResult<CloudWorkspaceMember>> updateWorkspaceMemberRole({
+    required String memberId,
+    required CloudWorkspaceRole role,
+  }) async {
+    if (role == CloudWorkspaceRole.owner) {
+      return const WorkspaceResult.failure(
+        'Owner role cannot be assigned here.',
+      );
+    }
+    return _updateWorkspaceMember(
+      memberId: memberId,
+      values: {'role': role.name},
+      successMessage: 'Member role updated.',
+    );
+  }
+
+  Future<WorkspaceResult<CloudWorkspaceMember>> disableWorkspaceMember(
+    String memberId,
+  ) {
+    return _updateWorkspaceMember(
+      memberId: memberId,
+      values: {'status': CloudWorkspaceMemberStatus.disabled.name},
+      successMessage: 'Member disabled.',
+    );
+  }
+
+  Future<WorkspaceResult<CloudWorkspaceMember>> enableWorkspaceMember(
+    String memberId,
+  ) {
+    return _updateWorkspaceMember(
+      memberId: memberId,
+      values: {'status': CloudWorkspaceMemberStatus.active.name},
+      successMessage: 'Member enabled.',
+    );
+  }
+
+  Future<WorkspaceResult<CloudWorkspaceMember>> _updateWorkspaceMember({
+    required String memberId,
+    required Map<String, Object?> values,
+    required String successMessage,
+  }) async {
+    final client = _client;
+    if (client == null) {
+      return WorkspaceResult.failure(SupabaseConfig.missingConfigMessage);
+    }
+    if (_authService.currentUser == null) {
+      return const WorkspaceResult.failure('Sign in to manage members.');
+    }
+    try {
+      final row = await client
+          .from('workspace_members')
+          .update(values)
+          .eq('id', memberId)
+          .select()
+          .single();
+      return WorkspaceResult.success(
+        CloudWorkspaceMember.fromJson(row),
+        message: successMessage,
+      );
+    } on PostgrestException catch (error) {
+      return WorkspaceResult.failure(_friendlyDatabaseError(error.message));
+    } catch (_) {
+      return const WorkspaceResult.failure('Could not update member.');
+    }
+  }
+
   Future<WorkspaceResult<CloudWorkspace>> createWorkspace(String name) async {
     final client = _client;
     final user = _authService.currentUser;
@@ -166,10 +411,23 @@ class WorkspaceService {
 
 String _friendlyDatabaseError(String message) {
   final lower = message.toLowerCase();
-  if (lower.contains('does not exist') ||
-      lower.contains('schema cache') ||
-      lower.contains('permission denied')) {
+  if (lower.contains('does not exist') || lower.contains('schema cache')) {
     return 'Cloud workspace tables are not ready yet. Run the workspace SQL migration in Supabase.';
   }
+  if (lower.contains('not authenticated')) {
+    return 'Sign in to continue.';
+  }
+  if (lower.contains('not allowed') ||
+      lower.contains('permission') ||
+      lower.contains('forbidden')) {
+    return 'Your current role does not allow this action.';
+  }
+  if (lower.contains('already an active workspace member')) {
+    return 'That person is already a workspace member.';
+  }
   return message.isEmpty ? 'Cloud workspace request failed.' : message;
+}
+
+bool _looksLikeEmail(String value) {
+  return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value);
 }

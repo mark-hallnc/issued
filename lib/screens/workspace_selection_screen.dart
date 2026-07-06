@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/app_store.dart';
+import '../core/models/models.dart';
 
 class WorkspaceSelectionScreen extends StatefulWidget {
   const WorkspaceSelectionScreen({super.key});
@@ -18,7 +19,7 @@ class _WorkspaceSelectionScreenState extends State<WorkspaceSelectionScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      AppStoreScope.of(context).loadMyWorkspaces();
+      AppStoreScope.of(context).refreshCloudWorkspaceState();
     });
   }
 
@@ -51,6 +52,32 @@ class _WorkspaceSelectionScreenState extends State<WorkspaceSelectionScreen> {
             ),
           ),
           const SizedBox(height: 12),
+          if (store.pendingCloudInvites.isNotEmpty) ...[
+            Text(
+              'Pending Invites',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            for (final invite in store.pendingCloudInvites) ...[
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.mark_email_unread_outlined),
+                  title: Text(invite.workspaceName ?? 'Workspace invitation'),
+                  subtitle: Text(
+                    '${invite.email} - ${cloudWorkspaceRoleLabel(invite.role)}',
+                  ),
+                  trailing: FilledButton(
+                    onPressed: _isBusy
+                        ? null
+                        : () => _acceptInvite(store, invite.id),
+                    child: const Text('Accept'),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
+            const SizedBox(height: 12),
+          ],
           if (store.availableWorkspaces.isEmpty)
             const Card(
               child: Padding(
@@ -135,6 +162,16 @@ class _WorkspaceSelectionScreenState extends State<WorkspaceSelectionScreen> {
     if (result.success) {
       _nameController.clear();
     }
+  }
+
+  Future<void> _acceptInvite(AppStore store, String inviteId) async {
+    setState(() => _isBusy = true);
+    final result = await store.acceptCloudWorkspaceInvite(inviteId);
+    if (!mounted) {
+      return;
+    }
+    setState(() => _isBusy = false);
+    _showMessage(result.message ?? 'Invite request complete.');
   }
 
   void _showMessage(String message) {

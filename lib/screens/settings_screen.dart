@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/app_store.dart';
+import '../core/models/models.dart';
 import '../core/permissions/app_permissions.dart';
 import 'assignment_targets_screen.dart';
 import 'backup_restore_screen.dart';
@@ -10,6 +11,7 @@ import 'import_export_screen.dart';
 import 'label_center_screen.dart';
 import 'reports_screen.dart';
 import 'settings_detail_screens.dart';
+import 'workspace_members_screen.dart';
 import 'workspace_selection_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -162,6 +164,12 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                     value: store.activeWorkspace?.name ?? 'None',
                   ),
                   _CloudStatusLine(
+                    label: 'Cloud role',
+                    value: store.currentCloudRole == null
+                        ? 'None'
+                        : cloudWorkspaceRoleLabel(store.currentCloudRole!),
+                  ),
+                  _CloudStatusLine(
                     label: 'Mode',
                     value: store.cloudModeEnabled
                         ? 'Cloud workspace'
@@ -194,6 +202,19 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                   }
                 : null,
             child: const Text('Select Workspace'),
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton(
+            onPressed: store.activeWorkspace == null
+                ? null
+                : () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (context) => const WorkspaceMembersScreen(),
+                      ),
+                    );
+                  },
+            child: const Text('Members / Invites'),
           ),
           const SizedBox(height: 10),
           OutlinedButton(
