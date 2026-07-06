@@ -96,9 +96,7 @@ class ReportService {
           )
           .length,
       outOfStockCount: activeItems
-          .where(
-            (item) => item.minimumQuantity > 0 && item.quantityOnHand <= 0,
-          )
+          .where((item) => item.minimumQuantity > 0 && item.quantityOnHand <= 0)
           .length,
       checkedOutCount: store.openCheckoutRecords.length,
       openReorderCount: store.reorderRequests
@@ -223,7 +221,7 @@ class ReportService {
           accumulator.checkoutCount++;
           break;
         case InventoryTransactionType.adjustment ||
-              InventoryTransactionType.cycleCountAdjustment:
+            InventoryTransactionType.cycleCountAdjustment:
           accumulator.adjustmentCount++;
           break;
         case InventoryTransactionType.markLost:
@@ -233,7 +231,7 @@ class ReportService {
           accumulator.damagedCount++;
           break;
         case InventoryTransactionType.returnItem ||
-              InventoryTransactionType.transfer:
+            InventoryTransactionType.transfer:
           break;
       }
     }
@@ -320,9 +318,9 @@ class ReportService {
     final rowsByBucket = <String, List<CheckoutRecord>>{};
     final now = DateTime.now();
     for (final record in store.openCheckoutRecords) {
-      rowsByBucket.putIfAbsent(_checkoutAgingBucket(record, now), () => []).add(
-        record,
-      );
+      rowsByBucket
+          .putIfAbsent(_checkoutAgingBucket(record, now), () => [])
+          .add(record);
     }
     final order = [
       'Due today',
@@ -360,7 +358,8 @@ class ReportService {
         ),
     ];
     rows.sort(
-      (left, right) => right.request.createdAt.compareTo(left.request.createdAt),
+      (left, right) =>
+          right.request.createdAt.compareTo(left.request.createdAt),
     );
     return rows;
   }
@@ -692,10 +691,7 @@ class _UsageByItemAccumulator {
 }
 
 class _UsageByPersonAccumulator {
-  _UsageByPersonAccumulator({
-    required this.personId,
-    required this.role,
-  });
+  _UsageByPersonAccumulator({required this.personId, required this.role});
 
   final String personId;
   final String role;
@@ -716,11 +712,11 @@ class _UsageByPersonAccumulator {
         returnCount++;
         break;
       case InventoryTransactionType.receive ||
-            InventoryTransactionType.transfer ||
-            InventoryTransactionType.adjustment ||
-            InventoryTransactionType.markLost ||
-            InventoryTransactionType.markDamaged ||
-            InventoryTransactionType.cycleCountAdjustment:
+          InventoryTransactionType.transfer ||
+          InventoryTransactionType.adjustment ||
+          InventoryTransactionType.markLost ||
+          InventoryTransactionType.markDamaged ||
+          InventoryTransactionType.cycleCountAdjustment:
         break;
     }
     itemCounts[transaction.itemId] = (itemCounts[transaction.itemId] ?? 0) + 1;
@@ -767,14 +763,14 @@ class _UsageByTargetAccumulator {
         checkoutCount++;
         break;
       case InventoryTransactionType.markLost ||
-            InventoryTransactionType.markDamaged:
+          InventoryTransactionType.markDamaged:
         lostDamagedCount++;
         break;
       case InventoryTransactionType.receive ||
-            InventoryTransactionType.returnItem ||
-            InventoryTransactionType.transfer ||
-            InventoryTransactionType.adjustment ||
-            InventoryTransactionType.cycleCountAdjustment:
+          InventoryTransactionType.returnItem ||
+          InventoryTransactionType.transfer ||
+          InventoryTransactionType.adjustment ||
+          InventoryTransactionType.cycleCountAdjustment:
         break;
     }
     itemCounts[transaction.itemId] = (itemCounts[transaction.itemId] ?? 0) + 1;

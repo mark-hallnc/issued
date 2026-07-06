@@ -85,19 +85,22 @@ class ReportsScreen extends StatelessWidget {
               ),
               _ReportCard(
                 title: 'Low Stock',
-                subtitle: '${store.getLowStockItems().length} items need attention',
+                subtitle:
+                    '${store.getLowStockItems().length} items need attention',
                 icon: Icons.warning_amber_outlined,
                 onTap: () => _openReport(context, _ReportKind.lowStock),
               ),
               _ReportCard(
                 title: 'Out of Stock',
-                subtitle: '${_outOfStockItems(store).length} active items are out',
+                subtitle:
+                    '${_outOfStockItems(store).length} active items are out',
                 icon: Icons.remove_shopping_cart_outlined,
                 onTap: () => _openReport(context, _ReportKind.outOfStock),
               ),
               _ReportCard(
                 title: 'Stock by Location',
-                subtitle: '${snapshot.stockByLocationRows.length} stocked locations',
+                subtitle:
+                    '${snapshot.stockByLocationRows.length} stocked locations',
                 icon: Icons.location_on_outlined,
                 onTap: () => _openReport(context, _ReportKind.stockByLocation),
               ),
@@ -130,7 +133,8 @@ class ReportsScreen extends StatelessWidget {
               ),
               _ReportCard(
                 title: 'Recent Inventory Activity',
-                subtitle: '${snapshot.recentActivityRows.length} rows in last 30 days',
+                subtitle:
+                    '${snapshot.recentActivityRows.length} rows in last 30 days',
                 icon: Icons.history,
                 onTap: () => _openReport(context, _ReportKind.recentActivity),
               ),
@@ -180,7 +184,8 @@ class ReportsScreen extends StatelessWidget {
                 subtitle:
                     '${snapshot.reordersBySupplierRows.length} suppliers with open requests',
                 icon: Icons.storefront_outlined,
-                onTap: () => _openReport(context, _ReportKind.reordersBySupplier),
+                onTap: () =>
+                    _openReport(context, _ReportKind.reordersBySupplier),
               ),
               _ReportCard(
                 title: 'Reorder History',
@@ -260,7 +265,8 @@ class _ReportDetailScreenState extends State<_ReportDetailScreen> {
         children: [
           if (isAdvanced && !store.currentPlan.advancedReportsEnabled)
             _PlanLockedCard(reportName: _reportTitle(widget.kind))
-          else if (_requiresCost(widget.kind) && !store.permissions.canViewCosts)
+          else if (_requiresCost(widget.kind) &&
+              !store.permissions.canViewCosts)
             const _MessageCard(
               message: 'Your current role does not allow this action.',
             )
@@ -293,17 +299,25 @@ class _ReportDetailScreenState extends State<_ReportDetailScreen> {
       _ReportKind.usageByPerson => _usageByPerson(snapshot),
       _ReportKind.usageByAssignmentTarget => _usageByAssignmentTarget(snapshot),
       _ReportKind.recentActivity => _recentActivity(store, snapshot),
-      _ReportKind.openCheckouts =>
-        _checkouts(store, store.openCheckoutRecords, 'No open checkouts.'),
-      _ReportKind.overdueCheckouts =>
-        _checkouts(store, store.overdueCheckoutRecords, 'No overdue checkouts.'),
+      _ReportKind.openCheckouts => _checkouts(
+        store,
+        store.openCheckoutRecords,
+        'No open checkouts.',
+      ),
+      _ReportKind.overdueCheckouts => _checkouts(
+        store,
+        store.overdueCheckoutRecords,
+        'No overdue checkouts.',
+      ),
       _ReportKind.checkoutAging => _checkoutAging(store, snapshot),
       _ReportKind.lostDamaged => _lostDamaged(store),
       _ReportKind.openReorders => _openReorders(store, snapshot.openReorders),
       _ReportKind.reordersBySupplier => _reordersBySupplier(store, snapshot),
       _ReportKind.reorderHistory => _reorderHistory(store),
-      _ReportKind.lowStockWithoutReorder =>
-        _lowStock(store, snapshot.lowStockWithoutReorder),
+      _ReportKind.lowStockWithoutReorder => _lowStock(
+        store,
+        snapshot.lowStockWithoutReorder,
+      ),
       _ReportKind.cycleCountVariance => _cycleCountVariance(store, snapshot),
       _ReportKind.dataHealth => _dataHealth(snapshot),
     };
@@ -431,7 +445,9 @@ class _ReportDetailScreenState extends State<_ReportDetailScreen> {
           ),
           OutlinedButton.icon(
             onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (context) => const LowStockScreen()),
+              MaterialPageRoute<void>(
+                builder: (context) => const LowStockScreen(),
+              ),
             ),
             icon: const Icon(Icons.open_in_new),
             label: const Text('Open Low Stock'),
@@ -471,7 +487,11 @@ class _ReportDetailScreenState extends State<_ReportDetailScreen> {
             ? () => _shareCsv(
                 context,
                 _filename('issued_stock_by_location_report'),
-                _stockByLocationCsv(store, rows, store.permissions.canViewCosts),
+                _stockByLocationCsv(
+                  store,
+                  rows,
+                  store.permissions.canViewCosts,
+                ),
               )
             : null,
       ),
@@ -499,10 +519,7 @@ class _ReportDetailScreenState extends State<_ReportDetailScreen> {
     ];
   }
 
-  List<Widget> _usageByItem(
-    AppStore store,
-    reports.ReportsSnapshot snapshot,
-  ) {
+  List<Widget> _usageByItem(AppStore store, reports.ReportsSnapshot snapshot) {
     final rows = snapshot.usageByItemRows;
     return [
       _ExportButton(
@@ -614,8 +631,7 @@ class _ReportDetailScreenState extends State<_ReportDetailScreen> {
             lines: [
               '${_transactionTypeLabel(row.transaction.transactionType)}: ${_quantity(row.transaction.quantityDelta)} ${store.resolveUomAbbreviation(row.transaction.unitOfMeasureId)}',
               _dateTime(row.transaction.createdAt),
-              if (row.fromLocationName != null)
-                'From: ${row.fromLocationName}',
+              if (row.fromLocationName != null) 'From: ${row.fromLocationName}',
               if (row.toLocationName != null) 'To: ${row.toLocationName}',
               if (row.assignedTo != null) 'Assigned to: ${row.assignedTo}',
               if (row.performedBy != null) 'Performed by: ${row.performedBy}',
@@ -671,7 +687,8 @@ class _ReportDetailScreenState extends State<_ReportDetailScreen> {
               'Open quantity: ${_quantity(record.quantityOpen)} ${store.resolveUomAbbreviation(record.unitOfMeasureId)}',
               'Checked out: ${_date(record.checkedOutAt)}',
               'Due: ${record.dueAt == null ? 'No due date' : _date(record.dueAt!)}',
-              if (record.dueAt != null && record.dueAt!.isBefore(DateTime.now()))
+              if (record.dueAt != null &&
+                  record.dueAt!.isBefore(DateTime.now()))
                 'Overdue',
               'Source: ${record.sourceLocationId == null ? 'Unknown' : store.resolveLocationPath(record.sourceLocationId!)}',
               if ((record.notes ?? '').trim().isNotEmpty)
@@ -850,7 +867,9 @@ class _ReportDetailScreenState extends State<_ReportDetailScreen> {
       ),
       const SizedBox(height: 12),
       if (rows.isEmpty)
-        const _MessageCard(message: 'No cycle count variance in this date range.')
+        const _MessageCard(
+          message: 'No cycle count variance in this date range.',
+        )
       else
         for (final row in rows) ...[
           _ReportListCard(
@@ -1020,7 +1039,11 @@ class _MetricGrid extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
-                  Text(metric.label, maxLines: 2, overflow: TextOverflow.ellipsis),
+                  Text(
+                    metric.label,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ],
               ),
             ),
@@ -1248,7 +1271,9 @@ List<Widget> _sortedMoneyRows(Map<String, double> values) {
   if (entries.isEmpty) {
     return const [_SimpleRow('No value', '')];
   }
-  return [for (final entry in entries) _SimpleRow(entry.key, _money(entry.value))];
+  return [
+    for (final entry in entries) _SimpleRow(entry.key, _money(entry.value)),
+  ];
 }
 
 String _inventorySummaryCsv(reports.ReportsInventorySummary summary) {
@@ -1314,11 +1339,14 @@ String _lowStockCsv(AppStore store, List<Item> items) {
         item.minimumQuantity,
         store.resolveUomAbbreviation(item.unitOfMeasureId),
         store.resolveLocationPath(item.locationId),
-        store.resolveSupplierName(item.supplierId, fallback: item.supplier) ?? '',
+        store.resolveSupplierName(item.supplierId, fallback: item.supplier) ??
+            '',
         store.getReorderSuggestedQuantity(item),
         store.getActiveReorderForItem(item.id) == null
             ? ''
-            : reorderStatusLabel(store.getActiveReorderForItem(item.id)!.status),
+            : reorderStatusLabel(
+                store.getActiveReorderForItem(item.id)!.status,
+              ),
       ],
   ]);
 }
@@ -1387,10 +1415,7 @@ String _usageByItemCsv(
   ]);
 }
 
-String _activityCsv(
-  AppStore store,
-  List<reports.ActivityReportRow> rows,
-) {
+String _activityCsv(AppStore store, List<reports.ActivityReportRow> rows) {
   return const CsvEncoder().convert([
     [
       'timestamp',
