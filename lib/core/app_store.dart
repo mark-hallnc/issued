@@ -12,6 +12,7 @@ import 'database/model_mappers.dart';
 import 'data_health/data_health_service.dart';
 import 'models/models.dart';
 import 'permissions/app_permissions.dart';
+import 'permissions/effective_permissions.dart';
 import 'sample_data.dart';
 import 'security/pin_hash_service.dart';
 
@@ -156,7 +157,7 @@ class AppStore extends ChangeNotifier {
     if (_cloudModeEnabled &&
         _activeWorkspace != null &&
         _currentCloudRole != null) {
-      return _localRoleForCloudRole(_currentCloudRole!);
+      return localRoleForCloudWorkspaceRole(_currentCloudRole!);
     }
     if (isLocked) {
       return UserRole.viewOnly;
@@ -164,7 +165,18 @@ class AppStore extends ChangeNotifier {
     return currentRole;
   }
 
-  AppPermissions get permissions => AppPermissions(currentEffectiveRole);
+  AppPermissions get effectivePermissions =>
+      effectivePermissionsForRole(currentEffectiveRole);
+  AppPermissions get permissions => effectivePermissions;
+  bool get isCloudWorkspaceMode => isCloudWorkspaceActive;
+  bool get canManageWorkspaceMembers => permissions.canManageMembers;
+  bool get canViewCosts => permissions.canViewCosts;
+  bool get canIssueItems => permissions.canIssueItems;
+  String get currentEffectiveRoleLabel => effectiveRoleLabel(
+    localRole: currentRole,
+    cloudRole: currentCloudRole,
+    isCloudWorkspaceMode: isCloudWorkspaceMode,
+  );
   List<Plan> get availablePlans => List.unmodifiable(samplePlans);
   CompanyUsage get currentUsage {
     return CompanyUsage(
@@ -578,15 +590,6 @@ class AppStore extends ChangeNotifier {
       }
     }
     return null;
-  }
-
-  UserRole _localRoleForCloudRole(CloudWorkspaceRole role) {
-    return switch (role) {
-      CloudWorkspaceRole.owner || CloudWorkspaceRole.admin => UserRole.admin,
-      CloudWorkspaceRole.manager => UserRole.manager,
-      CloudWorkspaceRole.worker => UserRole.worker,
-      CloudWorkspaceRole.viewOnly => UserRole.viewOnly,
-    };
   }
 
   Future<void> _ensureBasePlanData() async {
@@ -5398,7 +5401,7 @@ class AppActionResult {
 
   factory AppActionResult.denied() {
     return const AppActionResult.failure(
-      'Your current role does not allow this action.',
+      'You do not have permission to do that in this workspace.',
     );
   }
 

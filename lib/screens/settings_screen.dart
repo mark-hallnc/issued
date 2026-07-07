@@ -99,7 +99,7 @@ class SettingsScreen extends StatelessWidget {
           icon: Icons.import_export,
           screen: ImportExportScreen(),
         ),
-      if (kDebugMode)
+      if (kDebugMode && permissions.canClearLocalData)
         const _SettingsRow(
           title: 'Developer Tools',
           icon: Icons.developer_mode_outlined,
@@ -146,6 +146,16 @@ class DeveloperToolsSettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final store = AppStoreScope.of(context);
+    if (!store.permissions.canClearLocalData) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Developer Tools')),
+        body: const Center(
+          child: Text(
+            'You do not have permission to do that in this workspace.',
+          ),
+        ),
+      );
+    }
     return Scaffold(
       appBar: AppBar(title: const Text('Developer Tools')),
       body: ListView(
@@ -414,7 +424,7 @@ class _CurrentUserCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(personName),
-                  Text(roleLabel(store.currentEffectiveRole)),
+                  Text(store.currentEffectiveRoleLabel),
                 ],
               ),
             ),

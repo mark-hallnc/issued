@@ -30,7 +30,8 @@ class _WorkspaceMembersScreenState extends State<WorkspaceMembersScreen> {
     final isCloudAdmin =
         store.currentCloudRole == CloudWorkspaceRole.owner ||
         store.currentCloudRole == CloudWorkspaceRole.admin;
-    final canManage = store.permissions.isAdmin && isCloudAdmin;
+    final canManage = store.canManageWorkspaceMembers && isCloudAdmin;
+    final canModifyOwners = store.currentCloudRole == CloudWorkspaceRole.owner;
     if (workspace == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Members')),
@@ -69,6 +70,7 @@ class _WorkspaceMembersScreenState extends State<WorkspaceMembersScreen> {
                   member: member,
                   isCurrentUser: member.userId == store.currentCloudUser?.id,
                   canManage: canManage,
+                  canModifyOwners: canModifyOwners,
                   isLastActiveOwner: _isLastActiveOwner(
                     member,
                     store.workspaceMembers,
@@ -288,6 +290,7 @@ class _MemberCard extends StatelessWidget {
     required this.member,
     required this.isCurrentUser,
     required this.canManage,
+    required this.canModifyOwners,
     required this.isLastActiveOwner,
     required this.onRoleChanged,
     required this.onDisable,
@@ -297,6 +300,7 @@ class _MemberCard extends StatelessWidget {
   final CloudWorkspaceMember member;
   final bool isCurrentUser;
   final bool canManage;
+  final bool canModifyOwners;
   final bool isLastActiveOwner;
   final ValueChanged<CloudWorkspaceRole> onRoleChanged;
   final VoidCallback onDisable;
@@ -304,8 +308,10 @@ class _MemberCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final canChangeRole = canManage && member.role != CloudWorkspaceRole.owner;
-    final canChangeStatus = canManage && !isLastActiveOwner;
+    final isOwner = member.role == CloudWorkspaceRole.owner;
+    final canChangeRole = canManage && !isOwner;
+    final canChangeStatus =
+        canManage && !isLastActiveOwner && (!isOwner || canModifyOwners);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),

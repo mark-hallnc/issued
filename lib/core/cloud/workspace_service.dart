@@ -465,8 +465,9 @@ String _friendlyDatabaseError(String message) {
   }
   if (lower.contains('not allowed') ||
       lower.contains('permission') ||
-      lower.contains('forbidden')) {
-    return 'Your current role does not allow this action.';
+      lower.contains('forbidden') ||
+      lower.contains('only workspace owners')) {
+    return 'You do not have permission to do that in this workspace.';
   }
   if (lower.contains('already an active workspace member')) {
     return 'That person is already a workspace member.';

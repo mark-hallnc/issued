@@ -76,6 +76,20 @@ class _QuickIssueScreenState extends State<QuickIssueScreen> {
   @override
   Widget build(BuildContext context) {
     final store = AppStoreScope.of(context);
+    if (!store.permissions.canIssueItems) {
+      return Scaffold(
+        body: ListView(
+          padding: const EdgeInsets.all(16),
+          children: const [
+            SizedBox(height: 24),
+            _MessagePanel(
+              message:
+                  'You do not have permission to do that in this workspace.',
+            ),
+          ],
+        ),
+      );
+    }
     final selectedItem = _selectedItem == null
         ? null
         : store.itemById(_selectedItem!.id) ?? _selectedItem;

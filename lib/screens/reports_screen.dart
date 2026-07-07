@@ -43,7 +43,7 @@ class ReportsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final store = AppStoreScope.of(context);
-    if (!(store.permissions.isAdmin || store.permissions.isManager)) {
+    if (!store.permissions.canViewReports) {
       return Scaffold(
         appBar: AppBar(title: const Text('Reports')),
         body: const Center(
@@ -331,7 +331,7 @@ class _ReportDetailScreenState extends State<_ReportDetailScreen> {
     return [
       _ExportButton(
         label: 'Export CSV',
-        onPressed: store.permissions.canImportExport
+        onPressed: store.permissions.canExportReports
             ? () => _shareCsv(
                 context,
                 _filename('issued_inventory_summary'),
@@ -381,7 +381,7 @@ class _ReportDetailScreenState extends State<_ReportDetailScreen> {
     return [
       _ExportButton(
         label: 'Export CSV',
-        onPressed: store.permissions.canImportExport
+        onPressed: store.permissions.canExportReports
             ? () => _shareCsv(
                 context,
                 _filename('issued_inventory_value_report'),
@@ -435,7 +435,7 @@ class _ReportDetailScreenState extends State<_ReportDetailScreen> {
         children: [
           _ExportButton(
             label: 'Export CSV',
-            onPressed: store.permissions.canImportExport
+            onPressed: store.permissions.canExportReports
                 ? () => _shareCsv(
                     context,
                     _filename('issued_low_stock_report'),
@@ -483,7 +483,7 @@ class _ReportDetailScreenState extends State<_ReportDetailScreen> {
     return [
       _ExportButton(
         label: 'Export CSV',
-        onPressed: store.permissions.canImportExport
+        onPressed: store.permissions.canExportReports
             ? () => _shareCsv(
                 context,
                 _filename('issued_stock_by_location_report'),
@@ -524,7 +524,7 @@ class _ReportDetailScreenState extends State<_ReportDetailScreen> {
     return [
       _ExportButton(
         label: 'Export CSV',
-        onPressed: store.permissions.canImportExport
+        onPressed: store.permissions.canExportReports
             ? () => _shareCsv(
                 context,
                 _filename('issued_usage_by_item'),
@@ -613,7 +613,7 @@ class _ReportDetailScreenState extends State<_ReportDetailScreen> {
     return [
       _ExportButton(
         label: 'Export CSV',
-        onPressed: store.permissions.canImportExport
+        onPressed: store.permissions.canExportReports
             ? () => _shareCsv(
                 context,
                 _filename('issued_activity_report'),
@@ -656,7 +656,7 @@ class _ReportDetailScreenState extends State<_ReportDetailScreen> {
         children: [
           _ExportButton(
             label: 'Export CSV',
-            onPressed: store.permissions.canImportExport
+            onPressed: store.permissions.canExportReports
                 ? () => _shareCsv(
                     context,
                     _filename('issued_open_checkouts'),
@@ -760,7 +760,7 @@ class _ReportDetailScreenState extends State<_ReportDetailScreen> {
     return [
       _ExportButton(
         label: 'Export CSV',
-        onPressed: store.permissions.canImportExport
+        onPressed: store.permissions.canExportReports
             ? () => _shareCsv(
                 context,
                 _filename('issued_open_reorders'),
