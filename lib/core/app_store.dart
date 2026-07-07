@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 
 import 'backup/backup_service.dart';
 import 'cloud/cloud_auth_service.dart';
+import 'cloud/cloud_sync_service.dart';
 import 'cloud/supabase_config.dart';
 import 'cloud/workspace_service.dart';
 import 'database/app_database.dart';
@@ -49,6 +50,11 @@ class AppStore extends ChangeNotifier {
   late final WorkspaceService workspaceService = WorkspaceService(
     cloudAuthService,
   );
+  late final CloudSyncService cloudSyncService = CloudSyncService(
+    workspaceService: workspaceService,
+    database: _database,
+    authService: cloudAuthService,
+  );
   supabase.User? _currentCloudUser;
   final List<CloudWorkspace> _availableWorkspaces = [];
   final List<CloudWorkspaceMember> _workspaceMembers = [];
@@ -57,12 +63,17 @@ class AppStore extends ChangeNotifier {
   CloudWorkspace? _activeWorkspace;
   CloudWorkspaceRole? _currentCloudRole;
   bool _cloudModeEnabled = false;
+  CloudSyncSummary _cloudSyncSummary = CloudSyncSummary.disabled();
   StreamSubscription<dynamic>? _cloudAuthSubscription;
 
   bool get isInitialized => _isInitialized;
   bool get isCloudConfigured => SupabaseConfig.isConfigured;
   bool get isCloudSignedIn => _currentCloudUser != null;
   bool get cloudModeEnabled => _cloudModeEnabled;
+  CloudSyncSummary get cloudSyncSummary => _cloudSyncSummary;
+  bool get isCloudSyncReady => cloudSyncService.isCloudSyncReady();
+  String get cloudSyncStatusLabel =>
+      cloudSyncStatusLabelForSummary(_cloudSyncSummary);
   bool get isCloudWorkspaceActive =>
       _cloudModeEnabled &&
       _currentCloudUser != null &&
@@ -223,6 +234,7 @@ class AppStore extends ChangeNotifier {
       _activeWorkspace = null;
       _currentCloudRole = null;
       _cloudModeEnabled = false;
+      _clearCloudSyncState();
       return;
     }
     _currentCloudUser = cloudAuthService.currentUser;
@@ -240,6 +252,7 @@ class AppStore extends ChangeNotifier {
         _currentCloudRole = null;
         _cloudModeEnabled = false;
         workspaceService.clearActiveWorkspace();
+        _clearCloudSyncState();
       } else {
         _cloudModeEnabled = true;
         unawaited(loadMyWorkspaces());
@@ -293,6 +306,7 @@ class AppStore extends ChangeNotifier {
     _currentCloudRole = null;
     _cloudModeEnabled = false;
     workspaceService.clearActiveWorkspace();
+    _clearCloudSyncState();
     notifyListeners();
     return result.success
         ? AppActionResult.success(message: result.message)
@@ -334,10 +348,12 @@ class AppStore extends ChangeNotifier {
     if (_activeWorkspace != null) {
       await loadWorkspaceMembers(notify: false);
       await loadWorkspaceInvites(notify: false);
+      await initializeCloudSyncForActiveWorkspace(notify: false);
     } else {
       _workspaceMembers.clear();
       _workspaceInvites.clear();
       _currentCloudRole = null;
+      _clearCloudSyncState();
     }
     notifyListeners();
     return const AppActionResult.success();
@@ -347,6 +363,7 @@ class AppStore extends ChangeNotifier {
     _currentCloudUser = cloudAuthService.currentUser;
     _cloudModeEnabled = _currentCloudUser != null;
     if (_currentCloudUser == null) {
+      _clearCloudSyncState();
       return const AppActionResult.success();
     }
     return loadMyWorkspaces();
@@ -475,6 +492,7 @@ class AppStore extends ChangeNotifier {
     await loadPendingCloudInvites(notify: false);
     await loadWorkspaceMembers(notify: false);
     await loadWorkspaceInvites(notify: false);
+    await initializeCloudSyncForActiveWorkspace(notify: false);
     notifyListeners();
     return AppActionResult.success(message: result.message);
   }
@@ -554,6 +572,7 @@ class AppStore extends ChangeNotifier {
     _cloudModeEnabled = true;
     await loadWorkspaceMembers(notify: false);
     await loadWorkspaceInvites(notify: false);
+    await initializeCloudSyncForActiveWorkspace(notify: false);
     notifyListeners();
     return AppActionResult.success(message: result.message);
   }
@@ -562,6 +581,7 @@ class AppStore extends ChangeNotifier {
     _activeWorkspace = workspace;
     _cloudModeEnabled = true;
     workspaceService.setActiveWorkspace(workspace);
+    unawaited(initializeCloudSyncForActiveWorkspace());
     notifyListeners();
     loadWorkspaceMembers();
     loadWorkspaceInvites();
@@ -575,7 +595,60 @@ class AppStore extends ChangeNotifier {
     _workspaceInvites.clear();
     _pendingCloudInvites.clear();
     workspaceService.clearActiveWorkspace();
+    _clearCloudSyncState();
     notifyListeners();
+  }
+
+  Future<AppActionResult> initializeCloudSyncForActiveWorkspace({
+    bool notify = true,
+  }) async {
+    final workspace = _activeWorkspace;
+    if (!isCloudConfigured) {
+      _clearCloudSyncState();
+      if (notify) notifyListeners();
+      return AppActionResult.failure(SupabaseConfig.missingConfigMessage);
+    }
+    if (_currentCloudUser == null || workspace == null) {
+      _cloudSyncSummary = CloudSyncSummary.disabled().copyWith(
+        status: CloudSyncStatus.needsSetup,
+        isCloudEnabled: isCloudConfigured,
+        isWorkspaceSelected: workspace != null,
+        activeWorkspaceId: workspace?.id,
+        activeWorkspaceName: workspace?.name,
+      );
+      if (notify) notifyListeners();
+      return const AppActionResult.failure(
+        'Sign in and select a workspace before syncing.',
+      );
+    }
+    _cloudSyncSummary = await cloudSyncService.initializeForWorkspace(
+      workspace.id,
+      workspaceName: workspace.name,
+    );
+    if (notify) notifyListeners();
+    return const AppActionResult.success(
+      message: 'Cloud sync foundation is ready.',
+    );
+  }
+
+  Future<AppActionResult> syncNow() async {
+    final result = await cloudSyncService.syncNow();
+    _cloudSyncSummary = cloudSyncService.getSyncSummary();
+    notifyListeners();
+    return result.success
+        ? AppActionResult.success(message: result.message)
+        : AppActionResult.failure(result.message, data: result.error);
+  }
+
+  void clearCloudSyncError() {
+    cloudSyncService.clearSyncError();
+    _cloudSyncSummary = cloudSyncService.getSyncSummary();
+    notifyListeners();
+  }
+
+  void _clearCloudSyncState() {
+    cloudSyncService.clearWorkspaceState();
+    _cloudSyncSummary = cloudSyncService.getSyncSummary();
   }
 
   CloudWorkspaceRole? _roleForCurrentCloudUser() {
@@ -5308,6 +5381,17 @@ String _formatQuantity(double quantity) {
     return quantity.toStringAsFixed(0);
   }
   return quantity.toStringAsFixed(2);
+}
+
+String cloudSyncStatusLabelForSummary(CloudSyncSummary summary) {
+  return switch (summary.status) {
+    CloudSyncStatus.disabled => 'Disabled',
+    CloudSyncStatus.ready => 'Ready',
+    CloudSyncStatus.syncing => 'Syncing',
+    CloudSyncStatus.offline => 'Offline',
+    CloudSyncStatus.error => 'Error',
+    CloudSyncStatus.needsSetup => 'Needs setup',
+  };
 }
 
 class InventorySummaryReport {

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 
 import '../core/app_store.dart';
 import '../core/models/models.dart';
-import '../core/permissions/app_permissions.dart';
 import 'assignment_targets_screen.dart';
 import 'backup_restore_screen.dart';
 import 'cloud_login_screen.dart';
@@ -320,6 +319,90 @@ class CloudAccountSettingsScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Cloud Sync',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _CloudStatusLine(
+                    label: 'Status',
+                    value: store.cloudSyncStatusLabel,
+                  ),
+                  _CloudStatusLine(
+                    label: 'Active workspace',
+                    value:
+                        store.cloudSyncSummary.activeWorkspaceName ??
+                        store.activeWorkspace?.name ??
+                        'None',
+                  ),
+                  _CloudStatusLine(
+                    label: 'Last sync',
+                    value: _formatCloudSyncDate(
+                      store.cloudSyncSummary.lastSuccessfulSyncAt,
+                    ),
+                  ),
+                  _CloudStatusLine(
+                    label: 'Pending local changes',
+                    value: store.cloudSyncSummary.pendingUploadCount.toString(),
+                  ),
+                  if (store.cloudSyncSummary.lastError != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      store.cloudSyncSummary.lastError!,
+                      style: const TextStyle(
+                        color: Color(0xFFB42318),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Cloud sync foundation is ready. Inventory sync will be enabled in a later update.',
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 8,
+                    children: [
+                      FilledButton.icon(
+                        onPressed: store.isCloudSignedIn
+                            ? () async {
+                                final result = await store.syncNow();
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        result.message ?? 'Sync checked.',
+                                      ),
+                                    ),
+                                  );
+                                }
+                              }
+                            : null,
+                        icon: const Icon(Icons.sync),
+                        label: const Text('Sync now'),
+                      ),
+                      if (store.cloudSyncSummary.lastError != null)
+                        OutlinedButton.icon(
+                          onPressed: store.clearCloudSyncError,
+                          icon: const Icon(Icons.clear),
+                          label: const Text('Clear error'),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
           FilledButton(
             onPressed: () {
               Navigator.of(context).push(
@@ -381,6 +464,21 @@ class CloudAccountSettingsScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+String _formatCloudSyncDate(DateTime? value) {
+  if (value == null) {
+    return 'Never';
+  }
+  final local = value.toLocal();
+  final hour = local.hour > 12
+      ? local.hour - 12
+      : local.hour == 0
+      ? 12
+      : local.hour;
+  final minute = local.minute.toString().padLeft(2, '0');
+  final suffix = local.hour >= 12 ? 'PM' : 'AM';
+  return '${local.month}/${local.day}/${local.year} $hour:$minute $suffix';
 }
 
 class _CloudStatusLine extends StatelessWidget {

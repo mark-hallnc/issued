@@ -42,6 +42,10 @@ class DashboardScreen extends StatelessWidget {
           style: textTheme.bodyLarge?.copyWith(color: const Color(0xFF5C6672)),
         ),
         const SizedBox(height: 12),
+        if (store.isCloudConfigured || store.isCloudSignedIn) ...[
+          _CloudSyncStatusCard(store: store),
+          const SizedBox(height: 10),
+        ],
         if (limitWarnings.isNotEmpty)
           for (final warning in limitWarnings) ...[
             _LimitWarningCard(warning: warning),
@@ -67,6 +71,46 @@ class DashboardScreen extends StatelessWidget {
   String _signedInText(AppStore store) {
     final name = store.currentPerson?.displayName ?? 'Local user';
     return 'Signed in as $name - ${roleLabel(store.currentRole)}';
+  }
+}
+
+class _CloudSyncStatusCard extends StatelessWidget {
+  const _CloudSyncStatusCard({required this.store});
+
+  final AppStore store;
+
+  @override
+  Widget build(BuildContext context) {
+    final summary = store.cloudSyncSummary;
+    final workspace =
+        summary.activeWorkspaceName ?? store.activeWorkspace?.name;
+    return Card(
+      child: ListTile(
+        leading: const Icon(Icons.cloud_sync_outlined),
+        title: Text('Cloud sync: ${store.cloudSyncStatusLabel}'),
+        subtitle: Text(
+          workspace == null
+              ? 'No active workspace selected.'
+              : '$workspace - inventory sync not enabled yet.',
+        ),
+        trailing: store.isCloudSignedIn
+            ? IconButton(
+                tooltip: 'Sync now',
+                onPressed: () async {
+                  final result = await store.syncNow();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(result.message ?? 'Sync checked.'),
+                      ),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.sync),
+              )
+            : null,
+      ),
+    );
   }
 }
 

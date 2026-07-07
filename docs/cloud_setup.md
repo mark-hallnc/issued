@@ -18,6 +18,8 @@ Open the Supabase SQL editor and run:
 ```sql
 -- supabase/migrations/0001_workspace_auth_foundation.sql
 -- supabase/migrations/0002_workspace_invite_flow.sql
+-- supabase/migrations/0003_workspace_member_role_safeguards.sql
+-- supabase/migrations/0004_sync_foundation.sql
 ```
 
 This creates:
@@ -30,6 +32,7 @@ This creates:
 - `create_workspace_with_owner(workspace_name text)`
 - `accept_workspace_invite(invite_id uuid)`
 - `revoke_workspace_invite(invite_id uuid)`
+- sync metadata tables: `workspace_sync_state`, `sync_clients`
 
 ## 3. Deploy Workspace Invites
 
@@ -88,4 +91,5 @@ delivery and template editing.
 ## Current Scope
 
 This foundation adds auth, workspace membership, workspace selection, and
-invites. It does not sync local inventory data to Supabase yet.
+invites. It also adds sync metadata for future workspace-based sync. It does
+not sync local inventory data to Supabase yet.
