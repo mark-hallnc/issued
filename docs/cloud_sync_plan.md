@@ -4,9 +4,10 @@
 
 Issued now has a workspace-scoped cloud sync foundation. The Flutter app can
 report sync readiness, verify a signed-in user's active workspace membership,
-and register a sync client metadata row in Supabase.
+register a sync client metadata row in Supabase, and upload item catalog
+metadata.
 
-This is not full inventory sync.
+This is not full inventory sync. It does not sync quantities.
 
 ## Synced now
 
@@ -15,11 +16,11 @@ This is not full inventory sync.
 - Workspace members
 - Workspace invites
 - Sync metadata only: `workspace_sync_state` and `sync_clients`
+- Item definitions/catalog metadata in `workspace_items`
 
 ## Not synced yet
 
-- Inventory items
-- Item location balances
+- Item location balances and on-hand quantities
 - Inventory transactions
 - Checkout records
 - Suppliers
@@ -32,10 +33,10 @@ sync exist and have been verified.
 
 ## Next phases
 
-1. Cloud item catalog table
-2. Cloud inventory balances
-3. Cloud transactions
-4. Conflict handling
+1. Inventory balances
+2. Transactions/audit log
+3. Checkouts
+4. Conflict resolution and background sync
 5. Offline outbox
 6. Audit/reconciliation
 
@@ -47,11 +48,17 @@ Run the migration in Supabase SQL editor or with the Supabase CLI:
 supabase db push
 ```
 
-The migration is:
+The sync metadata migration is:
 
 ```text
 supabase/migrations/0004_sync_foundation.sql
 ```
 
-It creates sync metadata tables only. It intentionally does not create cloud
-inventory tables and does not migrate local data.
+The item catalog migration is:
+
+```text
+supabase/migrations/0005_cloud_item_catalog.sql
+```
+
+It creates `workspace_items` only. It intentionally does not create cloud
+quantity, balance, transaction, checkout, or purchase order tables.

@@ -91,13 +91,13 @@ class _CloudSyncStatusCard extends StatelessWidget {
         subtitle: Text(
           workspace == null
               ? 'No active workspace selected.'
-              : '$workspace - inventory sync not enabled yet.',
+              : '$workspace - item catalog sync enabled. Balances and transactions are not synced yet.',
         ),
         trailing: store.isCloudSignedIn
             ? IconButton(
                 tooltip: 'Sync now',
                 onPressed: () async {
-                  final result = await store.syncNow();
+                  final result = await store.syncItemCatalogNow();
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(

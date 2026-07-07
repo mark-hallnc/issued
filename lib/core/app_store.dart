@@ -74,6 +74,10 @@ class AppStore extends ChangeNotifier {
   bool get isCloudSyncReady => cloudSyncService.isCloudSyncReady();
   String get cloudSyncStatusLabel =>
       cloudSyncStatusLabelForSummary(_cloudSyncSummary);
+  String get cloudItemCatalogSyncStatus => isCloudWorkspaceActive
+      ? 'Item catalog upload enabled'
+      : 'Item catalog sync disabled';
+  DateTime? get lastItemCatalogSyncAt => _cloudSyncSummary.lastSuccessfulSyncAt;
   bool get isCloudWorkspaceActive =>
       _cloudModeEnabled &&
       _currentCloudUser != null &&
@@ -632,7 +636,15 @@ class AppStore extends ChangeNotifier {
   }
 
   Future<AppActionResult> syncNow() async {
-    final result = await cloudSyncService.syncNow();
+    return syncItemCatalogNow();
+  }
+
+  Future<AppActionResult> syncItemCatalogNow() async {
+    final result = await cloudSyncService.syncNow(
+      localItems: _items,
+      unitForItem: (item) => resolveUomAbbreviation(item.unitOfMeasureId),
+      canUploadItemCatalog: permissions.canManageItems,
+    );
     _cloudSyncSummary = cloudSyncService.getSyncSummary();
     notifyListeners();
     return result.success
@@ -648,6 +660,20 @@ class AppStore extends ChangeNotifier {
 
   void _clearCloudSyncState() {
     cloudSyncService.clearWorkspaceState();
+    _cloudSyncSummary = cloudSyncService.getSyncSummary();
+  }
+
+  void _queueItemCatalogChange(String itemId, CloudSyncOperation operation) {
+    if (!isCloudWorkspaceActive || !permissions.canManageItems) {
+      return;
+    }
+    unawaited(
+      cloudSyncService.queueLocalChange(
+        entity: CloudSyncEntity.item,
+        entityId: itemId,
+        operation: operation,
+      ),
+    );
     _cloudSyncSummary = cloudSyncService.getSyncSummary();
   }
 
@@ -1247,6 +1273,7 @@ class AppStore extends ChangeNotifier {
     }
     _items.add(item);
     unawaited(_database.upsertItem(item.toCompanion()));
+    _queueItemCatalogChange(item.id, CloudSyncOperation.create);
     notifyListeners();
     return const AppActionResult.success(message: 'Item added.');
   }
@@ -1266,6 +1293,7 @@ class AppStore extends ChangeNotifier {
     }
     _items.add(item);
     unawaited(_database.upsertItem(item.toCompanion()));
+    _queueItemCatalogChange(item.id, CloudSyncOperation.create);
     final balance = ItemLocationBalance(
       id: _balanceId(item.id, locationId),
       itemId: item.id,
@@ -1305,6 +1333,7 @@ class AppStore extends ChangeNotifier {
     );
     _items[itemIndex] = savedItem;
     unawaited(_database.upsertItem(savedItem.toCompanion()));
+    _queueItemCatalogChange(savedItem.id, CloudSyncOperation.update);
     notifyListeners();
     return const AppActionResult.success(message: 'Item updated.');
   }
@@ -2151,6 +2180,7 @@ class AppStore extends ChangeNotifier {
     );
     _items[itemIndex] = savedItem;
     unawaited(_database.upsertItem(savedItem.toCompanion()));
+    _queueItemCatalogChange(savedItem.id, CloudSyncOperation.update);
 
     for (final value in customFieldValues) {
       final valueIndex = _customFieldValues.indexWhere(

@@ -5,37 +5,38 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../database/app_database.dart';
 import '../models/cloud_models.dart';
+import '../models/inventory_models.dart';
 import 'cloud_auth_service.dart';
+import 'cloud_item_service.dart';
 import 'supabase_config.dart';
 import 'sync_models.dart';
 import 'workspace_service.dart';
 
 class CloudSyncService {
   CloudSyncService({
-    required this._workspaceService,
-    required AppDatabase database,
-    this._authService = const CloudAuthService(),
-    SupabaseClient? client,
-  }) : _database = database,
-       _clientOverride = client;
+    required this.workspaceService,
+    required this.database,
+    this.authService = const CloudAuthService(),
+    CloudItemService? itemService,
+    this.client,
+  }) : itemService = itemService ?? CloudItemService(authService: authService);
 
-  final WorkspaceService _workspaceService;
-  final AppDatabase _database;
-  final CloudAuthService _authService;
-  final SupabaseClient? _clientOverride;
+  final WorkspaceService workspaceService;
+  final AppDatabase database;
+  final CloudAuthService authService;
+  final CloudItemService itemService;
+  final SupabaseClient? client;
 
   CloudSyncSummary _summary = CloudSyncSummary.disabled();
   String? _activeWorkspaceId;
   String? _activeWorkspaceName;
   bool _paused = false;
 
-  AppDatabase get database => _database;
-
   SupabaseClient? get _client {
     if (!SupabaseConfig.isConfigured) {
       return null;
     }
-    return _clientOverride ?? Supabase.instance.client;
+    return client ?? Supabase.instance.client;
   }
 
   CloudSyncSummary getSyncSummary() => _summary;
@@ -71,14 +72,18 @@ class CloudSyncService {
     );
   }
 
-  Future<CloudSyncResult> syncNow() async {
+  Future<CloudSyncResult> syncNow({
+    List<Item> localItems = const [],
+    String? Function(Item item)? unitForItem,
+    bool canUploadItemCatalog = false,
+  }) async {
     final client = _client;
-    final user = _authService.currentUser;
+    final user = authService.currentUser;
     final workspaceId =
-        _activeWorkspaceId ?? _workspaceService.getActiveWorkspace()?.id;
+        _activeWorkspaceId ?? workspaceService.getActiveWorkspace()?.id;
     final workspaceName =
         _activeWorkspaceName ??
-        _workspaceService.getActiveWorkspace()?.name ??
+        workspaceService.getActiveWorkspace()?.name ??
         'Selected workspace';
 
     if (client == null) {
@@ -104,10 +109,11 @@ class CloudSyncService {
         message: 'Select a workspace before syncing.',
       );
     }
+    final activeWorkspaceId = workspaceId;
     if (_paused) {
       _summary = _summary.copyWith(
         status: CloudSyncStatus.disabled,
-        activeWorkspaceId: workspaceId,
+        activeWorkspaceId: activeWorkspaceId,
         activeWorkspaceName: workspaceName,
         isCloudEnabled: true,
         isWorkspaceSelected: true,
@@ -119,7 +125,7 @@ class CloudSyncService {
     _summary = _summary.copyWith(
       status: CloudSyncStatus.syncing,
       lastSyncAt: startedAt,
-      activeWorkspaceId: workspaceId,
+      activeWorkspaceId: activeWorkspaceId,
       activeWorkspaceName: workspaceName,
       isCloudEnabled: true,
       isWorkspaceSelected: true,
@@ -127,8 +133,8 @@ class CloudSyncService {
     );
 
     try {
-      final members = await _workspaceService.fetchMembersForWorkspace(
-        workspaceId,
+      final members = await workspaceService.fetchMembersForWorkspace(
+        activeWorkspaceId,
       );
       if (!members.success) {
         final message = members.message ?? 'Could not verify workspace access.';
@@ -155,19 +161,39 @@ class CloudSyncService {
         return const CloudSyncResult.failure(message: message);
       }
 
-      await _recordSyncClientSeen(client, workspaceId, user.id);
+      await _recordSyncClientSeen(client, activeWorkspaceId, user.id);
+      final itemCatalogResult = canUploadItemCatalog
+          ? await itemService.pushItemCatalog(
+              workspaceId: activeWorkspaceId,
+              items: localItems,
+              unitForItem: unitForItem,
+            )
+          : CloudItemCatalogSyncResult(
+              uploadedCount: 0,
+              downloadedCount: (await itemService.pullItemCatalog(
+                activeWorkspaceId,
+              )).length,
+              skippedCount: localItems.length,
+              isUploadOnly: true,
+            );
       final finishedAt = DateTime.now();
       _summary = _summary.copyWith(
         status: CloudSyncStatus.ready,
         lastSyncAt: finishedAt,
         lastSuccessfulSyncAt: finishedAt,
+        pendingUploadCount: canUploadItemCatalog
+            ? 0
+            : _summary.pendingUploadCount,
         pendingDownloadCount: 0,
         clearLastError: true,
       );
-      return const CloudSyncResult.success(
-        message:
-            'Cloud sync foundation is ready. Inventory sync is not enabled yet.',
-        skippedCount: 0,
+      return CloudSyncResult.success(
+        message: canUploadItemCatalog
+            ? 'Item catalog uploaded. Cloud-to-device item merge is not enabled yet.'
+            : 'Item catalog sync checked. Your role cannot upload item changes.',
+        uploadedCount: itemCatalogResult.uploadedCount,
+        downloadedCount: itemCatalogResult.downloadedCount,
+        skippedCount: itemCatalogResult.skippedCount,
       );
     } on SocketException catch (error) {
       return _offlineResult(error);

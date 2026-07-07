@@ -353,6 +353,18 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                     label: 'Pending local changes',
                     value: store.cloudSyncSummary.pendingUploadCount.toString(),
                   ),
+                  const _CloudStatusLine(
+                    label: 'Item catalog',
+                    value: 'Enabled',
+                  ),
+                  const _CloudStatusLine(
+                    label: 'Quantities/balances',
+                    value: 'Not yet enabled',
+                  ),
+                  const _CloudStatusLine(
+                    label: 'Transactions',
+                    value: 'Not yet enabled',
+                  ),
                   if (store.cloudSyncSummary.lastError != null) ...[
                     const SizedBox(height: 6),
                     Text(
@@ -365,7 +377,7 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                   ],
                   const SizedBox(height: 10),
                   const Text(
-                    'Cloud sync foundation is ready. Inventory sync will be enabled in a later update.',
+                    'Item catalog upload is enabled. Full cloud-to-device item merge, quantities, and transactions will be enabled in later updates.',
                   ),
                   const SizedBox(height: 12),
                   Wrap(
@@ -375,7 +387,7 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                       FilledButton.icon(
                         onPressed: store.isCloudSignedIn
                             ? () async {
-                                final result = await store.syncNow();
+                                final result = await store.syncItemCatalogNow();
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
@@ -388,7 +400,7 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                               }
                             : null,
                         icon: const Icon(Icons.sync),
-                        label: const Text('Sync now'),
+                        label: const Text('Sync item catalog now'),
                       ),
                       if (store.cloudSyncSummary.lastError != null)
                         OutlinedButton.icon(
