@@ -1,3 +1,8 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/models.dart';
@@ -25,6 +30,7 @@ class WorkspaceService {
 
   final CloudAuthService _authService;
   CloudWorkspace? _activeWorkspace;
+  static const _activeWorkspaceFileName = 'issued_active_workspace_id.txt';
 
   SupabaseClient? get _client {
     if (!SupabaseConfig.isConfigured) {
@@ -261,7 +267,7 @@ class WorkspaceService {
           .eq('id', workspaceId.toString())
           .single();
       final workspace = CloudWorkspace.fromJson(row);
-      _activeWorkspace = workspace;
+      setActiveWorkspace(workspace);
       return WorkspaceResult.success(workspace, message: 'Invite accepted.');
     } on PostgrestException catch (error) {
       return WorkspaceResult.failure(_friendlyDatabaseError(error.message));
@@ -360,7 +366,7 @@ class WorkspaceService {
           .eq('id', workspaceId.toString())
           .single();
       final workspace = CloudWorkspace.fromJson(row);
-      _activeWorkspace = workspace;
+      setActiveWorkspace(workspace);
       return WorkspaceResult.success(workspace, message: 'Workspace created.');
     } on PostgrestException catch (rpcError) {
       try {
@@ -377,7 +383,7 @@ class WorkspaceService {
           'role': 'owner',
           'status': 'active',
         });
-        _activeWorkspace = workspace;
+        setActiveWorkspace(workspace);
         return WorkspaceResult.success(
           workspace,
           message: 'Workspace created.',
@@ -398,6 +404,7 @@ class WorkspaceService {
 
   void setActiveWorkspace(CloudWorkspace workspace) {
     _activeWorkspace = workspace;
+    unawaited(_saveActiveWorkspaceId(workspace.id));
   }
 
   CloudWorkspace? getActiveWorkspace() {
@@ -406,6 +413,45 @@ class WorkspaceService {
 
   void clearActiveWorkspace() {
     _activeWorkspace = null;
+    unawaited(_clearActiveWorkspaceId());
+  }
+
+  Future<String?> getStoredActiveWorkspaceId() async {
+    try {
+      final file = await _activeWorkspaceFile();
+      if (!await file.exists()) {
+        return null;
+      }
+      final value = (await file.readAsString()).trim();
+      return value.isEmpty ? null : value;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _saveActiveWorkspaceId(String workspaceId) async {
+    try {
+      final file = await _activeWorkspaceFile();
+      await file.writeAsString(workspaceId);
+    } catch (_) {
+      // Active workspace persistence is a convenience cache.
+    }
+  }
+
+  Future<void> _clearActiveWorkspaceId() async {
+    try {
+      final file = await _activeWorkspaceFile();
+      if (await file.exists()) {
+        await file.delete();
+      }
+    } catch (_) {
+      // Active workspace persistence is a convenience cache.
+    }
+  }
+
+  Future<File> _activeWorkspaceFile() async {
+    final directory = await getApplicationSupportDirectory();
+    return File(p.join(directory.path, _activeWorkspaceFileName));
   }
 }
 

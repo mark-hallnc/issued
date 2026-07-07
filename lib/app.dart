@@ -9,6 +9,7 @@ import 'screens/scan_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/setup_screen.dart';
 import 'screens/session_lock_screen.dart';
+import 'screens/workspace_selection_screen.dart';
 
 class IssuedApp extends StatefulWidget {
   const IssuedApp({super.key, this.store});
@@ -106,6 +107,13 @@ class _IssuedAppState extends State<IssuedApp> {
             return AnimatedBuilder(
               animation: _store,
               builder: (context, _) {
+                if (_store.shouldShowCloudWorkspaceStartup) {
+                  if (_store.activeWorkspace == null ||
+                      _store.pendingCloudInvites.isNotEmpty) {
+                    return const WorkspaceSelectionScreen();
+                  }
+                  return const IssuedShell();
+                }
                 if (!_store.isSetupComplete) {
                   return const SetupScreen();
                 }

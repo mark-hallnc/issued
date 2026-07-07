@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../core/app_store.dart';
@@ -98,6 +99,12 @@ class SettingsScreen extends StatelessWidget {
           icon: Icons.import_export,
           screen: ImportExportScreen(),
         ),
+      if (kDebugMode)
+        const _SettingsRow(
+          title: 'Developer Tools',
+          icon: Icons.developer_mode_outlined,
+          screen: DeveloperToolsSettingsScreen(),
+        ),
     ];
 
     return ListView(
@@ -129,6 +136,129 @@ class SettingsScreen extends StatelessWidget {
             const SizedBox(height: 10),
           ],
       ],
+    );
+  }
+}
+
+class DeveloperToolsSettingsScreen extends StatelessWidget {
+  const DeveloperToolsSettingsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final store = AppStoreScope.of(context);
+    return Scaffold(
+      appBar: AppBar(title: const Text('Developer Tools')),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Development cleanup',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'These debug-only actions affect this device only. Cloud workspaces will not be deleted.',
+                  ),
+                  const SizedBox(height: 16),
+                  OutlinedButton(
+                    onPressed: () => _confirmAndRun(
+                      context,
+                      title: 'Clear local test data?',
+                      message:
+                          'This removes local test inventory and activity from this device only. It does not delete cloud workspaces.',
+                      action: store.clearLocalInventoryTestDataForDevelopment,
+                    ),
+                    child: const Text('Clear local test data'),
+                  ),
+                  const SizedBox(height: 10),
+                  OutlinedButton(
+                    onPressed: store.isCloudSignedIn
+                        ? () => _confirmAndRun(
+                            context,
+                            title: 'Sign out cloud account?',
+                            message:
+                                'This signs out of the cloud account on this device. Local app data stays on this device.',
+                            action: store.signOutCloud,
+                          )
+                        : null,
+                    child: const Text('Sign out cloud account'),
+                  ),
+                  const SizedBox(height: 10),
+                  FilledButton(
+                    onPressed: () => _confirmAndRun(
+                      context,
+                      title: 'Clear local data and sign out?',
+                      message:
+                          'This removes local app data from this device and signs out of the cloud account. It does not delete your Supabase project or workspace.',
+                      action: store.clearLocalDataAndSignOutForDevelopment,
+                    ),
+                    child: const Text('Clear local data and sign out'),
+                  ),
+                  const SizedBox(height: 10),
+                  OutlinedButton(
+                    onPressed: () => _confirmAndRun(
+                      context,
+                      title: 'Reset app onboarding?',
+                      message:
+                          'This shows onboarding again. Inventory data is not deleted.',
+                      action: () async {
+                        await store.resetOnboardingForTesting();
+                        return const AppActionResult.success(
+                          message: 'Onboarding reset.',
+                        );
+                      },
+                    ),
+                    child: const Text('Reset app onboarding state'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmAndRun(
+    BuildContext context, {
+    required String title,
+    required String message,
+    required Future<AppActionResult> Function() action,
+  }) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(title),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Confirm'),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true || !context.mounted) {
+      return;
+    }
+    final result = await action();
+    if (!context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(result.message ?? 'Development action complete.')),
     );
   }
 }
@@ -284,7 +414,7 @@ class _CurrentUserCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(personName),
-                  Text(roleLabel(store.currentRole)),
+                  Text(roleLabel(store.currentEffectiveRole)),
                 ],
               ),
             ),

@@ -62,6 +62,11 @@ class AppStore extends ChangeNotifier {
   bool get isCloudConfigured => SupabaseConfig.isConfigured;
   bool get isCloudSignedIn => _currentCloudUser != null;
   bool get cloudModeEnabled => _cloudModeEnabled;
+  bool get isCloudWorkspaceActive =>
+      _cloudModeEnabled &&
+      _currentCloudUser != null &&
+      _activeWorkspace != null;
+  bool get shouldShowCloudWorkspaceStartup => _currentCloudUser != null;
   supabase.User? get currentCloudUser => _currentCloudUser;
   List<CloudWorkspace> get availableWorkspaces =>
       List.unmodifiable(_availableWorkspaces);
@@ -106,7 +111,8 @@ class AppStore extends ChangeNotifier {
   Plan get plan => _plan;
   CompanyUsage get companyUsage => _companyUsage;
   Plan get currentPlan => _plan;
-  bool get isLocked => _isLocked || currentUser == null;
+  bool get isLocked =>
+      !isCloudWorkspaceActive && (_isLocked || currentUser == null);
   DateTime? get lastActivityAt => _lastActivityAt;
   int get sessionTimeoutMinutes => _sessionTimeoutMinutes;
   AppUser? get currentUser {
@@ -147,13 +153,13 @@ class AppStore extends ChangeNotifier {
   }
 
   UserRole get currentEffectiveRole {
-    if (isLocked) {
-      return UserRole.viewOnly;
-    }
     if (_cloudModeEnabled &&
         _activeWorkspace != null &&
         _currentCloudRole != null) {
       return _localRoleForCloudRole(_currentCloudRole!);
+    }
+    if (isLocked) {
+      return UserRole.viewOnly;
     }
     return currentRole;
   }
@@ -189,7 +195,7 @@ class AppStore extends ChangeNotifier {
     await _seedAssignmentTargetsIfNeeded();
     initializeCloud();
     if (_currentCloudUser != null) {
-      await loadMyWorkspaces();
+      await refreshCloudWorkspaceState();
     }
     _isInitialized = true;
     notifyListeners();
@@ -222,6 +228,9 @@ class AppStore extends ChangeNotifier {
         _currentCloudRole = null;
         _cloudModeEnabled = false;
         workspaceService.clearActiveWorkspace();
+      } else {
+        _cloudModeEnabled = true;
+        unawaited(loadMyWorkspaces());
       }
       notifyListeners();
     });
@@ -287,12 +296,27 @@ class AppStore extends ChangeNotifier {
       ..clear()
       ..addAll(result.data ?? const []);
     final active = workspaceService.getActiveWorkspace();
+    final storedActiveWorkspaceId = await workspaceService
+        .getStoredActiveWorkspaceId();
     if (active != null &&
         _availableWorkspaces.any((workspace) => workspace.id == active.id)) {
       _activeWorkspace = active;
+    } else if (storedActiveWorkspaceId != null &&
+        _availableWorkspaces.any(
+          (workspace) => workspace.id == storedActiveWorkspaceId,
+        )) {
+      _activeWorkspace = _availableWorkspaces.firstWhere(
+        (workspace) => workspace.id == storedActiveWorkspaceId,
+      );
+      workspaceService.setActiveWorkspace(_activeWorkspace!);
     } else if (_availableWorkspaces.length == 1) {
       _activeWorkspace = _availableWorkspaces.first;
       workspaceService.setActiveWorkspace(_activeWorkspace!);
+    } else {
+      _activeWorkspace = null;
+      if (storedActiveWorkspaceId != null) {
+        workspaceService.clearActiveWorkspace();
+      }
     }
     await loadPendingCloudInvites(notify: false);
     if (_activeWorkspace != null) {
@@ -308,10 +332,8 @@ class AppStore extends ChangeNotifier {
   }
 
   Future<AppActionResult> refreshCloudWorkspaceState() async {
-    final sessionResult = await refreshCloudSession();
-    if (!sessionResult.success) {
-      return sessionResult;
-    }
+    _currentCloudUser = cloudAuthService.currentUser;
+    _cloudModeEnabled = _currentCloudUser != null;
     if (_currentCloudUser == null) {
       return const AppActionResult.success();
     }
@@ -479,6 +501,31 @@ class AppStore extends ChangeNotifier {
       return AppActionResult.success(message: result.message);
     }
     return AppActionResult.failure(result.message);
+  }
+
+  Future<AppActionResult> clearLocalInventoryTestDataForDevelopment() async {
+    await _database.clearLocalInventoryTestData();
+    await _loadFromDatabase();
+    notifyListeners();
+    return const AppActionResult.success(
+      message: 'Local inventory/test data cleared from this device.',
+    );
+  }
+
+  Future<AppActionResult> clearLocalDataAndSignOutForDevelopment() async {
+    await signOutCloud();
+    await _database.clearAllLocalData();
+    _currentUserId = null;
+    _isLocked = true;
+    _lastActivityAt = null;
+    _company = null;
+    await _loadFromDatabase();
+    await _ensureBasePlanData();
+    await _loadFromDatabase();
+    notifyListeners();
+    return const AppActionResult.success(
+      message: 'Local app data cleared and cloud account signed out.',
+    );
   }
 
   Future<AppActionResult> createCloudWorkspace(String name) async {
