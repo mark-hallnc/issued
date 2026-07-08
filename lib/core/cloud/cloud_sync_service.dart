@@ -23,6 +23,7 @@ import 'cloud_to_local_apply_service.dart';
 import 'supabase_config.dart';
 import 'sync_merge_models.dart';
 import 'sync_models.dart';
+import 'sync_outbox_service.dart';
 import 'workspace_service.dart';
 
 class CloudSyncService {
@@ -38,11 +39,13 @@ class CloudSyncService {
     CloudSupplierService? supplierService,
     CloudCycleCountService? cycleCountService,
     CloudToLocalApplyService? applyService,
+    SyncOutboxService? outboxService,
     this.client,
   }) : checkoutService =
            checkoutService ?? CloudCheckoutService(authService: authService),
        cycleCountService =
-           cycleCountService ?? CloudCycleCountService(authService: authService),
+           cycleCountService ??
+           CloudCycleCountService(authService: authService),
        balanceService =
            balanceService ??
            CloudInventoryBalanceService(authService: authService),
@@ -51,10 +54,13 @@ class CloudSyncService {
            CloudInventoryTransactionService(authService: authService),
        itemService = itemService ?? CloudItemService(authService: authService),
        purchasingService =
-           purchasingService ?? CloudPurchasingService(authService: authService),
+           purchasingService ??
+           CloudPurchasingService(authService: authService),
        supplierService =
            supplierService ?? CloudSupplierService(authService: authService),
-       applyService = applyService ?? CloudToLocalApplyService(database: database);
+       applyService =
+           applyService ?? CloudToLocalApplyService(database: database),
+       outboxService = outboxService ?? SyncOutboxService(database: database);
 
   final WorkspaceService workspaceService;
   final AppDatabase database;
@@ -67,12 +73,15 @@ class CloudSyncService {
   final CloudPurchasingService purchasingService;
   final CloudSupplierService supplierService;
   final CloudToLocalApplyService applyService;
+  final SyncOutboxService outboxService;
   final SupabaseClient? client;
 
   CloudSyncSummary _summary = CloudSyncSummary.disabled();
   String? _activeWorkspaceId;
   String? _activeWorkspaceName;
   bool _paused = false;
+  bool _isSyncing = false;
+  bool _syncAgainAfterCurrent = false;
   final List<SyncMergeConflict> _mergeConflicts = [];
   final Map<String, DateTime> _lastPullAtByWorkspace = {};
   final Map<String, DateTime> _lastPushAtByWorkspace = {};
@@ -118,6 +127,56 @@ class CloudSyncService {
     _mergeConflicts.clear();
   }
 
+  Future<int> getPendingUploadCount([String? workspaceId]) async {
+    final id = workspaceId ?? _activeWorkspaceId;
+    if (id == null || id.isEmpty) {
+      return 0;
+    }
+    return outboxService.pendingCount(id);
+  }
+
+  Future<int> getFailedUploadCount([String? workspaceId]) async {
+    final id = workspaceId ?? _activeWorkspaceId;
+    if (id == null || id.isEmpty) {
+      return 0;
+    }
+    return outboxService.failedCount(id);
+  }
+
+  Future<List<SyncOutboxEntry>> getPendingOutboxEntries([
+    String? workspaceId,
+  ]) async {
+    final id = workspaceId ?? _activeWorkspaceId;
+    if (id == null || id.isEmpty) {
+      return const [];
+    }
+    return outboxService.getPendingEntries(id, limit: 500);
+  }
+
+  Future<List<SyncOutboxEntry>> getOutboxEntries([String? workspaceId]) async {
+    final id = workspaceId ?? _activeWorkspaceId;
+    if (id == null || id.isEmpty) {
+      return const [];
+    }
+    return outboxService.getEntriesForWorkspace(id);
+  }
+
+  Future<void> retryFailedUploads([String? workspaceId]) async {
+    final id = workspaceId ?? _activeWorkspaceId;
+    if (id == null || id.isEmpty) {
+      return;
+    }
+    await outboxService.retryFailed(id);
+    _summary = _summary.copyWith(
+      pendingUploadCount: await outboxService.pendingCount(id),
+      clearLastError: true,
+    );
+  }
+
+  Future<void> clearCompletedQueue({Duration olderThan = Duration.zero}) {
+    return outboxService.clearDone(olderThan: olderThan);
+  }
+
   Future<CloudSyncSummary> initializeForWorkspace(
     String workspaceId, {
     String? workspaceName,
@@ -130,6 +189,7 @@ class CloudSyncService {
       activeWorkspaceName: workspaceName,
       isCloudEnabled: SupabaseConfig.isConfigured,
       isWorkspaceSelected: workspaceId.isNotEmpty,
+      pendingUploadCount: await outboxService.pendingCount(workspaceId),
       clearLastError: true,
     );
     return _summary;
@@ -144,9 +204,20 @@ class CloudSyncService {
     if (_summary.status == CloudSyncStatus.disabled || _paused) {
       return;
     }
-    _summary = _summary.copyWith(
-      pendingUploadCount: _summary.pendingUploadCount + 1,
+    final workspaceId =
+        _activeWorkspaceId ?? workspaceService.getActiveWorkspace()?.id;
+    if (workspaceId == null || workspaceId.isEmpty) {
+      return;
+    }
+    await outboxService.enqueueUniqueChange(
+      workspaceId: workspaceId,
+      entity: entity,
+      entityId: entityId,
+      operation: operation,
+      payload: payload,
     );
+    final pendingCount = await outboxService.pendingCount(workspaceId);
+    _summary = _summary.copyWith(pendingUploadCount: pendingCount);
   }
 
   Future<CloudSyncResult> syncNow({
@@ -161,7 +232,7 @@ class CloudSyncService {
     String? Function(ItemLocationBalance balance)? locationNameForBalance,
     String? Function(String? locationId)? transactionLocationNameForId,
     String? Function(InventoryTransaction transaction)?
-        assignmentLabelForTransaction,
+    assignmentLabelForTransaction,
     String? Function(CheckoutRecord checkout)? checkedOutToLabelForCheckout,
     String? Function(String? personId)? personNameForCheckout,
     String? Function(String? userId)? performedByNameForTransaction,
@@ -179,6 +250,12 @@ class CloudSyncService {
     bool includeCostFields = false,
     bool canUploadItemCatalog = false,
   }) async {
+    if (_isSyncing) {
+      _syncAgainAfterCurrent = true;
+      return const CloudSyncResult.failure(
+        message: 'Cloud sync is already running. Another sync will be needed.',
+      );
+    }
     final client = _client;
     final user = authService.currentUser;
     final workspaceId =
@@ -223,6 +300,8 @@ class CloudSyncService {
       return const CloudSyncResult.failure(message: 'Cloud sync is paused.');
     }
 
+    _isSyncing = true;
+    var pendingEntries = const <SyncOutboxEntry>[];
     final startedAt = DateTime.now();
     _summary = _summary.copyWith(
       status: CloudSyncStatus.syncing,
@@ -235,6 +314,11 @@ class CloudSyncService {
     );
 
     try {
+      await outboxService.resetStuckSyncingEntries();
+      pendingEntries = await outboxService.getPendingEntries(activeWorkspaceId);
+      await outboxService.markSyncing([
+        for (final entry in pendingEntries) entry.id,
+      ]);
       final members = await workspaceService.fetchMembersForWorkspace(
         activeWorkspaceId,
       );
@@ -331,10 +415,9 @@ class CloudSyncService {
             )
           : CloudCheckoutSyncResult(
               uploadedCount: 0,
-              downloadedCount:
-                  (await checkoutService.pullWorkspaceCheckouts(
-                    activeWorkspaceId,
-                  )).length,
+              downloadedCount: (await checkoutService.pullWorkspaceCheckouts(
+                activeWorkspaceId,
+              )).length,
               skippedCount: localCheckouts.length,
               isUploadOnly: true,
             );
@@ -346,10 +429,9 @@ class CloudSyncService {
             )
           : CloudSupplierSyncResult(
               uploadedCount: 0,
-              downloadedCount:
-                  (await supplierService.pullWorkspaceSuppliers(
-                    activeWorkspaceId,
-                  )).length,
+              downloadedCount: (await supplierService.pullWorkspaceSuppliers(
+                activeWorkspaceId,
+              )).length,
               skippedCount: localSuppliers.length,
               isUploadOnly: true,
             );
@@ -440,10 +522,15 @@ class CloudSyncService {
                 canUploadPurchasing &&
                 canUploadCycleCounts)
             ? 0
-            : _summary.pendingUploadCount,
+            : await outboxService.pendingCount(activeWorkspaceId),
         pendingDownloadCount: 0,
         clearLastError: true,
       );
+      await outboxService.markAllDone(pendingEntries);
+      final finalPendingCount = await outboxService.pendingCount(
+        activeWorkspaceId,
+      );
+      _summary = _summary.copyWith(pendingUploadCount: finalPendingCount);
       final conflictText = mergeSummary.conflictCount > 0
           ? ' ${mergeSummary.conflictCount} cloud records need review.'
           : '';
@@ -490,10 +577,13 @@ class CloudSyncService {
             mergeSummary.duplicateCount,
       );
     } on SocketException catch (error) {
+      await outboxService.markAllFailed(pendingEntries, error);
       return _offlineResult(error);
     } on TimeoutException catch (error) {
+      await outboxService.markAllFailed(pendingEntries, error);
       return _offlineResult(error);
     } on PostgrestException catch (error) {
+      await outboxService.markAllFailed(pendingEntries, error);
       final message = _friendlySyncError(error.message);
       _summary = _summary.copyWith(
         status: _looksOffline(message)
@@ -503,6 +593,7 @@ class CloudSyncService {
       );
       return CloudSyncResult.failure(message: message, error: error);
     } catch (error) {
+      await outboxService.markAllFailed(pendingEntries, error);
       final message = _friendlySyncError(error.toString());
       _summary = _summary.copyWith(
         status: _looksOffline(message)
@@ -511,6 +602,11 @@ class CloudSyncService {
         lastError: message,
       );
       return CloudSyncResult.failure(message: message, error: error);
+    } finally {
+      _isSyncing = false;
+      if (_syncAgainAfterCurrent) {
+        _syncAgainAfterCurrent = false;
+      }
     }
   }
 
@@ -558,7 +654,7 @@ class CloudSyncService {
     String? Function(ItemLocationBalance balance)? locationNameForBalance,
     String? Function(String? locationId)? transactionLocationNameForId,
     String? Function(InventoryTransaction transaction)?
-        assignmentLabelForTransaction,
+    assignmentLabelForTransaction,
     String? Function(CheckoutRecord checkout)? checkedOutToLabelForCheckout,
     String? Function(String? personId)? personNameForCheckout,
     String? Function(String? userId)? performedByNameForTransaction,
@@ -619,7 +715,7 @@ class CloudSyncService {
     String? Function(ItemLocationBalance balance)? locationNameForBalance,
     String? Function(String? locationId)? transactionLocationNameForId,
     String? Function(InventoryTransaction transaction)?
-        assignmentLabelForTransaction,
+    assignmentLabelForTransaction,
     String? Function(CheckoutRecord checkout)? checkedOutToLabelForCheckout,
     String? Function(String? personId)? personNameForCheckout,
     String? Function(String? userId)? performedByNameForTransaction,
@@ -718,12 +814,10 @@ class CloudSyncService {
       cloudBalances: cloudBalances,
       localBalances: localBalances,
     );
-    final cloudTransactions = await transactionService.pullWorkspaceTransactions(
-      workspaceId,
-      since: since,
-    );
-    final transactionSummary =
-        await applyService.applyCloudInventoryTransactions(
+    final cloudTransactions = await transactionService
+        .pullWorkspaceTransactions(workspaceId, since: since);
+    final transactionSummary = await applyService
+        .applyCloudInventoryTransactions(
           cloudTransactions: cloudTransactions,
           localTransactions: localTransactions,
         );
@@ -735,11 +829,8 @@ class CloudSyncService {
       cloudCheckouts: cloudCheckouts,
       localCheckouts: localCheckouts,
     );
-    final cloudPurchaseOrders =
-        await purchasingService.pullWorkspacePurchaseOrders(
-          workspaceId,
-          since: since,
-        );
+    final cloudPurchaseOrders = await purchasingService
+        .pullWorkspacePurchaseOrders(workspaceId, since: since);
     final purchasingSummary = await applyService.applyCloudPurchasing(
       cloudPurchaseOrders: cloudPurchaseOrders,
       localPurchaseOrders: localPurchaseOrders,

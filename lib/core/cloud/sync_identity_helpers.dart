@@ -29,7 +29,9 @@ ItemMatchResult matchCloudItemToLocal({
       return ItemMatchResult.match(matches.single);
     }
     if (matches.length > 1) {
-      return const ItemMatchResult.duplicate('Multiple local items use this id.');
+      return const ItemMatchResult.duplicate(
+        'Multiple local items use this id.',
+      );
     }
   }
 
@@ -104,10 +106,7 @@ SupplierMatchResult matchCloudSupplierToLocal({
 }
 
 class ItemMatchResult {
-  const ItemMatchResult._({
-    this.item,
-    this.duplicateMessage,
-  });
+  const ItemMatchResult._({this.item, this.duplicateMessage});
 
   const ItemMatchResult.match(Item item) : this._(item: item);
   const ItemMatchResult.noMatch() : this._();
@@ -120,10 +119,7 @@ class ItemMatchResult {
 }
 
 class SupplierMatchResult {
-  const SupplierMatchResult._({
-    this.supplier,
-    this.duplicateMessage,
-  });
+  const SupplierMatchResult._({this.supplier, this.duplicateMessage});
 
   const SupplierMatchResult.match(Supplier supplier)
     : this._(supplier: supplier);

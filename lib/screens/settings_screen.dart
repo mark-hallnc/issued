@@ -12,6 +12,7 @@ import 'label_center_screen.dart';
 import 'reports_screen.dart';
 import 'settings_detail_screens.dart';
 import 'sync_conflicts_screen.dart';
+import 'sync_queue_screen.dart';
 import 'workspace_members_screen.dart';
 import 'workspace_selection_screen.dart';
 
@@ -366,6 +367,14 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                     label: 'Conflicts',
                     value: store.syncConflictCount.toString(),
                   ),
+                  _CloudStatusLine(
+                    label: 'Failed uploads',
+                    value: store.failedSyncUploadCount.toString(),
+                  ),
+                  const _CloudStatusLine(
+                    label: 'Auto sync',
+                    value: 'Enabled while signed in',
+                  ),
                   const _CloudStatusLine(
                     label: 'Item catalog',
                     value: 'Enabled',
@@ -378,14 +387,8 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                     label: 'Transaction history',
                     value: 'Enabled',
                   ),
-                  const _CloudStatusLine(
-                    label: 'Checkouts',
-                    value: 'Enabled',
-                  ),
-                  const _CloudStatusLine(
-                    label: 'Suppliers',
-                    value: 'Enabled',
-                  ),
+                  const _CloudStatusLine(label: 'Checkouts', value: 'Enabled'),
+                  const _CloudStatusLine(label: 'Suppliers', value: 'Enabled'),
                   const _CloudStatusLine(
                     label: 'Purchasing/reorders',
                     value: 'Enabled',
@@ -432,6 +435,16 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                             ),
                           ],
                         ),
+                      ),
+                    ),
+                  ],
+                  if (store.failedSyncUploadCount > 0) ...[
+                    const SizedBox(height: 10),
+                    const Text(
+                      'Some changes could not be synced. They will retry automatically.',
+                      style: TextStyle(
+                        color: Color(0xFFB42318),
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ],
@@ -516,6 +529,55 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                           icon: const Icon(Icons.clear_all),
                           label: const Text('Clear reviewed conflicts'),
                         ),
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (context) => const SyncQueueScreen(),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.list_alt_outlined),
+                        label: const Text('View sync queue'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: store.failedSyncUploadCount > 0
+                            ? () async {
+                                final result = await store
+                                    .retryFailedUploadsNow();
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        result.message ??
+                                            'Failed uploads queued.',
+                                      ),
+                                    ),
+                                  );
+                                }
+                              }
+                            : null,
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Retry failed uploads'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () async {
+                          final result = await store
+                              .clearCompletedSyncQueueNow();
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  result.message ??
+                                      'Completed sync history cleared.',
+                                ),
+                              ),
+                            );
+                          }
+                        },
+                        icon: const Icon(Icons.cleaning_services_outlined),
+                        label: const Text('Clear completed queue'),
+                      ),
                       OutlinedButton.icon(
                         onPressed: store.isCloudSignedIn
                             ? () async {
@@ -613,8 +675,7 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                       OutlinedButton.icon(
                         onPressed: store.isCloudSignedIn
                             ? () async {
-                                final result = await store
-                                    .syncCycleCountsNow();
+                                final result = await store.syncCycleCountsNow();
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
@@ -683,6 +744,31 @@ class CloudAccountSettingsScreen extends StatelessWidget {
           OutlinedButton(
             onPressed: store.isCloudSignedIn
                 ? () async {
+                    if (store.cloudSyncSummary.pendingUploadCount > 0 ||
+                        store.failedSyncUploadCount > 0) {
+                      final shouldSignOut = await showDialog<bool>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Unsynced changes'),
+                          content: const Text(
+                            'This device has unsynced changes. They will stay on this device, but they cannot upload while signed out.',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(false),
+                              child: const Text('Cancel'),
+                            ),
+                            FilledButton(
+                              onPressed: () => Navigator.of(context).pop(true),
+                              child: const Text('Sign out'),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (shouldSignOut != true) {
+                        return;
+                      }
+                    }
                     final result = await store.signOutCloud();
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(

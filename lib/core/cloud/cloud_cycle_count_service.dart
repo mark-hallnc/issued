@@ -20,10 +20,7 @@ class CloudCycleCountSyncResult {
 }
 
 class CloudCycleCountPullResult {
-  const CloudCycleCountPullResult({
-    required this.counts,
-    required this.lines,
-  });
+  const CloudCycleCountPullResult({required this.counts, required this.lines});
 
   final List<CloudCycleCount> counts;
   final List<CloudCycleCountLine> lines;
@@ -135,10 +132,7 @@ class CloudCycleCountService {
     _requireWorkspaceId(count.workspaceId);
     final row = await client
         .from('workspace_cycle_counts')
-        .upsert(
-          count.toUpsertJson(),
-          onConflict: 'workspace_id,local_count_id',
-        )
+        .upsert(count.toUpsertJson(), onConflict: 'workspace_id,local_count_id')
         .select()
         .single();
     return CloudCycleCount.fromJson(row);
@@ -294,9 +288,7 @@ class CloudCycleCountService {
     final sessionIdsByLocalCountId = {
       for (final count in pulledCounts) count.localCountId: count.id,
     };
-    final sessionsById = {
-      for (final session in sessions) session.id: session,
-    };
+    final sessionsById = {for (final session in sessions) session.id: session};
     final cloudLines = [
       for (final line in lines)
         CloudCycleCountLine.fromLocalCycleCountLine(
@@ -326,7 +318,10 @@ class CloudCycleCountService {
     DateTime? since,
   }) async {
     final counts = await fetchWorkspaceCycleCounts(workspaceId, since: since);
-    final lines = await fetchWorkspaceCycleCountLines(workspaceId, since: since);
+    final lines = await fetchWorkspaceCycleCountLines(
+      workspaceId,
+      since: since,
+    );
     return CloudCycleCountPullResult(counts: counts, lines: lines);
   }
 

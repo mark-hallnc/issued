@@ -110,17 +110,20 @@ class CloudCheckout {
     String? Function(String? userId)? userEmailFor,
   }) {
     final target = _checkoutTarget(checkout, checkedOutToLabelFor);
-    final notes = [
-      checkout.notes,
-      checkout.returnNotes == null ? null : 'Return: ${checkout.returnNotes}',
-      checkout.conditionOnReturn == null
-          ? null
-          : 'Condition: ${checkout.conditionOnReturn!.name}',
-    ]
-        .whereType<String>()
-        .map((value) => value.trim())
-        .where((value) => value.isNotEmpty)
-        .join('\n');
+    final notes =
+        [
+              checkout.notes,
+              checkout.returnNotes == null
+                  ? null
+                  : 'Return: ${checkout.returnNotes}',
+              checkout.conditionOnReturn == null
+                  ? null
+                  : 'Condition: ${checkout.conditionOnReturn!.name}',
+            ]
+            .whereType<String>()
+            .map((value) => value.trim())
+            .where((value) => value.isNotEmpty)
+            .join('\n');
     return CloudCheckout(
       id: '',
       workspaceId: workspaceId,
@@ -134,7 +137,9 @@ class CloudCheckout {
       checkedOutToId: target.id,
       checkedOutToLabel: target.label,
       personId: checkout.assignedToPersonId,
-      personName: _emptyToNull(personNameFor?.call(checkout.assignedToPersonId)),
+      personName: _emptyToNull(
+        personNameFor?.call(checkout.assignedToPersonId),
+      ),
       assignmentType: target.type == 'person' ? null : target.type,
       assignmentId: target.type == 'person' ? null : target.id,
       assignmentLabel: target.type == 'person' ? null : target.label,
@@ -149,7 +154,9 @@ class CloudCheckout {
         userEmailFor?.call(checkout.checkedOutByUserId),
       ),
       returnedByUserId: null,
-      returnedByName: _emptyToNull(userNameFor?.call(checkout.returnedByUserId)),
+      returnedByName: _emptyToNull(
+        userNameFor?.call(checkout.returnedByUserId),
+      ),
       returnedByEmail: _emptyToNull(
         userEmailFor?.call(checkout.returnedByUserId),
       ),

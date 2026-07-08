@@ -31,8 +31,7 @@ class SyncConflictsScreen extends StatelessWidget {
                           'Local: ${conflict.localId}',
                         if (conflict.cloudId != null)
                           'Cloud: ${conflict.cloudId}',
-                        if (conflict.field != null)
-                          'Field: ${conflict.field}',
+                        if (conflict.field != null) 'Field: ${conflict.field}',
                         _formatDate(conflict.createdAt),
                       ].join('\n'),
                     ),

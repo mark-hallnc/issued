@@ -10,6 +10,11 @@ records, suppliers, purchasing/reorder records, and cycle count sessions and
 lines. It also has a safe two-way sync foundation that can pull cloud rows down
 and apply low-risk local merges.
 
+Issued also has a durable local Drift outbox, `sync_outbox`, for local-origin
+changes. Local changes are queued by workspace/entity/operation, coalesced to
+avoid repeated updates for the same row, retried with backoff after failures,
+and kept on-device when the app closes or the user signs out.
+
 This is not full workflow sync. Balance sync captures current state, while
 transaction sync captures the local movement records that explain quantity
 changes. Cycle count sync captures count sessions and counted lines, but it
@@ -43,6 +48,7 @@ and reported as skipped/unsupported until durable conflict handling exists.
 - Supplier attachments or documents
 - Real-time push updates
 - Column-level cost security hardening
+- OS-level background retry when the app is not running
 
 Cloud sync is closer to backup now, but do not claim complete cloud backup until
 background sync and durable conflict handling are implemented. Safe
@@ -67,15 +73,49 @@ quantity effects or overwrite local status without a stronger merge baseline.
   conflict and skip the local overwrite.
 - Never hard-delete local records from cloud `deleted_at` in this foundation.
 
+## Durable Outbox
+
+The local `sync_outbox` table records pending uploads with:
+
+- Workspace id
+- Entity type and local id
+- Operation
+- Optional JSON payload
+- Status: `pending`, `syncing`, `failed`, `done`, `skipped`
+- Attempts, last error, next retry time, created/updated/synced timestamps
+
+Retries use simple backoff: soon after the first failure, then about 1 minute,
+5 minutes, and 15 minutes for later attempts. Failed entries stay visible in
+Settings under the Sync Queue screen and can be retried manually.
+
+Current upload processing still uses the existing full-entity cloud push
+services as the transport. When a workspace sync succeeds, queued entries for
+that workspace are marked done. If sync fails, queued entries are marked failed
+with their next retry time.
+
+## Automatic Sync Triggers
+
+Automatic sync is app-lifecycle based only:
+
+- After cloud login/session restoration
+- After workspace selection/creation/invite acceptance
+- On app startup when a cloud session and workspace exist
+- On app resume when the last successful sync is more than 60 seconds old
+- A short debounce after local changes enqueue outbox entries
+
+Manual Sync Now remains available. There are no OS background workers,
+push notifications, or realtime subscriptions yet.
+
 ## Next phases
 
 1. Durable local sync outbox
-2. Automatic sync on startup/resume/change
-3. Conflict resolution UI
-4. Background sync
-5. Real-time updates
-6. Audit/reconciliation
-7. Optional file/document attachment sync
+2. Entity-specific outbox push processing
+3. Automatic sync hardening on startup/resume/change
+4. Conflict resolution UI
+5. Background sync
+6. Real-time updates
+7. Audit/reconciliation
+8. Optional file/document attachment sync
 
 ## Apply the migration
 

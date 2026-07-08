@@ -25,6 +25,7 @@ part 'app_database.g.dart';
     Plans,
     CompanyUsages,
     Companies,
+    SyncOutbox,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -32,7 +33,7 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? openDatabaseConnection());
 
   @override
-  int get schemaVersion => 15;
+  int get schemaVersion => 16;
 
   @override
   MigrationStrategy get migration {
@@ -191,6 +192,9 @@ class AppDatabase extends _$AppDatabase {
             inventoryTransactions.correctedAt,
           );
         }
+        if (from < 16) {
+          await migrator.createTable(syncOutbox);
+        }
       },
     );
   }
@@ -229,6 +233,8 @@ class AppDatabase extends _$AppDatabase {
   Future<List<CompanyUsageRecord>> getAllCompanyUsage() =>
       select(companyUsages).get();
   Future<List<CompanyRecord>> getAllCompanies() => select(companies).get();
+  Future<List<SyncOutboxRecord>> getAllSyncOutboxEntries() =>
+      select(syncOutbox).get();
 
   Future<void> upsertItem(ItemsCompanion item) {
     return into(items).insertOnConflictUpdate(item);
@@ -316,6 +322,97 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> upsertCompany(CompaniesCompanion company) {
     return into(companies).insertOnConflictUpdate(company);
+  }
+
+  Future<void> upsertSyncOutboxEntry(SyncOutboxCompanion entry) {
+    return into(syncOutbox).insertOnConflictUpdate(entry);
+  }
+
+  Future<SyncOutboxRecord?> getOpenSyncOutboxEntry({
+    required String workspaceId,
+    required String entityType,
+    required String entityId,
+  }) {
+    return (select(syncOutbox)
+          ..where(
+            (entry) =>
+                entry.workspaceId.equals(workspaceId) &
+                entry.entityType.equals(entityType) &
+                entry.entityId.equals(entityId) &
+                entry.status.isIn(['pending', 'failed', 'syncing']),
+          )
+          ..orderBy([(entry) => OrderingTerm.desc(entry.updatedAt)])
+          ..limit(1))
+        .getSingleOrNull();
+  }
+
+  Future<List<SyncOutboxRecord>> getPendingSyncOutboxEntries(
+    String workspaceId, {
+    int limit = 100,
+    DateTime? now,
+  }) {
+    final cutoff = now ?? DateTime.now();
+    return (select(syncOutbox)
+          ..where(
+            (entry) =>
+                entry.workspaceId.equals(workspaceId) &
+                entry.status.isIn(['pending', 'failed']) &
+                (entry.nextAttemptAt.isNull() |
+                    entry.nextAttemptAt.isSmallerOrEqualValue(cutoff)),
+          )
+          ..orderBy([(entry) => OrderingTerm.asc(entry.createdAt)])
+          ..limit(limit))
+        .get();
+  }
+
+  Future<int> countSyncOutboxEntries(String workspaceId, String status) {
+    final countExpression = syncOutbox.id.count();
+    final query = selectOnly(syncOutbox)
+      ..addColumns([countExpression])
+      ..where(syncOutbox.workspaceId.equals(workspaceId))
+      ..where(syncOutbox.status.equals(status));
+    return query.map((row) => row.read(countExpression) ?? 0).getSingle();
+  }
+
+  Future<void> updateSyncOutboxEntries(
+    List<String> ids,
+    SyncOutboxCompanion companion,
+  ) async {
+    if (ids.isEmpty) {
+      return;
+    }
+    await (update(
+      syncOutbox,
+    )..where((entry) => entry.id.isIn(ids))).write(companion);
+  }
+
+  Future<void> updateSyncOutboxEntry(String id, SyncOutboxCompanion companion) {
+    return (update(
+      syncOutbox,
+    )..where((entry) => entry.id.equals(id))).write(companion);
+  }
+
+  Future<void> resetStuckSyncOutboxEntries(DateTime staleBefore) async {
+    await (update(syncOutbox)..where(
+          (entry) =>
+              entry.status.equals('syncing') &
+              entry.updatedAt.isSmallerThanValue(staleBefore),
+        ))
+        .write(
+          SyncOutboxCompanion(
+            status: const Value('pending'),
+            updatedAt: Value(DateTime.now()),
+          ),
+        );
+  }
+
+  Future<void> clearDoneSyncOutboxEntries(DateTime olderThan) async {
+    await (delete(syncOutbox)..where(
+          (entry) =>
+              entry.status.equals('done') &
+              entry.updatedAt.isSmallerThanValue(olderThan),
+        ))
+        .go();
   }
 
   Future<void> restoreWorkspaceData({

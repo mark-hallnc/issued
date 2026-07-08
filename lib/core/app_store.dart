@@ -7,6 +7,7 @@ import 'backup/backup_service.dart';
 import 'cloud/cloud_auth_service.dart';
 import 'cloud/cloud_sync_service.dart';
 import 'cloud/supabase_config.dart';
+import 'cloud/sync_outbox_service.dart';
 import 'cloud/workspace_service.dart';
 import 'database/app_database.dart';
 import 'database/model_mappers.dart';
@@ -17,7 +18,7 @@ import 'permissions/effective_permissions.dart';
 import 'sample_data.dart';
 import 'security/pin_hash_service.dart';
 
-class AppStore extends ChangeNotifier {
+class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   AppStore({AppDatabase? database}) : _database = database ?? AppDatabase();
 
   final AppDatabase _database;
@@ -46,6 +47,9 @@ class AppStore extends ChangeNotifier {
   int _sessionTimeoutMinutes = 10;
   bool _isInitialized = false;
   final PinHashService _pinHashService = PinHashService();
+  Timer? _autoSyncDebounce;
+  DateTime? _lastAutoSyncRequestedAt;
+  String? _lastAutoSyncReason;
   final CloudAuthService cloudAuthService = const CloudAuthService();
   late final WorkspaceService workspaceService = WorkspaceService(
     cloudAuthService,
@@ -64,6 +68,7 @@ class AppStore extends ChangeNotifier {
   CloudWorkspaceRole? _currentCloudRole;
   bool _cloudModeEnabled = false;
   CloudSyncSummary _cloudSyncSummary = CloudSyncSummary.disabled();
+  int _failedSyncUploadCount = 0;
   StreamSubscription<dynamic>? _cloudAuthSubscription;
 
   bool get isInitialized => _isInitialized;
@@ -71,6 +76,7 @@ class AppStore extends ChangeNotifier {
   bool get isCloudSignedIn => _currentCloudUser != null;
   bool get cloudModeEnabled => _cloudModeEnabled;
   CloudSyncSummary get cloudSyncSummary => _cloudSyncSummary;
+  int get failedSyncUploadCount => _failedSyncUploadCount;
   List<SyncMergeConflict> get syncMergeConflicts =>
       cloudSyncService.getMergeConflicts();
   bool get hasSyncConflicts => syncMergeConflicts.isNotEmpty;
@@ -78,6 +84,7 @@ class AppStore extends ChangeNotifier {
   DateTime? get lastCloudPullAt => cloudSyncService.getLastPullAt();
   DateTime? get lastCloudPushAt => cloudSyncService.getLastPushAt();
   DateTime? get lastCloudFullSyncAt => cloudSyncService.getLastFullSyncAt();
+  String? get lastAutoSyncReason => _lastAutoSyncReason;
   bool get isCloudSyncReady => cloudSyncService.isCloudSyncReady();
   String get cloudSyncStatusLabel =>
       cloudSyncStatusLabelForSummary(_cloudSyncSummary);
@@ -241,6 +248,7 @@ class AppStore extends ChangeNotifier {
   }
 
   Future<void> initialize() async {
+    WidgetsBinding.instance.addObserver(this);
     await _loadFromDatabase();
     await _ensureBasePlanData();
     await _ensureCompanyForExistingData();
@@ -256,6 +264,20 @@ class AppStore extends ChangeNotifier {
     }
     _isInitialized = true;
     notifyListeners();
+    _scheduleAutoSync(reason: 'startup', delay: const Duration(seconds: 2));
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      final lastSync = cloudSyncSummary.lastSuccessfulSyncAt;
+      final shouldSync =
+          lastSync == null ||
+          DateTime.now().difference(lastSync) > const Duration(seconds: 60);
+      if (shouldSync) {
+        _scheduleAutoSync(reason: 'resume');
+      }
+    }
   }
 
   void initializeCloud() {
@@ -289,7 +311,11 @@ class AppStore extends ChangeNotifier {
         _clearCloudSyncState();
       } else {
         _cloudModeEnabled = true;
-        unawaited(loadMyWorkspaces());
+        unawaited(
+          loadMyWorkspaces().then(
+            (_) => _scheduleAutoSync(reason: 'cloud login'),
+          ),
+        );
       }
       notifyListeners();
     });
@@ -321,6 +347,7 @@ class AppStore extends ChangeNotifier {
     _cloudModeEnabled = _currentCloudUser != null;
     if (_cloudModeEnabled) {
       await refreshCloudWorkspaceState();
+      _scheduleAutoSync(reason: 'cloud login');
     } else {
       notifyListeners();
     }
@@ -383,6 +410,7 @@ class AppStore extends ChangeNotifier {
       await loadWorkspaceMembers(notify: false);
       await loadWorkspaceInvites(notify: false);
       await initializeCloudSyncForActiveWorkspace(notify: false);
+      await _refreshSyncQueueCounts();
     } else {
       _workspaceMembers.clear();
       _workspaceInvites.clear();
@@ -390,6 +418,7 @@ class AppStore extends ChangeNotifier {
       _clearCloudSyncState();
     }
     notifyListeners();
+    _scheduleAutoSync(reason: 'workspace restored');
     return const AppActionResult.success();
   }
 
@@ -528,6 +557,7 @@ class AppStore extends ChangeNotifier {
     await loadWorkspaceInvites(notify: false);
     await initializeCloudSyncForActiveWorkspace(notify: false);
     notifyListeners();
+    _scheduleAutoSync(reason: 'invite accepted');
     return AppActionResult.success(message: result.message);
   }
 
@@ -608,6 +638,7 @@ class AppStore extends ChangeNotifier {
     await loadWorkspaceInvites(notify: false);
     await initializeCloudSyncForActiveWorkspace(notify: false);
     notifyListeners();
+    _scheduleAutoSync(reason: 'workspace created');
     return AppActionResult.success(message: result.message);
   }
 
@@ -619,6 +650,7 @@ class AppStore extends ChangeNotifier {
     notifyListeners();
     loadWorkspaceMembers();
     loadWorkspaceInvites();
+    _scheduleAutoSync(reason: 'workspace selected');
   }
 
   void disableCloudModeAndUseLocalOnly() {
@@ -659,6 +691,7 @@ class AppStore extends ChangeNotifier {
       workspace.id,
       workspaceName: workspace.name,
     );
+    await _refreshSyncQueueCounts();
     if (notify) notifyListeners();
     return const AppActionResult.success(
       message: 'Cloud sync foundation is ready.',
@@ -698,6 +731,23 @@ class AppStore extends ChangeNotifier {
     return result.success
         ? AppActionResult.success(message: result.message)
         : AppActionResult.failure(result.message, data: result.error);
+  }
+
+  Future<AppActionResult> retryFailedUploadsNow() async {
+    await cloudSyncService.retryFailedUploads();
+    await _refreshSyncQueueCounts();
+    notifyListeners();
+    _scheduleAutoSync(reason: 'retry failed uploads');
+    return const AppActionResult.success(message: 'Failed uploads queued.');
+  }
+
+  Future<AppActionResult> clearCompletedSyncQueueNow() async {
+    await cloudSyncService.clearCompletedQueue();
+    await _refreshSyncQueueCounts();
+    notifyListeners();
+    return const AppActionResult.success(
+      message: 'Completed sync history cleared.',
+    );
   }
 
   Future<AppActionResult> syncItemCatalogNow() async {
@@ -836,6 +886,56 @@ class AppStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<List<SyncOutboxEntry>> getSyncQueueEntries() {
+    return cloudSyncService.getOutboxEntries();
+  }
+
+  Future<void> _refreshSyncQueueCounts() async {
+    final workspace = _activeWorkspace;
+    if (workspace == null) {
+      _failedSyncUploadCount = 0;
+      _cloudSyncSummary = cloudSyncService.getSyncSummary();
+      return;
+    }
+    final pending = await cloudSyncService.getPendingUploadCount(workspace.id);
+    _failedSyncUploadCount = await cloudSyncService.getFailedUploadCount(
+      workspace.id,
+    );
+    _cloudSyncSummary = cloudSyncService.getSyncSummary().copyWith(
+      pendingUploadCount: pending,
+    );
+  }
+
+  void _scheduleAutoSync({
+    required String reason,
+    Duration delay = const Duration(seconds: 3),
+  }) {
+    if (!_isInitialized || !isCloudWorkspaceActive) {
+      return;
+    }
+    final now = DateTime.now();
+    final lastRequested = _lastAutoSyncRequestedAt;
+    if (lastRequested != null &&
+        now.difference(lastRequested) < const Duration(seconds: 2)) {
+      return;
+    }
+    _lastAutoSyncRequestedAt = now;
+    _lastAutoSyncReason = reason;
+    _autoSyncDebounce?.cancel();
+    _autoSyncDebounce = Timer(delay, () {
+      unawaited(_runAutomaticSync(reason));
+    });
+  }
+
+  Future<void> _runAutomaticSync(String reason) async {
+    if (!isCloudWorkspaceActive) {
+      return;
+    }
+    _lastAutoSyncReason = reason;
+    await syncTwoWayNow();
+    await _refreshSyncQueueCounts();
+  }
+
   void _clearCloudSyncState() {
     cloudSyncService.clearWorkspaceState();
     _cloudSyncSummary = cloudSyncService.getSyncSummary();
@@ -853,6 +953,7 @@ class AppStore extends ChangeNotifier {
       ),
     );
     _cloudSyncSummary = cloudSyncService.getSyncSummary();
+    _scheduleAutoSync(reason: 'item changed');
   }
 
   void queueBalanceForSync(String balanceId) {
@@ -867,6 +968,7 @@ class AppStore extends ChangeNotifier {
       ),
     );
     _cloudSyncSummary = cloudSyncService.getSyncSummary();
+    _scheduleAutoSync(reason: 'balance changed');
   }
 
   void queueTransactionForSync(String transactionId) {
@@ -881,6 +983,7 @@ class AppStore extends ChangeNotifier {
       ),
     );
     _cloudSyncSummary = cloudSyncService.getSyncSummary();
+    _scheduleAutoSync(reason: 'transaction changed');
   }
 
   void queueCheckoutForSync(String checkoutId) {
@@ -895,6 +998,7 @@ class AppStore extends ChangeNotifier {
       ),
     );
     _cloudSyncSummary = cloudSyncService.getSyncSummary();
+    _scheduleAutoSync(reason: 'checkout changed');
   }
 
   void queueSupplierForSync(String supplierId) {
@@ -909,6 +1013,7 @@ class AppStore extends ChangeNotifier {
       ),
     );
     _cloudSyncSummary = cloudSyncService.getSyncSummary();
+    _scheduleAutoSync(reason: 'supplier changed');
   }
 
   void queuePurchaseOrderForSync(String purchaseOrderId) {
@@ -923,6 +1028,7 @@ class AppStore extends ChangeNotifier {
       ),
     );
     _cloudSyncSummary = cloudSyncService.getSyncSummary();
+    _scheduleAutoSync(reason: 'purchasing changed');
   }
 
   void queueCycleCountForSync(String countId) {
@@ -937,6 +1043,7 @@ class AppStore extends ChangeNotifier {
       ),
     );
     _cloudSyncSummary = cloudSyncService.getSyncSummary();
+    _scheduleAutoSync(reason: 'cycle count changed');
   }
 
   void queueCycleCountLineForSync(String countLineId) {
@@ -951,6 +1058,7 @@ class AppStore extends ChangeNotifier {
       ),
     );
     _cloudSyncSummary = cloudSyncService.getSyncSummary();
+    _scheduleAutoSync(reason: 'cycle count line changed');
   }
 
   bool get _canUploadInventoryBalances =>
@@ -5788,6 +5896,8 @@ class AppStore extends ChangeNotifier {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _autoSyncDebounce?.cancel();
     unawaited(_cloudAuthSubscription?.cancel());
     unawaited(_database.close());
     super.dispose();

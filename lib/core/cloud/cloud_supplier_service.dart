@@ -60,9 +60,7 @@ class CloudSupplierService {
     ];
   }
 
-  Future<CloudSupplier> upsertWorkspaceSupplier(
-    CloudSupplier supplier,
-  ) async {
+  Future<CloudSupplier> upsertWorkspaceSupplier(CloudSupplier supplier) async {
     final client = _requireClient();
     _requireUser();
     _requireWorkspaceId(supplier.workspaceId);

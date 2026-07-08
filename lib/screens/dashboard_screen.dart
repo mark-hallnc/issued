@@ -84,6 +84,8 @@ class _CloudSyncStatusCard extends StatelessWidget {
     final summary = store.cloudSyncSummary;
     final workspace =
         summary.activeWorkspaceName ?? store.activeWorkspace?.name;
+    final queueText =
+        'Pending uploads: ${summary.pendingUploadCount}. Failed uploads: ${store.failedSyncUploadCount}.';
     return Card(
       child: ListTile(
         leading: const Icon(Icons.cloud_sync_outlined),
@@ -91,7 +93,7 @@ class _CloudSyncStatusCard extends StatelessWidget {
         subtitle: Text(
           workspace == null
               ? 'No active workspace selected.'
-              : '$workspace - safe two-way sync for catalog metadata is enabled. Workflow rows are staged when merge needs review.',
+              : '$workspace - safe two-way sync for catalog metadata is enabled. $queueText',
         ),
         trailing: store.isCloudSignedIn
             ? IconButton(

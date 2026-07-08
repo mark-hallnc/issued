@@ -146,8 +146,7 @@ class CloudInventoryBalanceService {
   Future<List<CloudInventoryBalance>> pullWorkspaceBalances(
     String workspaceId, {
     DateTime? since,
-  },
-  ) {
+  }) {
     return fetchWorkspaceBalances(workspaceId, since: since);
   }
 

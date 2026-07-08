@@ -102,9 +102,7 @@ class CloudCheckoutService {
     return open;
   }
 
-  Future<CloudCheckout> upsertWorkspaceCheckout(
-    CloudCheckout checkout,
-  ) async {
+  Future<CloudCheckout> upsertWorkspaceCheckout(CloudCheckout checkout) async {
     final client = _requireClient();
     _requireUser();
     _requireWorkspaceId(checkout.workspaceId);
@@ -208,11 +206,7 @@ class CloudCheckoutService {
     String? status,
     DateTime? since,
   }) {
-    return fetchWorkspaceCheckouts(
-      workspaceId,
-      status: status,
-      since: since,
-    );
+    return fetchWorkspaceCheckouts(workspaceId, status: status, since: since);
   }
 
   SupabaseClient _requireClient() {

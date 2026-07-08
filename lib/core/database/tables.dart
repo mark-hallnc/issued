@@ -1,5 +1,32 @@
 import 'package:drift/drift.dart';
 
+@TableIndex(
+  name: 'sync_outbox_workspace_status_idx',
+  columns: {#workspaceId, #status},
+)
+@TableIndex(name: 'sync_outbox_entity_idx', columns: {#entityType, #entityId})
+@TableIndex(name: 'sync_outbox_next_attempt_idx', columns: {#nextAttemptAt})
+@TableIndex(name: 'sync_outbox_created_at_idx', columns: {#createdAt})
+@DataClassName('SyncOutboxRecord')
+class SyncOutbox extends Table {
+  TextColumn get id => text()();
+  TextColumn get workspaceId => text()();
+  TextColumn get entityType => text()();
+  TextColumn get entityId => text()();
+  TextColumn get operation => text()();
+  TextColumn get payloadJson => text().nullable()();
+  TextColumn get status => text().withDefault(const Constant('pending'))();
+  IntColumn get attempts => integer().withDefault(const Constant(0))();
+  TextColumn get lastError => text().nullable()();
+  DateTimeColumn get nextAttemptAt => dateTime().nullable()();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+  DateTimeColumn get syncedAt => dateTime().nullable()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
 @DataClassName('ItemRecord')
 class Items extends Table {
   TextColumn get id => text()();
