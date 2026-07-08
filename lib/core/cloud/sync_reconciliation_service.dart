@@ -116,8 +116,7 @@ class SyncReconciliationService {
       CloudSyncEntity.item => (await database.getAllItems()).length,
       CloudSyncEntity.inventoryBalance =>
         (await database.getAllItemLocationBalances()).length,
-      CloudSyncEntity.transaction =>
-        (await database.getAllInventoryTransactions()).length,
+      CloudSyncEntity.transaction => (await database.getAllTransactions()).length,
       CloudSyncEntity.checkout =>
         (await database.getAllCheckoutRecords()).length,
       CloudSyncEntity.supplier => (await database.getAllSuppliers()).length,
@@ -199,7 +198,7 @@ class SyncReconciliationService {
         ),
       ),
       CloudSyncEntity.transaction => _maxDate(
-        (await database.getAllInventoryTransactions()).map(
+        (await database.getAllTransactions()).map(
           (transaction) => transaction.createdAt,
         ),
       ),
