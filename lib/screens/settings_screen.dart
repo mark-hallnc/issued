@@ -5,6 +5,7 @@ import '../core/app_store.dart';
 import '../core/models/models.dart';
 import 'assignment_targets_screen.dart';
 import 'backup_restore_screen.dart';
+import 'cloud_adoption_wizard_screen.dart';
 import 'cloud_login_screen.dart';
 import 'data_health_screen.dart';
 import 'import_export_screen.dart';
@@ -347,6 +348,10 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                         'None',
                   ),
                   _CloudStatusLine(
+                    label: 'Cloud setup',
+                    value: store.cloudAdoptionStatusLabel,
+                  ),
+                  _CloudStatusLine(
                     label: 'Last sync',
                     value: _formatCloudSyncDate(
                       store.cloudSyncSummary.lastSuccessfulSyncAt,
@@ -486,6 +491,44 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                         icon: const Icon(Icons.health_and_safety_outlined),
                         label: const Text('Sync Health'),
                       ),
+                      OutlinedButton.icon(
+                        onPressed: store.isCloudSignedIn
+                            ? () async {
+                                await store.refreshCloudAdoptionSummary();
+                                if (context.mounted) {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute<void>(
+                                      builder: (context) =>
+                                          const CloudAdoptionWizardScreen(),
+                                    ),
+                                  );
+                                }
+                              }
+                            : null,
+                        icon: const Icon(Icons.cloud_done_outlined),
+                        label: const Text('Cloud setup wizard'),
+                      ),
+                      if (kDebugMode)
+                        OutlinedButton.icon(
+                          onPressed: store.activeWorkspace == null
+                              ? null
+                              : () async {
+                                  final result = await store
+                                      .resetCloudAdoptionDecisionForDebug();
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          result.message ??
+                                              'Cloud setup reset.',
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                },
+                          icon: const Icon(Icons.restart_alt),
+                          label: const Text('Reset setup decision'),
+                        ),
                       OutlinedButton.icon(
                         onPressed: store.isCloudSignedIn
                             ? () async {

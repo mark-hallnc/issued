@@ -126,15 +126,37 @@ class _SummaryCard extends StatelessWidget {
             const SizedBox(height: 10),
             _MetricLine(
               label: 'Workspace',
-              value: summary.workspaceName ?? store.activeWorkspace?.name ?? '-',
+              value:
+                  summary.workspaceName ?? store.activeWorkspace?.name ?? '-',
             ),
-            _MetricLine(label: 'Last checked', value: _formatDate(summary.checkedAt)),
-            _MetricLine(label: 'Last successful sync', value: _formatDate(store.cloudSyncSummary.lastSuccessfulSyncAt)),
-            _MetricLine(label: 'Local records', value: summary.totalLocalCount.toString()),
-            _MetricLine(label: 'Cloud records', value: summary.totalCloudCount.toString()),
-            _MetricLine(label: 'Pending uploads', value: summary.totalPending.toString()),
-            _MetricLine(label: 'Failed uploads', value: summary.totalFailed.toString()),
-            _MetricLine(label: 'Conflicts', value: summary.totalConflicts.toString()),
+            _MetricLine(
+              label: 'Last checked',
+              value: _formatDate(summary.checkedAt),
+            ),
+            _MetricLine(
+              label: 'Last successful sync',
+              value: _formatDate(store.cloudSyncSummary.lastSuccessfulSyncAt),
+            ),
+            _MetricLine(
+              label: 'Local records',
+              value: summary.totalLocalCount.toString(),
+            ),
+            _MetricLine(
+              label: 'Cloud records',
+              value: summary.totalCloudCount.toString(),
+            ),
+            _MetricLine(
+              label: 'Pending uploads',
+              value: summary.totalPending.toString(),
+            ),
+            _MetricLine(
+              label: 'Failed uploads',
+              value: summary.totalFailed.toString(),
+            ),
+            _MetricLine(
+              label: 'Conflicts',
+              value: summary.totalConflicts.toString(),
+            ),
           ],
         ),
       ),
@@ -163,11 +185,8 @@ class _ActionCard extends StatelessWidget {
               label: const Text('Refresh'),
             ),
             OutlinedButton.icon(
-              onPressed: () => _runAction(
-                context,
-                () => store.syncNow(),
-                after: onRefresh,
-              ),
+              onPressed: () =>
+                  _runAction(context, () => store.syncNow(), after: onRefresh),
               icon: const Icon(Icons.sync),
               label: const Text('Sync now'),
             ),
@@ -240,11 +259,26 @@ class _EntityCard extends StatelessWidget {
             const SizedBox(height: 8),
             _MetricLine(label: 'Local', value: _countLabel(entity.localCount)),
             _MetricLine(label: 'Cloud', value: _countLabel(entity.cloudCount)),
-            _MetricLine(label: 'Pending', value: entity.pendingUploadCount.toString()),
-            _MetricLine(label: 'Failed', value: entity.failedUploadCount.toString()),
-            _MetricLine(label: 'Conflicts', value: entity.conflictCount.toString()),
-            _MetricLine(label: 'Last local change', value: _formatDate(entity.lastLocalChangeAt)),
-            _MetricLine(label: 'Last cloud change', value: _formatDate(entity.lastCloudChangeAt)),
+            _MetricLine(
+              label: 'Pending',
+              value: entity.pendingUploadCount.toString(),
+            ),
+            _MetricLine(
+              label: 'Failed',
+              value: entity.failedUploadCount.toString(),
+            ),
+            _MetricLine(
+              label: 'Conflicts',
+              value: entity.conflictCount.toString(),
+            ),
+            _MetricLine(
+              label: 'Last local change',
+              value: _formatDate(entity.lastLocalChangeAt),
+            ),
+            _MetricLine(
+              label: 'Last cloud change',
+              value: _formatDate(entity.lastCloudChangeAt),
+            ),
             const SizedBox(height: 6),
             Text(entity.message),
           ],

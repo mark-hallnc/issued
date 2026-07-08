@@ -70,10 +70,7 @@ class SyncReconciliationService {
       final failedCount = await getFailedCount(entity, workspaceId);
       final conflictCount = getConflictCount(entity);
       final lastLocalChangeAt = await getLastLocalChangeAt(entity);
-      final lastCloudChangeAt = await getLastCloudChangeAt(
-        entity,
-        workspaceId,
-      );
+      final lastCloudChangeAt = await getLastCloudChangeAt(entity, workspaceId);
       final status = _entityStatus(
         localCount: localCount,
         cloudCount: cloudCount,
@@ -121,39 +118,40 @@ class SyncReconciliationService {
         (await database.getAllItemLocationBalances()).length,
       CloudSyncEntity.transaction =>
         (await database.getAllInventoryTransactions()).length,
-      CloudSyncEntity.checkout => (await database.getAllCheckoutRecords()).length,
+      CloudSyncEntity.checkout =>
+        (await database.getAllCheckoutRecords()).length,
       CloudSyncEntity.supplier => (await database.getAllSuppliers()).length,
       CloudSyncEntity.purchaseOrder =>
         (await database.getAllReorderRequests()).length,
-      CloudSyncEntity.count => (await database.getAllCycleCountSessions()).length,
-      CloudSyncEntity.countLine => (await database.getAllCycleCountLines()).length,
+      CloudSyncEntity.count =>
+        (await database.getAllCycleCountSessions()).length,
+      CloudSyncEntity.countLine =>
+        (await database.getAllCycleCountLines()).length,
       _ => null,
     };
   }
 
-  Future<int?> getCloudEntityCount(
-    CloudSyncEntity entity,
-    String workspaceId,
-  ) {
+  Future<int?> getCloudEntityCount(CloudSyncEntity entity, String workspaceId) {
     return switch (entity) {
       CloudSyncEntity.item => itemService.countWorkspaceItems(workspaceId),
-      CloudSyncEntity.inventoryBalance => balanceService
-          .countWorkspaceBalances(workspaceId),
-      CloudSyncEntity.transaction => transactionService
-          .countWorkspaceTransactions(workspaceId),
+      CloudSyncEntity.inventoryBalance => balanceService.countWorkspaceBalances(
+        workspaceId,
+      ),
+      CloudSyncEntity.transaction =>
+        transactionService.countWorkspaceTransactions(workspaceId),
       CloudSyncEntity.checkout => checkoutService.countWorkspaceCheckouts(
         workspaceId,
       ),
       CloudSyncEntity.supplier => supplierService.countWorkspaceSuppliers(
         workspaceId,
       ),
-      CloudSyncEntity.purchaseOrder => purchasingService
-          .countWorkspacePurchaseOrders(workspaceId),
+      CloudSyncEntity.purchaseOrder =>
+        purchasingService.countWorkspacePurchaseOrders(workspaceId),
       CloudSyncEntity.count => cycleCountService.countWorkspaceCycleCounts(
         workspaceId,
       ),
-      CloudSyncEntity.countLine => cycleCountService
-          .countWorkspaceCycleCountLines(workspaceId),
+      CloudSyncEntity.countLine =>
+        cycleCountService.countWorkspaceCycleCountLines(workspaceId),
       _ => Future<int?>.value(null),
     };
   }
@@ -211,7 +209,9 @@ class SyncReconciliationService {
         ),
       ),
       CloudSyncEntity.supplier => _maxDate(
-        (await database.getAllSuppliers()).map((supplier) => supplier.updatedAt),
+        (await database.getAllSuppliers()).map(
+          (supplier) => supplier.updatedAt,
+        ),
       ),
       CloudSyncEntity.purchaseOrder => _maxDate(
         (await database.getAllReorderRequests()).map(
@@ -241,22 +241,20 @@ class SyncReconciliationService {
       CloudSyncEntity.item => itemService.latestWorkspaceItemUpdateAt(
         workspaceId,
       ),
-      CloudSyncEntity.inventoryBalance => balanceService
-          .latestWorkspaceBalanceUpdateAt(workspaceId),
-      CloudSyncEntity.transaction => transactionService
-          .latestWorkspaceTransactionUpdateAt(workspaceId),
-      CloudSyncEntity.checkout => checkoutService.latestWorkspaceCheckoutUpdateAt(
-        workspaceId,
-      ),
-      CloudSyncEntity.supplier => supplierService.latestWorkspaceSupplierUpdateAt(
-        workspaceId,
-      ),
-      CloudSyncEntity.purchaseOrder => purchasingService
-          .latestWorkspacePurchaseOrderUpdateAt(workspaceId),
-      CloudSyncEntity.count => cycleCountService
-          .latestWorkspaceCycleCountUpdateAt(workspaceId),
-      CloudSyncEntity.countLine => cycleCountService
-          .latestWorkspaceCycleCountLineUpdateAt(workspaceId),
+      CloudSyncEntity.inventoryBalance =>
+        balanceService.latestWorkspaceBalanceUpdateAt(workspaceId),
+      CloudSyncEntity.transaction =>
+        transactionService.latestWorkspaceTransactionUpdateAt(workspaceId),
+      CloudSyncEntity.checkout =>
+        checkoutService.latestWorkspaceCheckoutUpdateAt(workspaceId),
+      CloudSyncEntity.supplier =>
+        supplierService.latestWorkspaceSupplierUpdateAt(workspaceId),
+      CloudSyncEntity.purchaseOrder =>
+        purchasingService.latestWorkspacePurchaseOrderUpdateAt(workspaceId),
+      CloudSyncEntity.count =>
+        cycleCountService.latestWorkspaceCycleCountUpdateAt(workspaceId),
+      CloudSyncEntity.countLine =>
+        cycleCountService.latestWorkspaceCycleCountLineUpdateAt(workspaceId),
       _ => Future<DateTime?>.value(null),
     };
   }

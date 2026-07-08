@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/app_store.dart';
 import '../core/models/models.dart';
+import 'cloud_adoption_wizard_screen.dart';
 
 class WorkspaceSelectionScreen extends StatefulWidget {
   const WorkspaceSelectionScreen({super.key});
@@ -18,8 +19,13 @@ class _WorkspaceSelectionScreenState extends State<WorkspaceSelectionScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      AppStoreScope.of(context).refreshCloudWorkspaceState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final store = AppStoreScope.of(context);
+      await store.refreshCloudWorkspaceState();
+      if (!mounted) {
+        return;
+      }
+      await _showAdoptionWizardIfNeeded(store);
     });
   }
 
@@ -97,9 +103,10 @@ class _WorkspaceSelectionScreenState extends State<WorkspaceSelectionScreen> {
                   trailing: store.activeWorkspace?.id == workspace.id
                       ? const Icon(Icons.check_circle)
                       : null,
-                  onTap: () {
+                  onTap: () async {
                     store.setActiveCloudWorkspace(workspace);
                     _showMessage('Workspace selected.');
+                    await _showAdoptionWizardIfNeeded(store);
                   },
                 ),
               ),
@@ -161,6 +168,7 @@ class _WorkspaceSelectionScreenState extends State<WorkspaceSelectionScreen> {
     _showMessage(result.message ?? 'Workspace request complete.');
     if (result.success) {
       _nameController.clear();
+      await _showAdoptionWizardIfNeeded(store);
     }
   }
 
@@ -172,6 +180,21 @@ class _WorkspaceSelectionScreenState extends State<WorkspaceSelectionScreen> {
     }
     setState(() => _isBusy = false);
     _showMessage(result.message ?? 'Invite request complete.');
+    if (result.success) {
+      await _showAdoptionWizardIfNeeded(store);
+    }
+  }
+
+  Future<void> _showAdoptionWizardIfNeeded(AppStore store) async {
+    await store.refreshCloudAdoptionSummary();
+    if (!mounted || !store.shouldShowCloudAdoptionWizard) {
+      return;
+    }
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => const CloudAdoptionWizardScreen(),
+      ),
+    );
   }
 
   void _showMessage(String message) {

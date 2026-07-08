@@ -23,6 +23,12 @@ does not always mean data loss; it can mean an upload is pending, a migration is
 missing, or a workflow record is intentionally fetch-only until conflict
 resolution is stronger.
 
+The app also includes a cloud adoption wizard for the first time a device uses a
+workspace. It appears after sign-in and workspace selection/creation when local
+business data or cloud business data needs a setup decision. The wizard prevents
+automatic business-data upload until the user chooses how this device should use
+the workspace.
+
 This is not full workflow sync. Balance sync captures current state, while
 transaction sync captures the local movement records that explain quantity
 changes. Cycle count sync captures count sessions and counted lines, but it
@@ -132,6 +138,32 @@ Workspace. It is diagnostic and non-destructive:
 Conflict review is visibility-only for now. Operators can review and clear
 conflict notices after investigation, but the app does not yet offer automatic
 "choose local" or "choose cloud" resolution.
+
+## Cloud Adoption Wizard
+
+The cloud adoption wizard has three choices:
+
+- Upload this device's data: uses this device's inventory as the starting data
+  for the workspace and runs the existing sync order: items, balances,
+  transactions, checkouts, suppliers, purchasing, and cycle counts.
+- Start fresh in this workspace: keeps existing local inventory on this device
+  but does not upload rows that existed before the setup decision. New local
+  changes after the decision timestamp can sync.
+- Keep this device local-only for now: leaves the cloud account signed in, but
+  disables active workspace sync on this device until the user returns to setup.
+
+If both local and cloud business data exist, uploading requires an explicit
+confirmation checkbox because it may merge data from different sources. Workers
+and view-only users cannot seed a workspace; they should ask an admin or manager
+to set it up first.
+
+Recommended clean setup path before real release:
+
+1. Clear test data from the device if it should not become workspace data.
+2. Sign in as the workspace owner/admin.
+3. Create or select the workspace.
+4. Upload clean starting data from the intended seed device.
+5. Invite other users.
 
 ## Next phases
 

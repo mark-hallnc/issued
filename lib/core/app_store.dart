@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 
 import 'backup/backup_service.dart';
+import 'cloud/cloud_adoption_models.dart';
+import 'cloud/cloud_adoption_service.dart';
 import 'cloud/cloud_auth_service.dart';
 import 'cloud/cloud_sync_service.dart';
 import 'cloud/supabase_config.dart';
@@ -74,6 +76,10 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
         purchasingService: cloudSyncService.purchasingService,
         cycleCountService: cloudSyncService.cycleCountService,
       );
+  late final CloudAdoptionService cloudAdoptionService = CloudAdoptionService(
+    database: _database,
+    reconciliationService: syncReconciliationService,
+  );
   supabase.User? _currentCloudUser;
   final List<CloudWorkspace> _availableWorkspaces = [];
   final List<CloudWorkspaceMember> _workspaceMembers = [];
@@ -84,6 +90,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   bool _cloudModeEnabled = false;
   CloudSyncSummary _cloudSyncSummary = CloudSyncSummary.disabled();
   SyncReconciliationSummary? _syncReconciliationSummary;
+  CloudAdoptionSummary? _cloudAdoptionSummary;
   int _failedSyncUploadCount = 0;
   StreamSubscription<dynamic>? _cloudAuthSubscription;
 
@@ -94,6 +101,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   CloudSyncSummary get cloudSyncSummary => _cloudSyncSummary;
   SyncReconciliationSummary? get syncReconciliationSummary =>
       _syncReconciliationSummary;
+  CloudAdoptionSummary? get cloudAdoptionSummary => _cloudAdoptionSummary;
   int get failedSyncUploadCount => _failedSyncUploadCount;
   List<SyncMergeConflict> get syncMergeConflicts =>
       cloudSyncService.getMergeConflicts();
@@ -104,6 +112,26 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   String get syncHealthStatusLabel => syncHealthStatusLabelFor(
     _syncReconciliationSummary?.overallStatus ?? SyncHealthStatus.unknown,
   );
+  bool get shouldShowCloudAdoptionWizard =>
+      _cloudAdoptionSummary?.state == CloudAdoptionState.needsDecision ||
+      _cloudAdoptionSummary?.state == CloudAdoptionState.blocked;
+  String get cloudAdoptionStatusLabel {
+    final summary = _cloudAdoptionSummary;
+    if (summary == null) {
+      return 'Not checked';
+    }
+    return switch (summary.state) {
+      CloudAdoptionState.notNeeded => 'Not needed',
+      CloudAdoptionState.needsDecision => 'Needs setup decision',
+      CloudAdoptionState.localOnlySelected => 'Local-only',
+      CloudAdoptionState.uploadSelected => 'Upload selected',
+      CloudAdoptionState.startFreshSelected => 'Started fresh',
+      CloudAdoptionState.completed => 'Uploaded local data',
+      CloudAdoptionState.blocked => 'Blocked',
+      CloudAdoptionState.error => 'Error',
+    };
+  }
+
   DateTime? get lastCloudPullAt => cloudSyncService.getLastPullAt();
   DateTime? get lastCloudPushAt => cloudSyncService.getLastPushAt();
   DateTime? get lastCloudFullSyncAt => cloudSyncService.getLastFullSyncAt();
@@ -434,6 +462,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
       await loadWorkspaceInvites(notify: false);
       await initializeCloudSyncForActiveWorkspace(notify: false);
       await _refreshSyncQueueCounts();
+      await refreshCloudAdoptionSummary(notify: false);
     } else {
       _workspaceMembers.clear();
       _workspaceInvites.clear();
@@ -441,7 +470,9 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
       _clearCloudSyncState();
     }
     notifyListeners();
-    _scheduleAutoSync(reason: 'workspace restored');
+    if (!shouldShowCloudAdoptionWizard) {
+      _scheduleAutoSync(reason: 'workspace restored');
+    }
     return const AppActionResult.success();
   }
 
@@ -579,8 +610,11 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     await loadWorkspaceMembers(notify: false);
     await loadWorkspaceInvites(notify: false);
     await initializeCloudSyncForActiveWorkspace(notify: false);
+    await refreshCloudAdoptionSummary(notify: false);
     notifyListeners();
-    _scheduleAutoSync(reason: 'invite accepted');
+    if (!shouldShowCloudAdoptionWizard) {
+      _scheduleAutoSync(reason: 'invite accepted');
+    }
     return AppActionResult.success(message: result.message);
   }
 
@@ -660,8 +694,11 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     await loadWorkspaceMembers(notify: false);
     await loadWorkspaceInvites(notify: false);
     await initializeCloudSyncForActiveWorkspace(notify: false);
+    await refreshCloudAdoptionSummary(notify: false);
     notifyListeners();
-    _scheduleAutoSync(reason: 'workspace created');
+    if (!shouldShowCloudAdoptionWizard) {
+      _scheduleAutoSync(reason: 'workspace created');
+    }
     return AppActionResult.success(message: result.message);
   }
 
@@ -669,11 +706,19 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     _activeWorkspace = workspace;
     _cloudModeEnabled = true;
     workspaceService.setActiveWorkspace(workspace);
-    unawaited(initializeCloudSyncForActiveWorkspace());
     notifyListeners();
-    loadWorkspaceMembers();
-    loadWorkspaceInvites();
-    _scheduleAutoSync(reason: 'workspace selected');
+    unawaited(_finishWorkspaceSelectionSetup());
+  }
+
+  Future<void> _finishWorkspaceSelectionSetup() async {
+    await loadWorkspaceMembers(notify: false);
+    await loadWorkspaceInvites(notify: false);
+    await initializeCloudSyncForActiveWorkspace(notify: false);
+    await refreshCloudAdoptionSummary(notify: false);
+    notifyListeners();
+    if (!shouldShowCloudAdoptionWizard) {
+      _scheduleAutoSync(reason: 'workspace selected');
+    }
   }
 
   void disableCloudModeAndUseLocalOnly() {
@@ -715,6 +760,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
       workspaceName: workspace.name,
     );
     await _refreshSyncQueueCounts();
+    await refreshCloudAdoptionSummary(notify: false);
     if (notify) notifyListeners();
     return const AppActionResult.success(
       message: 'Cloud sync foundation is ready.',
@@ -849,16 +895,39 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     required bool uploadCheckouts,
     required bool uploadPurchasing,
     required bool uploadCycleCounts,
+    bool forceUploadExistingLocalData = false,
+    bool bypassAdoptionGate = false,
   }) async {
+    final adoptionSummary = await _ensureCloudAdoptionSummary();
+    final adoptionState = adoptionSummary?.state;
+    if (!bypassAdoptionGate &&
+        (adoptionState == CloudAdoptionState.needsDecision ||
+            adoptionState == CloudAdoptionState.blocked ||
+            adoptionState == CloudAdoptionState.localOnlySelected)) {
+      return const AppActionResult.failure(
+        'Choose how this device should use the cloud workspace before syncing.',
+      );
+    }
+    final adoptionCutoff = forceUploadExistingLocalData
+        ? null
+        : _localUploadCutoffFor(adoptionSummary);
+    final localItems = _itemsForCloudUpload(adoptionCutoff);
+    final localBalances = _balancesForCloudUpload(adoptionCutoff);
+    final localTransactions = _transactionsForCloudUpload(adoptionCutoff);
+    final localCheckouts = _checkoutsForCloudUpload(adoptionCutoff);
+    final localSuppliers = _suppliersForCloudUpload(adoptionCutoff);
+    final localPurchaseOrders = _purchaseOrdersForCloudUpload(adoptionCutoff);
+    final localCycleCounts = _cycleCountsForCloudUpload(adoptionCutoff);
+    final localCycleCountLines = _cycleCountLinesForCloudUpload(adoptionCutoff);
     final result = await cloudSyncService.syncNow(
-      localItems: _items,
-      localBalances: _itemLocationBalances,
-      localTransactions: _transactionsAllowedForCloudUpload,
-      localCheckouts: _checkoutsAllowedForCloudUpload,
-      localSuppliers: _suppliers,
-      localPurchaseOrders: _reorderRequests,
-      localCycleCounts: _cycleCountSessions,
-      localCycleCountLines: _cycleCountLines,
+      localItems: localItems,
+      localBalances: localBalances,
+      localTransactions: localTransactions,
+      localCheckouts: localCheckouts,
+      localSuppliers: localSuppliers,
+      localPurchaseOrders: localPurchaseOrders,
+      localCycleCounts: localCycleCounts,
+      localCycleCountLines: localCycleCountLines,
       defaultUnitOfMeasureId: _defaultUnitOfMeasureId,
       defaultLocationId: _defaultLocationId,
       unitForItem: (item) => resolveUomAbbreviation(item.unitOfMeasureId),
@@ -940,6 +1009,112 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     return summary;
   }
 
+  Future<CloudAdoptionSummary> refreshCloudAdoptionSummary({
+    bool notify = true,
+  }) async {
+    final workspace = _activeWorkspace;
+    if (!isCloudWorkspaceActive || workspace == null) {
+      final summary = CloudAdoptionSummary(
+        state: CloudAdoptionState.notNeeded,
+        workspaceId: workspace?.id ?? '',
+        workspaceName: workspace?.name,
+        localItemCount: 0,
+        localBalanceCount: 0,
+        localTransactionCount: 0,
+        localCheckoutCount: 0,
+        localSupplierCount: 0,
+        localPurchasingCount: 0,
+        localCycleCountCount: 0,
+        cloudItemCount: 0,
+        cloudBalanceCount: 0,
+        cloudTransactionCount: 0,
+        cloudCheckoutCount: 0,
+        cloudSupplierCount: 0,
+        cloudPurchasingCount: 0,
+        cloudCycleCountCount: 0,
+        hasLocalBusinessData: false,
+        hasCloudBusinessData: false,
+        message: 'Select a cloud workspace to set up sync.',
+      );
+      _cloudAdoptionSummary = summary;
+      if (notify) notifyListeners();
+      return summary;
+    }
+    final summary = await cloudAdoptionService.buildAdoptionSummary(
+      workspace.id,
+      workspaceName: workspace.name,
+    );
+    _cloudAdoptionSummary = _summaryWithPermissionGate(summary);
+    if (notify) notifyListeners();
+    return _cloudAdoptionSummary!;
+  }
+
+  Future<AppActionResult> completeCloudAdoption(
+    CloudAdoptionChoice choice,
+  ) async {
+    final workspace = _activeWorkspace;
+    if (workspace == null) {
+      return const AppActionResult.failure('Select a workspace first.');
+    }
+    if (choice == CloudAdoptionChoice.cancel) {
+      await refreshCloudAdoptionSummary();
+      return const AppActionResult.success(message: 'Cloud setup paused.');
+    }
+    if (choice == CloudAdoptionChoice.keepLocalOnly) {
+      await cloudAdoptionService.markAdoptionCompleted(workspace.id, choice);
+      disableCloudModeAndUseLocalOnly();
+      return const AppActionResult.success(
+        message: 'This device will stay local-only for now.',
+      );
+    }
+    if (choice == CloudAdoptionChoice.startFreshCloud) {
+      await cloudAdoptionService.startFreshCloudWorkspace(workspace.id);
+      await refreshCloudAdoptionSummary();
+      return const AppActionResult.success(
+        message:
+            'Cloud setup saved. Existing local data will not be uploaded automatically.',
+      );
+    }
+    if (!permissions.isAdmin && !permissions.isManager) {
+      await refreshCloudAdoptionSummary();
+      return const AppActionResult.failure(
+        'Ask an admin or manager to set up this workspace first.',
+      );
+    }
+    final result = await _runCloudInventorySync(
+      uploadBalances: true,
+      uploadTransactions: true,
+      uploadCheckouts: true,
+      uploadPurchasing: true,
+      uploadCycleCounts: true,
+      forceUploadExistingLocalData: true,
+      bypassAdoptionGate: true,
+    );
+    if (!result.success) {
+      await refreshCloudAdoptionSummary();
+      return result;
+    }
+    await cloudAdoptionService.uploadLocalDataToWorkspace(workspace.id);
+    await refreshCloudAdoptionSummary();
+    return AppActionResult.success(
+      message:
+          '${result.message ?? 'Local data uploaded.'} Cloud setup is complete.',
+      data: result.data,
+    );
+  }
+
+  Future<AppActionResult> resetCloudAdoptionDecisionForDebug() async {
+    final workspace = _activeWorkspace;
+    if (workspace == null) {
+      return const AppActionResult.failure('Select a workspace first.');
+    }
+    await cloudAdoptionService.clearAdoptionFlagForDebug(workspace.id);
+    await refreshCloudAdoptionSummary();
+    return const AppActionResult.success(
+      message: 'Cloud setup decision reset for this workspace on this device.',
+    );
+  }
+
   Future<void> _refreshSyncQueueCounts() async {
     final workspace = _activeWorkspace;
     if (workspace == null) {
@@ -963,6 +1138,12 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     if (!_isInitialized || !isCloudWorkspaceActive) {
       return;
     }
+    final adoptionState = _cloudAdoptionSummary?.state;
+    if (adoptionState == CloudAdoptionState.needsDecision ||
+        adoptionState == CloudAdoptionState.localOnlySelected ||
+        adoptionState == CloudAdoptionState.blocked) {
+      return;
+    }
     final now = DateTime.now();
     final lastRequested = _lastAutoSyncRequestedAt;
     if (lastRequested != null &&
@@ -981,6 +1162,12 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     if (!isCloudWorkspaceActive) {
       return;
     }
+    final adoptionState = _cloudAdoptionSummary?.state;
+    if (adoptionState == CloudAdoptionState.needsDecision ||
+        adoptionState == CloudAdoptionState.localOnlySelected ||
+        adoptionState == CloudAdoptionState.blocked) {
+      return;
+    }
     _lastAutoSyncReason = reason;
     await syncTwoWayNow();
     await _refreshSyncQueueCounts();
@@ -989,6 +1176,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   void _clearCloudSyncState() {
     cloudSyncService.clearWorkspaceState();
     _cloudSyncSummary = cloudSyncService.getSyncSummary();
+    _cloudAdoptionSummary = null;
   }
 
   void _queueItemCatalogChange(String itemId, CloudSyncOperation operation) {
@@ -1160,6 +1348,142 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
       return const [];
     }
     return _checkoutRecords;
+  }
+
+  Future<CloudAdoptionSummary?> _ensureCloudAdoptionSummary() async {
+    if (!isCloudWorkspaceActive || _activeWorkspace == null) {
+      return null;
+    }
+    final summary = _cloudAdoptionSummary;
+    if (summary != null && summary.workspaceId == _activeWorkspace!.id) {
+      return summary;
+    }
+    return refreshCloudAdoptionSummary(notify: false);
+  }
+
+  CloudAdoptionSummary _summaryWithPermissionGate(
+    CloudAdoptionSummary summary,
+  ) {
+    if (summary.state != CloudAdoptionState.needsDecision ||
+        permissions.isAdmin ||
+        permissions.isManager ||
+        summary.hasCloudBusinessData) {
+      return summary;
+    }
+    return CloudAdoptionSummary(
+      state: CloudAdoptionState.blocked,
+      workspaceId: summary.workspaceId,
+      workspaceName: summary.workspaceName,
+      localItemCount: summary.localItemCount,
+      localBalanceCount: summary.localBalanceCount,
+      localTransactionCount: summary.localTransactionCount,
+      localCheckoutCount: summary.localCheckoutCount,
+      localSupplierCount: summary.localSupplierCount,
+      localPurchasingCount: summary.localPurchasingCount,
+      localCycleCountCount: summary.localCycleCountCount,
+      cloudItemCount: summary.cloudItemCount,
+      cloudBalanceCount: summary.cloudBalanceCount,
+      cloudTransactionCount: summary.cloudTransactionCount,
+      cloudCheckoutCount: summary.cloudCheckoutCount,
+      cloudSupplierCount: summary.cloudSupplierCount,
+      cloudPurchasingCount: summary.cloudPurchasingCount,
+      cloudCycleCountCount: summary.cloudCycleCountCount,
+      hasLocalBusinessData: summary.hasLocalBusinessData,
+      hasCloudBusinessData: summary.hasCloudBusinessData,
+      message: 'Ask an admin or manager to set up this workspace first.',
+      completedChoice: summary.completedChoice,
+      completedAt: summary.completedAt,
+    );
+  }
+
+  DateTime? _localUploadCutoffFor(CloudAdoptionSummary? summary) {
+    if (summary == null) {
+      return null;
+    }
+    return summary.shouldProtectExistingLocalData ? summary.completedAt : null;
+  }
+
+  List<Item> _itemsForCloudUpload(DateTime? cutoff) {
+    if (cutoff == null) {
+      return _items;
+    }
+    return _items.where((item) => item.updatedAt.isAfter(cutoff)).toList();
+  }
+
+  List<ItemLocationBalance> _balancesForCloudUpload(DateTime? cutoff) {
+    if (cutoff == null) {
+      return _itemLocationBalances;
+    }
+    return _itemLocationBalances
+        .where((balance) => balance.updatedAt.isAfter(cutoff))
+        .toList();
+  }
+
+  List<InventoryTransaction> _transactionsForCloudUpload(DateTime? cutoff) {
+    final allowed = _transactionsAllowedForCloudUpload;
+    if (cutoff == null) {
+      return allowed;
+    }
+    return allowed
+        .where((transaction) => transaction.createdAt.isAfter(cutoff))
+        .toList();
+  }
+
+  List<CheckoutRecord> _checkoutsForCloudUpload(DateTime? cutoff) {
+    final allowed = _checkoutsAllowedForCloudUpload;
+    if (cutoff == null) {
+      return allowed;
+    }
+    return allowed.where((checkout) {
+      final changedAt = checkout.returnedAt ?? checkout.checkedOutAt;
+      return changedAt.isAfter(cutoff);
+    }).toList();
+  }
+
+  List<Supplier> _suppliersForCloudUpload(DateTime? cutoff) {
+    if (cutoff == null) {
+      return _suppliers;
+    }
+    return _suppliers
+        .where((supplier) => supplier.updatedAt.isAfter(cutoff))
+        .toList();
+  }
+
+  List<ReorderRequest> _purchaseOrdersForCloudUpload(DateTime? cutoff) {
+    if (cutoff == null) {
+      return _reorderRequests;
+    }
+    return _reorderRequests.where((request) {
+      final changedAt =
+          request.receivedAt ??
+          request.cancelledAt ??
+          request.orderedAt ??
+          request.createdAt;
+      return changedAt.isAfter(cutoff);
+    }).toList();
+  }
+
+  List<CycleCountSession> _cycleCountsForCloudUpload(DateTime? cutoff) {
+    if (cutoff == null) {
+      return _cycleCountSessions;
+    }
+    return _cycleCountSessions.where((session) {
+      final changedAt =
+          session.approvedAt ?? session.submittedAt ?? session.createdAt;
+      return changedAt.isAfter(cutoff);
+    }).toList();
+  }
+
+  List<CycleCountLine> _cycleCountLinesForCloudUpload(DateTime? cutoff) {
+    if (cutoff == null) {
+      return _cycleCountLines;
+    }
+    final eligibleSessionIds = _cycleCountsForCloudUpload(
+      cutoff,
+    ).map((session) => session.id).toSet();
+    return _cycleCountLines
+        .where((line) => eligibleSessionIds.contains(line.sessionId))
+        .toList();
   }
 
   List<InventoryTransaction> get _transactionsAllowedForCloudUpload {
