@@ -6,7 +6,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../database/app_database.dart';
 import '../models/cloud_models.dart';
 import '../models/inventory_models.dart';
+import '../models/item_location_balance_models.dart';
 import 'cloud_auth_service.dart';
+import 'cloud_inventory_balance_service.dart';
 import 'cloud_item_service.dart';
 import 'supabase_config.dart';
 import 'sync_models.dart';
@@ -17,13 +19,18 @@ class CloudSyncService {
     required this.workspaceService,
     required this.database,
     this.authService = const CloudAuthService(),
+    CloudInventoryBalanceService? balanceService,
     CloudItemService? itemService,
     this.client,
-  }) : itemService = itemService ?? CloudItemService(authService: authService);
+  }) : balanceService =
+           balanceService ??
+           CloudInventoryBalanceService(authService: authService),
+       itemService = itemService ?? CloudItemService(authService: authService);
 
   final WorkspaceService workspaceService;
   final AppDatabase database;
   final CloudAuthService authService;
+  final CloudInventoryBalanceService balanceService;
   final CloudItemService itemService;
   final SupabaseClient? client;
 
@@ -74,7 +81,10 @@ class CloudSyncService {
 
   Future<CloudSyncResult> syncNow({
     List<Item> localItems = const [],
+    List<ItemLocationBalance> localBalances = const [],
+    String? Function(ItemLocationBalance balance)? locationNameForBalance,
     String? Function(Item item)? unitForItem,
+    bool canUploadInventoryBalances = false,
     bool canUploadItemCatalog = false,
   }) async {
     final client = _client;
@@ -176,24 +186,51 @@ class CloudSyncService {
               skippedCount: localItems.length,
               isUploadOnly: true,
             );
+      final cloudItems = await itemService.fetchWorkspaceItems(
+        activeWorkspaceId,
+      );
+      final workspaceItemIdsByLocalItemId = {
+        for (final item in cloudItems)
+          if (item.localItemId != null) item.localItemId!: item.id,
+      };
+      final balanceResult = canUploadInventoryBalances
+          ? await balanceService.pushLocalBalances(
+              workspaceId: activeWorkspaceId,
+              balances: localBalances,
+              workspaceItemIdsByLocalItemId: workspaceItemIdsByLocalItemId,
+              locationNameForBalance: locationNameForBalance,
+            )
+          : CloudInventoryBalanceSyncResult(
+              uploadedCount: 0,
+              downloadedCount:
+                  (await balanceService.pullWorkspaceBalances(
+                    activeWorkspaceId,
+                  )).length,
+              skippedCount: localBalances.length,
+              isUploadOnly: true,
+            );
       final finishedAt = DateTime.now();
       _summary = _summary.copyWith(
         status: CloudSyncStatus.ready,
         lastSyncAt: finishedAt,
         lastSuccessfulSyncAt: finishedAt,
-        pendingUploadCount: canUploadItemCatalog
+        pendingUploadCount: canUploadItemCatalog && canUploadInventoryBalances
             ? 0
             : _summary.pendingUploadCount,
         pendingDownloadCount: 0,
         clearLastError: true,
       );
       return CloudSyncResult.success(
-        message: canUploadItemCatalog
-            ? 'Item catalog uploaded. Cloud-to-device item merge is not enabled yet.'
-            : 'Item catalog sync checked. Your role cannot upload item changes.',
-        uploadedCount: itemCatalogResult.uploadedCount,
-        downloadedCount: itemCatalogResult.downloadedCount,
-        skippedCount: itemCatalogResult.skippedCount,
+        message: canUploadInventoryBalances
+            ? 'Inventory balances synced. Transaction history is not synced yet.'
+            : canUploadItemCatalog
+            ? 'Item catalog uploaded. Balance upload is not allowed for your role.'
+            : 'Cloud inventory sync checked. Your role cannot upload item or balance changes.',
+        uploadedCount:
+            itemCatalogResult.uploadedCount + balanceResult.uploadedCount,
+        downloadedCount:
+            itemCatalogResult.downloadedCount + balanceResult.downloadedCount,
+        skippedCount: itemCatalogResult.skippedCount + balanceResult.skippedCount,
       );
     } on SocketException catch (error) {
       return _offlineResult(error);

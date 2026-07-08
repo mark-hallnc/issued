@@ -1,6 +1,7 @@
 export 'assignment_target_models.dart';
 export 'checkout_models.dart';
 export 'cloud_models.dart';
+export '../cloud/cloud_inventory_balance_models.dart';
 export '../cloud/cloud_item_models.dart';
 export '../cloud/sync_models.dart';
 export 'company_models.dart';

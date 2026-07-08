@@ -78,6 +78,10 @@ class AppStore extends ChangeNotifier {
       ? 'Item catalog upload enabled'
       : 'Item catalog sync disabled';
   DateTime? get lastItemCatalogSyncAt => _cloudSyncSummary.lastSuccessfulSyncAt;
+  String get cloudBalanceSyncStatus => isCloudWorkspaceActive
+      ? 'Inventory balance upload enabled'
+      : 'Inventory balance sync disabled';
+  DateTime? get lastBalanceSyncAt => _cloudSyncSummary.lastSuccessfulSyncAt;
   bool get isCloudWorkspaceActive =>
       _cloudModeEnabled &&
       _currentCloudUser != null &&
@@ -636,14 +640,28 @@ class AppStore extends ChangeNotifier {
   }
 
   Future<AppActionResult> syncNow() async {
-    return syncItemCatalogNow();
+    return syncInventoryBalancesNow();
   }
 
   Future<AppActionResult> syncItemCatalogNow() async {
+    return _runCloudInventorySync(uploadBalances: false);
+  }
+
+  Future<AppActionResult> syncInventoryBalancesNow() async {
+    return _runCloudInventorySync(uploadBalances: true);
+  }
+
+  Future<AppActionResult> _runCloudInventorySync({
+    required bool uploadBalances,
+  }) async {
     final result = await cloudSyncService.syncNow(
       localItems: _items,
+      localBalances: _itemLocationBalances,
       unitForItem: (item) => resolveUomAbbreviation(item.unitOfMeasureId),
+      locationNameForBalance: (balance) =>
+          resolveLocationName(balance.locationId),
       canUploadItemCatalog: permissions.canManageItems,
+      canUploadInventoryBalances: uploadBalances && _canUploadInventoryBalances,
     );
     _cloudSyncSummary = cloudSyncService.getSyncSummary();
     notifyListeners();
@@ -676,6 +694,26 @@ class AppStore extends ChangeNotifier {
     );
     _cloudSyncSummary = cloudSyncService.getSyncSummary();
   }
+
+  void queueBalanceForSync(String balanceId) {
+    if (!isCloudWorkspaceActive || !_canUploadInventoryBalances) {
+      return;
+    }
+    unawaited(
+      cloudSyncService.queueLocalChange(
+        entity: CloudSyncEntity.inventoryBalance,
+        entityId: balanceId,
+        operation: CloudSyncOperation.update,
+      ),
+    );
+    _cloudSyncSummary = cloudSyncService.getSyncSummary();
+  }
+
+  bool get _canUploadInventoryBalances =>
+      permissions.canAdjustInventory ||
+      permissions.canReceiveStock ||
+      permissions.canIssueItems ||
+      permissions.canTransferStock;
 
   CloudWorkspaceRole? _roleForCurrentCloudUser() {
     final userId = _currentCloudUser?.id;
@@ -1304,6 +1342,7 @@ class AppStore extends ChangeNotifier {
     );
     _upsertBalanceInMemory(balance);
     unawaited(_database.upsertItemLocationBalance(balance.toCompanion()));
+    queueBalanceForSync(balance.id);
     if (item.quantityOnHand > 0) {
       _appendInventoryTransaction(
         itemId: item.id,
@@ -1991,6 +2030,7 @@ class AppStore extends ChangeNotifier {
     );
     _upsertBalanceInMemory(balance);
     await _database.upsertItemLocationBalance(balance.toCompanion());
+    queueBalanceForSync(balance.id);
     notifyListeners();
     return true;
   }
@@ -2042,8 +2082,10 @@ class AppStore extends ChangeNotifier {
       _upsertBalanceInMemory(updated);
       _itemLocationBalances.removeWhere((stored) => stored.id == balance.id);
       await _database.deleteItemLocationBalance(balance.id);
+      queueBalanceForSync(balance.id);
     }
     await _database.upsertItemLocationBalance(updated.toCompanion());
+    queueBalanceForSync(updated.id);
     await syncItemQuantityFromBalances(balance.itemId);
     notifyListeners();
     return true;
@@ -2655,6 +2697,7 @@ class AppStore extends ChangeNotifier {
         );
     _upsertBalanceInMemory(balance);
     unawaited(_database.upsertItemLocationBalance(balance.toCompanion()));
+    queueBalanceForSync(balance.id);
     _syncItemCachedQuantity(itemId, now);
     notifyListeners();
     return true;
@@ -4549,9 +4592,10 @@ class AppStore extends ChangeNotifier {
           quantityOnHand: quantity,
           minimumQuantity: 0,
           updatedAt: updatedAt,
-        );
+    );
     _upsertBalanceInMemory(balance);
     unawaited(_database.upsertItemLocationBalance(balance.toCompanion()));
+    queueBalanceForSync(balance.id);
   }
 
   void _syncItemCachedQuantity(String itemId, DateTime updatedAt) {

@@ -359,10 +359,14 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                   ),
                   const _CloudStatusLine(
                     label: 'Quantities/balances',
-                    value: 'Not yet enabled',
+                    value: 'Enabled',
                   ),
                   const _CloudStatusLine(
                     label: 'Transactions',
+                    value: 'Not yet enabled',
+                  ),
+                  const _CloudStatusLine(
+                    label: 'Checkouts',
                     value: 'Not yet enabled',
                   ),
                   if (store.cloudSyncSummary.lastError != null) ...[
@@ -377,7 +381,7 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                   ],
                   const SizedBox(height: 10),
                   const Text(
-                    'Item catalog upload is enabled. Full cloud-to-device item merge, quantities, and transactions will be enabled in later updates.',
+                    'Item catalog and current inventory balance upload are enabled. Transaction history and checkouts will be enabled in later updates.',
                   ),
                   const SizedBox(height: 12),
                   Wrap(
@@ -387,7 +391,7 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                       FilledButton.icon(
                         onPressed: store.isCloudSignedIn
                             ? () async {
-                                final result = await store.syncItemCatalogNow();
+                                final result = await store.syncNow();
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
@@ -400,7 +404,45 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                               }
                             : null,
                         icon: const Icon(Icons.sync),
+                        label: const Text('Sync now'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: store.isCloudSignedIn
+                            ? () async {
+                                final result = await store
+                                    .syncItemCatalogNow();
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        result.message ?? 'Catalog synced.',
+                                      ),
+                                    ),
+                                  );
+                                }
+                              }
+                            : null,
+                        icon: const Icon(Icons.inventory_2_outlined),
                         label: const Text('Sync item catalog now'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: store.isCloudSignedIn
+                            ? () async {
+                                final result = await store
+                                    .syncInventoryBalancesNow();
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        result.message ?? 'Balances synced.',
+                                      ),
+                                    ),
+                                  );
+                                }
+                              }
+                            : null,
+                        icon: const Icon(Icons.warehouse_outlined),
+                        label: const Text('Sync balances'),
                       ),
                       if (store.cloudSyncSummary.lastError != null)
                         OutlinedButton.icon(
