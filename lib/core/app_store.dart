@@ -97,6 +97,10 @@ class AppStore extends ChangeNotifier {
       ? 'Purchasing upload enabled'
       : 'Purchasing sync disabled';
   DateTime? get lastPurchasingSyncAt => _cloudSyncSummary.lastSuccessfulSyncAt;
+  String get cloudCycleCountSyncStatus => isCloudWorkspaceActive
+      ? 'Cycle count upload enabled'
+      : 'Cycle count sync disabled';
+  DateTime? get lastCycleCountSyncAt => _cloudSyncSummary.lastSuccessfulSyncAt;
   bool get isCloudWorkspaceActive =>
       _cloudModeEnabled &&
       _currentCloudUser != null &&
@@ -660,6 +664,7 @@ class AppStore extends ChangeNotifier {
       uploadTransactions: true,
       uploadCheckouts: true,
       uploadPurchasing: true,
+      uploadCycleCounts: true,
     );
   }
 
@@ -669,6 +674,7 @@ class AppStore extends ChangeNotifier {
       uploadTransactions: false,
       uploadCheckouts: false,
       uploadPurchasing: false,
+      uploadCycleCounts: false,
     );
   }
 
@@ -678,6 +684,7 @@ class AppStore extends ChangeNotifier {
       uploadTransactions: false,
       uploadCheckouts: false,
       uploadPurchasing: false,
+      uploadCycleCounts: false,
     );
   }
 
@@ -687,6 +694,7 @@ class AppStore extends ChangeNotifier {
       uploadTransactions: true,
       uploadCheckouts: false,
       uploadPurchasing: false,
+      uploadCycleCounts: false,
     );
   }
 
@@ -696,6 +704,7 @@ class AppStore extends ChangeNotifier {
       uploadTransactions: true,
       uploadCheckouts: true,
       uploadPurchasing: false,
+      uploadCycleCounts: false,
     );
   }
 
@@ -705,6 +714,7 @@ class AppStore extends ChangeNotifier {
       uploadTransactions: false,
       uploadCheckouts: false,
       uploadPurchasing: true,
+      uploadCycleCounts: false,
     );
   }
 
@@ -714,6 +724,17 @@ class AppStore extends ChangeNotifier {
       uploadTransactions: true,
       uploadCheckouts: true,
       uploadPurchasing: true,
+      uploadCycleCounts: false,
+    );
+  }
+
+  Future<AppActionResult> syncCycleCountsNow() async {
+    return _runCloudInventorySync(
+      uploadBalances: true,
+      uploadTransactions: true,
+      uploadCheckouts: true,
+      uploadPurchasing: true,
+      uploadCycleCounts: true,
     );
   }
 
@@ -722,6 +743,7 @@ class AppStore extends ChangeNotifier {
     required bool uploadTransactions,
     required bool uploadCheckouts,
     required bool uploadPurchasing,
+    required bool uploadCycleCounts,
   }) async {
     final result = await cloudSyncService.syncNow(
       localItems: _items,
@@ -730,6 +752,8 @@ class AppStore extends ChangeNotifier {
       localCheckouts: _checkoutsAllowedForCloudUpload,
       localSuppliers: _suppliers,
       localPurchaseOrders: _reorderRequests,
+      localCycleCounts: _cycleCountSessions,
+      localCycleCountLines: _cycleCountLines,
       unitForItem: (item) => resolveUomAbbreviation(item.unitOfMeasureId),
       locationNameForBalance: (balance) =>
           resolveLocationName(balance.locationId),
@@ -744,12 +768,17 @@ class AppStore extends ChangeNotifier {
       personNameForCheckout: resolvePersonName,
       performedByNameForTransaction: resolveUserName,
       performedByEmailForTransaction: _resolveUserEmail,
+      cycleCountLocationNameForId: resolveLocationName,
+      varianceValueForCycleCountLine: permissions.canViewCosts
+          ? _varianceValueForCycleCountLine
+          : null,
       canUploadItemCatalog: permissions.canManageItems,
       canUploadInventoryBalances: uploadBalances && _canUploadInventoryBalances,
       canUploadInventoryTransactions:
           uploadTransactions && _canUploadInventoryTransactions,
       canUploadCheckouts: uploadCheckouts && _canUploadCheckouts,
       canUploadPurchasing: uploadPurchasing && _canUploadPurchasing,
+      canUploadCycleCounts: uploadCycleCounts && _canUploadCycleCounts,
       includeCostFields: permissions.canViewCosts,
     );
     _cloudSyncSummary = cloudSyncService.getSyncSummary();
@@ -854,6 +883,34 @@ class AppStore extends ChangeNotifier {
     _cloudSyncSummary = cloudSyncService.getSyncSummary();
   }
 
+  void queueCycleCountForSync(String countId) {
+    if (!isCloudWorkspaceActive || !_canUploadCycleCounts) {
+      return;
+    }
+    unawaited(
+      cloudSyncService.queueLocalChange(
+        entity: CloudSyncEntity.count,
+        entityId: countId,
+        operation: CloudSyncOperation.update,
+      ),
+    );
+    _cloudSyncSummary = cloudSyncService.getSyncSummary();
+  }
+
+  void queueCycleCountLineForSync(String countLineId) {
+    if (!isCloudWorkspaceActive || !_canUploadCycleCounts) {
+      return;
+    }
+    unawaited(
+      cloudSyncService.queueLocalChange(
+        entity: CloudSyncEntity.count,
+        entityId: countLineId,
+        operation: CloudSyncOperation.update,
+      ),
+    );
+    _cloudSyncSummary = cloudSyncService.getSyncSummary();
+  }
+
   bool get _canUploadInventoryBalances =>
       permissions.canAdjustInventory ||
       permissions.canReceiveStock ||
@@ -866,6 +923,19 @@ class AppStore extends ChangeNotifier {
 
   bool get _canUploadPurchasing =>
       permissions.canManageSuppliers || permissions.canManagePurchasing;
+
+  bool get _canUploadCycleCounts =>
+      permissions.canManageCycleCounts || permissions.canApproveCycleCounts;
+
+  double? _varianceValueForCycleCountLine(CycleCountLine line) {
+    final item = _itemById(line.itemId);
+    final unitCost = item?.unitCost;
+    final variance = line.varianceQuantity;
+    if (unitCost == null || variance == null) {
+      return null;
+    }
+    return variance * unitCost;
+  }
 
   List<CheckoutRecord> get _checkoutsAllowedForCloudUpload {
     if (!_canUploadCheckouts) {
@@ -5375,6 +5445,7 @@ class AppStore extends ChangeNotifier {
   void addCycleCountSession(CycleCountSession session) {
     _cycleCountSessions.add(session);
     unawaited(_database.upsertCycleCountSession(session.toCompanion()));
+    queueCycleCountForSync(session.id);
     notifyListeners();
   }
 
@@ -5388,6 +5459,7 @@ class AppStore extends ChangeNotifier {
 
     _cycleCountSessions[sessionIndex] = session;
     unawaited(_database.upsertCycleCountSession(session.toCompanion()));
+    queueCycleCountForSync(session.id);
     notifyListeners();
   }
 
@@ -5395,6 +5467,7 @@ class AppStore extends ChangeNotifier {
     _cycleCountLines.addAll(lines);
     for (final line in lines) {
       unawaited(_database.upsertCycleCountLine(line.toCompanion()));
+      queueCycleCountLineForSync(line.id);
     }
     notifyListeners();
   }
@@ -5409,6 +5482,7 @@ class AppStore extends ChangeNotifier {
 
     _cycleCountLines[lineIndex] = line;
     unawaited(_database.upsertCycleCountLine(line.toCompanion()));
+    queueCycleCountLineForSync(line.id);
     notifyListeners();
   }
 
@@ -5440,6 +5514,7 @@ class AppStore extends ChangeNotifier {
       }
       _cycleCountLines[lineIndex] = line;
       unawaited(_database.upsertCycleCountLine(line.toCompanion()));
+      queueCycleCountLineForSync(line.id);
     }
 
     final submittedSession = session.copyWith(
@@ -5450,6 +5525,7 @@ class AppStore extends ChangeNotifier {
     unawaited(
       _database.upsertCycleCountSession(submittedSession.toCompanion()),
     );
+    queueCycleCountForSync(submittedSession.id);
     notifyListeners();
     return AppActionResult.success(
       message: 'Cycle count submitted.',
@@ -5572,8 +5648,10 @@ class AppStore extends ChangeNotifier {
     _cycleCountSessions.add(session);
     unawaited(_database.upsertCycleCountSession(session.toCompanion()));
     _cycleCountLines.addAll(lines);
+    queueCycleCountForSync(session.id);
     for (final line in lines) {
       unawaited(_database.upsertCycleCountLine(line.toCompanion()));
+      queueCycleCountLineForSync(line.id);
     }
     notifyListeners();
     return session;
@@ -5644,6 +5722,7 @@ class AppStore extends ChangeNotifier {
     );
     _cycleCountSessions[sessionIndex] = approvedSession;
     unawaited(_database.upsertCycleCountSession(approvedSession.toCompanion()));
+    queueCycleCountForSync(approvedSession.id);
     notifyListeners();
   }
 

@@ -25,6 +25,7 @@ Open the Supabase SQL editor and run:
 -- supabase/migrations/0007_cloud_inventory_transactions.sql
 -- supabase/migrations/0008_cloud_checkouts.sql
 -- supabase/migrations/0009_cloud_purchasing.sql
+-- supabase/migrations/0010_cloud_cycle_counts.sql
 ```
 
 This creates:
@@ -44,6 +45,7 @@ This creates:
 - checkout record table: `workspace_checkouts`
 - supplier table: `workspace_suppliers`
 - purchasing/reorder table: `workspace_purchase_orders`
+- cycle count tables: `workspace_cycle_counts`, `workspace_cycle_count_lines`
 
 ## 3. Deploy Workspace Invites
 
@@ -105,5 +107,5 @@ This foundation adds auth, workspace membership, workspace selection, and
 invites. It also adds sync metadata, item catalog upload, current inventory
 balance, movement history, and checkout record upload for future
 workspace-based sync. It also uploads suppliers and purchasing/reorder records.
-It does not fully sync cycle count sessions, supplier documents, or background
-conflict resolution yet.
+It also uploads cycle count sessions and lines. It does not include supplier
+documents, background sync workers, push updates, or conflict-resolution UI yet.

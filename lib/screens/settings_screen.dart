@@ -379,7 +379,7 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                   ),
                   const _CloudStatusLine(
                     label: 'Cycle counts',
-                    value: 'Not fully enabled',
+                    value: 'Enabled',
                   ),
                   if (store.cloudSyncSummary.lastError != null) ...[
                     const SizedBox(height: 6),
@@ -393,7 +393,7 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                   ],
                   const SizedBox(height: 10),
                   const Text(
-                    'Item catalog, current balances, transaction history, checkouts, suppliers, and purchasing upload are enabled. Cycle count workflows are not fully synced yet.',
+                    'Item catalog, current balances, transaction history, checkouts, suppliers, purchasing, and cycle count upload are enabled. Background sync and conflict UI are not enabled yet.',
                   ),
                   const SizedBox(height: 12),
                   Wrap(
@@ -511,6 +511,26 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                             : null,
                         icon: const Icon(Icons.shopping_cart_outlined),
                         label: const Text('Sync purchasing'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: store.isCloudSignedIn
+                            ? () async {
+                                final result = await store
+                                    .syncCycleCountsNow();
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        result.message ??
+                                            'Cycle counts synced.',
+                                      ),
+                                    ),
+                                  );
+                                }
+                              }
+                            : null,
+                        icon: const Icon(Icons.fact_check_outlined),
+                        label: const Text('Sync cycle counts'),
                       ),
                       if (store.cloudSyncSummary.lastError != null)
                         OutlinedButton.icon(

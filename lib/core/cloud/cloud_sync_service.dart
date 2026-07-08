@@ -6,12 +6,14 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../database/app_database.dart';
 import '../models/checkout_models.dart';
 import '../models/cloud_models.dart';
+import '../models/cycle_count_models.dart';
 import '../models/inventory_models.dart';
 import '../models/item_location_balance_models.dart';
 import '../models/reorder_models.dart';
 import '../models/supplier_models.dart';
 import 'cloud_auth_service.dart';
 import 'cloud_checkout_service.dart';
+import 'cloud_cycle_count_service.dart';
 import 'cloud_inventory_balance_service.dart';
 import 'cloud_inventory_transaction_service.dart';
 import 'cloud_item_service.dart';
@@ -32,9 +34,12 @@ class CloudSyncService {
     CloudItemService? itemService,
     CloudPurchasingService? purchasingService,
     CloudSupplierService? supplierService,
+    CloudCycleCountService? cycleCountService,
     this.client,
   }) : checkoutService =
            checkoutService ?? CloudCheckoutService(authService: authService),
+       cycleCountService =
+           cycleCountService ?? CloudCycleCountService(authService: authService),
        balanceService =
            balanceService ??
            CloudInventoryBalanceService(authService: authService),
@@ -51,6 +56,7 @@ class CloudSyncService {
   final AppDatabase database;
   final CloudAuthService authService;
   final CloudCheckoutService checkoutService;
+  final CloudCycleCountService cycleCountService;
   final CloudInventoryBalanceService balanceService;
   final CloudInventoryTransactionService transactionService;
   final CloudItemService itemService;
@@ -110,6 +116,8 @@ class CloudSyncService {
     List<CheckoutRecord> localCheckouts = const [],
     List<Supplier> localSuppliers = const [],
     List<ReorderRequest> localPurchaseOrders = const [],
+    List<CycleCountSession> localCycleCounts = const [],
+    List<CycleCountLine> localCycleCountLines = const [],
     String? Function(ItemLocationBalance balance)? locationNameForBalance,
     String? Function(String? locationId)? transactionLocationNameForId,
     String? Function(InventoryTransaction transaction)?
@@ -118,11 +126,14 @@ class CloudSyncService {
     String? Function(String? personId)? personNameForCheckout,
     String? Function(String? userId)? performedByNameForTransaction,
     String? Function(String? userId)? performedByEmailForTransaction,
+    String? Function(String locationId)? cycleCountLocationNameForId,
+    double? Function(CycleCountLine line)? varianceValueForCycleCountLine,
     String? Function(Item item)? unitForItem,
     bool canUploadInventoryBalances = false,
     bool canUploadInventoryTransactions = false,
     bool canUploadCheckouts = false,
     bool canUploadPurchasing = false,
+    bool canUploadCycleCounts = false,
     bool includeCostFields = false,
     bool canUploadItemCatalog = false,
   }) async {
@@ -325,6 +336,29 @@ class CloudSyncService {
               skippedCount: localPurchaseOrders.length,
               isUploadOnly: true,
             );
+      final cycleCountResult = canUploadCycleCounts
+          ? await cycleCountService.pushLocalCycleCounts(
+              workspaceId: activeWorkspaceId,
+              sessions: localCycleCounts,
+              lines: localCycleCountLines,
+              workspaceItemIdsByLocalItemId: workspaceItemIdsByLocalItemId,
+              locationNameFor: cycleCountLocationNameForId,
+              userNameFor: performedByNameForTransaction,
+              userEmailFor: performedByEmailForTransaction,
+              varianceValueFor: varianceValueForCycleCountLine,
+            )
+          : await (() async {
+              final pulled = await cycleCountService.pullWorkspaceCycleCounts(
+                activeWorkspaceId,
+              );
+              return CloudCycleCountSyncResult(
+                uploadedCount: 0,
+                downloadedCount: pulled.counts.length + pulled.lines.length,
+                skippedCount:
+                    localCycleCounts.length + localCycleCountLines.length,
+                isUploadOnly: true,
+              );
+            }());
       final finishedAt = DateTime.now();
       _summary = _summary.copyWith(
         status: CloudSyncStatus.ready,
@@ -335,14 +369,17 @@ class CloudSyncService {
                 canUploadInventoryBalances &&
                 canUploadInventoryTransactions &&
                 canUploadCheckouts &&
-                canUploadPurchasing)
+                canUploadPurchasing &&
+                canUploadCycleCounts)
             ? 0
             : _summary.pendingUploadCount,
         pendingDownloadCount: 0,
         clearLastError: true,
       );
       return CloudSyncResult.success(
-        message: canUploadPurchasing
+        message: canUploadCycleCounts
+            ? 'Cycle counts uploaded. Cloud-to-device count merge is not enabled yet.'
+            : canUploadPurchasing
             ? 'Purchasing records uploaded. Cloud-to-device purchasing merge is not enabled yet.'
             : canUploadCheckouts
             ? 'Checkouts uploaded. Cloud-to-device checkout merge is not enabled yet.'
@@ -359,21 +396,24 @@ class CloudSyncService {
             transactionResult.uploadedCount +
             checkoutResult.uploadedCount +
             supplierResult.uploadedCount +
-            purchasingResult.uploadedCount,
+            purchasingResult.uploadedCount +
+            cycleCountResult.uploadedCount,
         downloadedCount:
             itemCatalogResult.downloadedCount +
             balanceResult.downloadedCount +
             transactionResult.downloadedCount +
             checkoutResult.downloadedCount +
             supplierResult.downloadedCount +
-            purchasingResult.downloadedCount,
+            purchasingResult.downloadedCount +
+            cycleCountResult.downloadedCount,
         skippedCount:
             itemCatalogResult.skippedCount +
             balanceResult.skippedCount +
             transactionResult.skippedCount +
             checkoutResult.skippedCount +
             supplierResult.skippedCount +
-            purchasingResult.skippedCount,
+            purchasingResult.skippedCount +
+            cycleCountResult.skippedCount,
       );
     } on SocketException catch (error) {
       return _offlineResult(error);
