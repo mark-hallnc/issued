@@ -82,6 +82,11 @@ class AppStore extends ChangeNotifier {
       ? 'Inventory balance upload enabled'
       : 'Inventory balance sync disabled';
   DateTime? get lastBalanceSyncAt => _cloudSyncSummary.lastSuccessfulSyncAt;
+  String get cloudTransactionSyncStatus => isCloudWorkspaceActive
+      ? 'Transaction history upload enabled'
+      : 'Transaction history sync disabled';
+  DateTime? get lastTransactionSyncAt =>
+      _cloudSyncSummary.lastSuccessfulSyncAt;
   bool get isCloudWorkspaceActive =>
       _cloudModeEnabled &&
       _currentCloudUser != null &&
@@ -640,28 +645,57 @@ class AppStore extends ChangeNotifier {
   }
 
   Future<AppActionResult> syncNow() async {
-    return syncInventoryBalancesNow();
+    return _runCloudInventorySync(
+      uploadBalances: true,
+      uploadTransactions: true,
+    );
   }
 
   Future<AppActionResult> syncItemCatalogNow() async {
-    return _runCloudInventorySync(uploadBalances: false);
+    return _runCloudInventorySync(
+      uploadBalances: false,
+      uploadTransactions: false,
+    );
   }
 
   Future<AppActionResult> syncInventoryBalancesNow() async {
-    return _runCloudInventorySync(uploadBalances: true);
+    return _runCloudInventorySync(
+      uploadBalances: true,
+      uploadTransactions: false,
+    );
+  }
+
+  Future<AppActionResult> syncInventoryTransactionsNow() async {
+    return _runCloudInventorySync(
+      uploadBalances: true,
+      uploadTransactions: true,
+    );
   }
 
   Future<AppActionResult> _runCloudInventorySync({
     required bool uploadBalances,
+    required bool uploadTransactions,
   }) async {
     final result = await cloudSyncService.syncNow(
       localItems: _items,
       localBalances: _itemLocationBalances,
+      localTransactions: _transactionsAllowedForCloudUpload,
       unitForItem: (item) => resolveUomAbbreviation(item.unitOfMeasureId),
       locationNameForBalance: (balance) =>
           resolveLocationName(balance.locationId),
+      transactionLocationNameForId: resolveLocationName,
+      assignmentLabelForTransaction: (transaction) => resolveAssignedTo(
+        personId: transaction.assignedToPersonId,
+        targetId: transaction.assignedToTargetId,
+        locationId: transaction.assignedToLocationId,
+        text: transaction.assignedToText,
+      ),
+      performedByNameForTransaction: resolveUserName,
+      performedByEmailForTransaction: _resolveUserEmail,
       canUploadItemCatalog: permissions.canManageItems,
       canUploadInventoryBalances: uploadBalances && _canUploadInventoryBalances,
+      canUploadInventoryTransactions:
+          uploadTransactions && _canUploadInventoryTransactions,
     );
     _cloudSyncSummary = cloudSyncService.getSyncSummary();
     notifyListeners();
@@ -709,11 +743,48 @@ class AppStore extends ChangeNotifier {
     _cloudSyncSummary = cloudSyncService.getSyncSummary();
   }
 
+  void queueTransactionForSync(String transactionId) {
+    if (!isCloudWorkspaceActive || !_canUploadInventoryTransactions) {
+      return;
+    }
+    unawaited(
+      cloudSyncService.queueLocalChange(
+        entity: CloudSyncEntity.transaction,
+        entityId: transactionId,
+        operation: CloudSyncOperation.create,
+      ),
+    );
+    _cloudSyncSummary = cloudSyncService.getSyncSummary();
+  }
+
   bool get _canUploadInventoryBalances =>
       permissions.canAdjustInventory ||
       permissions.canReceiveStock ||
       permissions.canIssueItems ||
       permissions.canTransferStock;
+
+  bool get _canUploadInventoryTransactions => _canUploadInventoryBalances;
+
+  List<InventoryTransaction> get _transactionsAllowedForCloudUpload {
+    if (permissions.isAdmin || permissions.isManager) {
+      return _transactions;
+    }
+    if (!permissions.canIssueItems) {
+      return const [];
+    }
+    return _transactions.where(_isWorkerWritableCloudTransaction).toList();
+  }
+
+  bool _isWorkerWritableCloudTransaction(InventoryTransaction transaction) {
+    return switch (transaction.transactionType) {
+      InventoryTransactionType.issue ||
+      InventoryTransactionType.checkout ||
+      InventoryTransactionType.returnItem ||
+      InventoryTransactionType.markLost ||
+      InventoryTransactionType.markDamaged => true,
+      _ => false,
+    };
+  }
 
   CloudWorkspaceRole? _roleForCurrentCloudUser() {
     final userId = _currentCloudUser?.id;
@@ -2255,6 +2326,7 @@ class AppStore extends ChangeNotifier {
       );
       _transactions.add(transaction);
       unawaited(_database.upsertTransaction(transaction.toCompanion()));
+      queueTransactionForSync(transaction.id);
     }
 
     notifyListeners();
@@ -2459,6 +2531,7 @@ class AppStore extends ChangeNotifier {
     }
     _transactions.add(transaction);
     unawaited(_database.upsertTransaction(transaction.toCompanion()));
+    queueTransactionForSync(transaction.id);
     notifyListeners();
     return const AppActionResult.success(message: 'Activity recorded.');
   }
@@ -2619,6 +2692,8 @@ class AppStore extends ChangeNotifier {
     _transactions.add(reversal);
     unawaited(_database.upsertTransaction(markedOriginal.toCompanion()));
     unawaited(_database.upsertTransaction(reversal.toCompanion()));
+    queueTransactionForSync(markedOriginal.id);
+    queueTransactionForSync(reversal.id);
     notifyListeners();
     return const AppActionResult.success(message: 'Correction created.');
   }
@@ -3669,6 +3744,18 @@ class AppStore extends ChangeNotifier {
     return 'Unknown';
   }
 
+  String? _resolveUserEmail(String? userId) {
+    if (userId == null) {
+      return null;
+    }
+    for (final user in _users) {
+      if (user.id == userId) {
+        return user.email;
+      }
+    }
+    return null;
+  }
+
   List<CheckoutRecord> get openCheckoutRecords {
     final records = _checkoutRecords
         .where((record) => record.isOpen && record.quantityOpen > 0)
@@ -3850,6 +3937,7 @@ class AppStore extends ChangeNotifier {
     );
     _transactions.add(transaction);
     unawaited(_database.upsertTransaction(transaction.toCompanion()));
+    queueTransactionForSync(transaction.id);
     notifyListeners();
     return true;
   }
@@ -3960,6 +4048,7 @@ class AppStore extends ChangeNotifier {
     );
     _transactions.add(transaction);
     unawaited(_database.upsertTransaction(transaction.toCompanion()));
+    queueTransactionForSync(transaction.id);
     notifyListeners();
     return true;
   }
@@ -4407,6 +4496,7 @@ class AppStore extends ChangeNotifier {
     );
     _transactions.add(transaction);
     unawaited(_database.upsertTransaction(transaction.toCompanion()));
+    queueTransactionForSync(transaction.id);
 
     final updatedRequest = request.copyWith(
       status: nextStatus,
@@ -4592,7 +4682,7 @@ class AppStore extends ChangeNotifier {
           quantityOnHand: quantity,
           minimumQuantity: 0,
           updatedAt: updatedAt,
-    );
+        );
     _upsertBalanceInMemory(balance);
     unawaited(_database.upsertItemLocationBalance(balance.toCompanion()));
     queueBalanceForSync(balance.id);
@@ -4707,6 +4797,7 @@ class AppStore extends ChangeNotifier {
     );
     _transactions.add(transaction);
     unawaited(_database.upsertTransaction(transaction.toCompanion()));
+    queueTransactionForSync(transaction.id);
   }
 
   Future<void> _backfillItemLocationBalances() async {
@@ -5421,6 +5512,7 @@ class AppStore extends ChangeNotifier {
         );
         _transactions.add(transaction);
         unawaited(_database.upsertTransaction(transaction.toCompanion()));
+        queueTransactionForSync(transaction.id);
       }
     }
 

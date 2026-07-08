@@ -9,6 +9,7 @@ import '../models/inventory_models.dart';
 import '../models/item_location_balance_models.dart';
 import 'cloud_auth_service.dart';
 import 'cloud_inventory_balance_service.dart';
+import 'cloud_inventory_transaction_service.dart';
 import 'cloud_item_service.dart';
 import 'supabase_config.dart';
 import 'sync_models.dart';
@@ -20,17 +21,22 @@ class CloudSyncService {
     required this.database,
     this.authService = const CloudAuthService(),
     CloudInventoryBalanceService? balanceService,
+    CloudInventoryTransactionService? transactionService,
     CloudItemService? itemService,
     this.client,
   }) : balanceService =
            balanceService ??
            CloudInventoryBalanceService(authService: authService),
+       transactionService =
+           transactionService ??
+           CloudInventoryTransactionService(authService: authService),
        itemService = itemService ?? CloudItemService(authService: authService);
 
   final WorkspaceService workspaceService;
   final AppDatabase database;
   final CloudAuthService authService;
   final CloudInventoryBalanceService balanceService;
+  final CloudInventoryTransactionService transactionService;
   final CloudItemService itemService;
   final SupabaseClient? client;
 
@@ -82,9 +88,16 @@ class CloudSyncService {
   Future<CloudSyncResult> syncNow({
     List<Item> localItems = const [],
     List<ItemLocationBalance> localBalances = const [],
+    List<InventoryTransaction> localTransactions = const [],
     String? Function(ItemLocationBalance balance)? locationNameForBalance,
+    String? Function(String? locationId)? transactionLocationNameForId,
+    String? Function(InventoryTransaction transaction)?
+        assignmentLabelForTransaction,
+    String? Function(String? userId)? performedByNameForTransaction,
+    String? Function(String? userId)? performedByEmailForTransaction,
     String? Function(Item item)? unitForItem,
     bool canUploadInventoryBalances = false,
+    bool canUploadInventoryTransactions = false,
     bool canUploadItemCatalog = false,
   }) async {
     final client = _client;
@@ -202,11 +215,29 @@ class CloudSyncService {
             )
           : CloudInventoryBalanceSyncResult(
               uploadedCount: 0,
+              downloadedCount: (await balanceService.pullWorkspaceBalances(
+                activeWorkspaceId,
+              )).length,
+              skippedCount: localBalances.length,
+              isUploadOnly: true,
+            );
+      final transactionResult = canUploadInventoryTransactions
+          ? await transactionService.pushLocalTransactions(
+              workspaceId: activeWorkspaceId,
+              transactions: localTransactions,
+              workspaceItemIdsByLocalItemId: workspaceItemIdsByLocalItemId,
+              locationNameForId: transactionLocationNameForId,
+              assignmentLabelFor: assignmentLabelForTransaction,
+              performedByNameFor: performedByNameForTransaction,
+              performedByEmailFor: performedByEmailForTransaction,
+            )
+          : CloudInventoryTransactionSyncResult(
+              uploadedCount: 0,
               downloadedCount:
-                  (await balanceService.pullWorkspaceBalances(
+                  (await transactionService.pullWorkspaceTransactions(
                     activeWorkspaceId,
                   )).length,
-              skippedCount: localBalances.length,
+              skippedCount: localTransactions.length,
               isUploadOnly: true,
             );
       final finishedAt = DateTime.now();
@@ -214,23 +245,35 @@ class CloudSyncService {
         status: CloudSyncStatus.ready,
         lastSyncAt: finishedAt,
         lastSuccessfulSyncAt: finishedAt,
-        pendingUploadCount: canUploadItemCatalog && canUploadInventoryBalances
+        pendingUploadCount:
+            (canUploadItemCatalog &&
+                canUploadInventoryBalances &&
+                canUploadInventoryTransactions)
             ? 0
             : _summary.pendingUploadCount,
         pendingDownloadCount: 0,
         clearLastError: true,
       );
       return CloudSyncResult.success(
-        message: canUploadInventoryBalances
-            ? 'Inventory balances synced. Transaction history is not synced yet.'
+        message: canUploadInventoryTransactions
+            ? 'Inventory transactions uploaded. Cloud-to-device transaction merge is not enabled yet.'
+            : canUploadInventoryBalances
+            ? 'Inventory balances synced. Transaction upload is not allowed for your role.'
             : canUploadItemCatalog
             ? 'Item catalog uploaded. Balance upload is not allowed for your role.'
-            : 'Cloud inventory sync checked. Your role cannot upload item or balance changes.',
+            : 'Cloud inventory sync checked. Your role cannot upload inventory changes.',
         uploadedCount:
-            itemCatalogResult.uploadedCount + balanceResult.uploadedCount,
+            itemCatalogResult.uploadedCount +
+            balanceResult.uploadedCount +
+            transactionResult.uploadedCount,
         downloadedCount:
-            itemCatalogResult.downloadedCount + balanceResult.downloadedCount,
-        skippedCount: itemCatalogResult.skippedCount + balanceResult.skippedCount,
+            itemCatalogResult.downloadedCount +
+            balanceResult.downloadedCount +
+            transactionResult.downloadedCount,
+        skippedCount:
+            itemCatalogResult.skippedCount +
+            balanceResult.skippedCount +
+            transactionResult.skippedCount,
       );
     } on SocketException catch (error) {
       return _offlineResult(error);

@@ -362,12 +362,20 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                     value: 'Enabled',
                   ),
                   const _CloudStatusLine(
-                    label: 'Transactions',
-                    value: 'Not yet enabled',
+                    label: 'Transaction history',
+                    value: 'Enabled',
                   ),
                   const _CloudStatusLine(
                     label: 'Checkouts',
-                    value: 'Not yet enabled',
+                    value: 'Not fully enabled',
+                  ),
+                  const _CloudStatusLine(
+                    label: 'Purchasing',
+                    value: 'Not enabled',
+                  ),
+                  const _CloudStatusLine(
+                    label: 'Cycle count history',
+                    value: 'Not fully enabled',
                   ),
                   if (store.cloudSyncSummary.lastError != null) ...[
                     const SizedBox(height: 6),
@@ -381,7 +389,7 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                   ],
                   const SizedBox(height: 10),
                   const Text(
-                    'Item catalog and current inventory balance upload are enabled. Transaction history and checkouts will be enabled in later updates.',
+                    'Item catalog, current balances, and transaction history upload are enabled. Cloud checkout and purchasing workflows are not fully synced yet.',
                   ),
                   const SizedBox(height: 12),
                   Wrap(
@@ -409,8 +417,7 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                       OutlinedButton.icon(
                         onPressed: store.isCloudSignedIn
                             ? () async {
-                                final result = await store
-                                    .syncItemCatalogNow();
+                                final result = await store.syncItemCatalogNow();
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
@@ -443,6 +450,26 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                             : null,
                         icon: const Icon(Icons.warehouse_outlined),
                         label: const Text('Sync balances'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: store.isCloudSignedIn
+                            ? () async {
+                                final result = await store
+                                    .syncInventoryTransactionsNow();
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        result.message ??
+                                            'Transaction history synced.',
+                                      ),
+                                    ),
+                                  );
+                                }
+                              }
+                            : null,
+                        icon: const Icon(Icons.receipt_long_outlined),
+                        label: const Text('Sync transaction history'),
                       ),
                       if (store.cloudSyncSummary.lastError != null)
                         OutlinedButton.icon(

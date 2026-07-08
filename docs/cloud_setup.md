@@ -22,6 +22,7 @@ Open the Supabase SQL editor and run:
 -- supabase/migrations/0004_sync_foundation.sql
 -- supabase/migrations/0005_cloud_item_catalog.sql
 -- supabase/migrations/0006_cloud_inventory_balances.sql
+-- supabase/migrations/0007_cloud_inventory_transactions.sql
 ```
 
 This creates:
@@ -37,6 +38,7 @@ This creates:
 - sync metadata tables: `workspace_sync_state`, `sync_clients`
 - item catalog metadata table: `workspace_items`
 - current inventory balance table: `workspace_inventory_balances`
+- inventory movement history table: `workspace_inventory_transactions`
 
 ## 3. Deploy Workspace Invites
 
@@ -96,5 +98,6 @@ delivery and template editing.
 
 This foundation adds auth, workspace membership, workspace selection, and
 invites. It also adds sync metadata, item catalog upload, and current inventory
-balance upload for future workspace-based sync. It does not sync transaction
-history, checkouts, purchase orders, cycle count history, or audit logs yet.
+balance and movement history upload for future workspace-based sync. It does
+not fully sync checkout workflows, purchase orders, cycle count sessions, or
+background conflict resolution yet.

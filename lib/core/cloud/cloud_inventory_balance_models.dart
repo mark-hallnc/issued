@@ -113,11 +113,7 @@ String balanceStableKey({
   String? locationId,
   String? binId,
 }) {
-  return [
-    localItemId,
-    locationId ?? '',
-    binId ?? '',
-  ].join('|');
+  return [localItemId, locationId ?? '', binId ?? ''].join('|');
 }
 
 DateTime _date(Object? value) {
