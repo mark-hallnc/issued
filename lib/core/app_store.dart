@@ -90,6 +90,13 @@ class AppStore extends ChangeNotifier {
       ? 'Checkout upload enabled'
       : 'Checkout sync disabled';
   DateTime? get lastCheckoutSyncAt => _cloudSyncSummary.lastSuccessfulSyncAt;
+  String get cloudSupplierSyncStatus => isCloudWorkspaceActive
+      ? 'Supplier upload enabled'
+      : 'Supplier sync disabled';
+  String get cloudPurchasingSyncStatus => isCloudWorkspaceActive
+      ? 'Purchasing upload enabled'
+      : 'Purchasing sync disabled';
+  DateTime? get lastPurchasingSyncAt => _cloudSyncSummary.lastSuccessfulSyncAt;
   bool get isCloudWorkspaceActive =>
       _cloudModeEnabled &&
       _currentCloudUser != null &&
@@ -652,6 +659,7 @@ class AppStore extends ChangeNotifier {
       uploadBalances: true,
       uploadTransactions: true,
       uploadCheckouts: true,
+      uploadPurchasing: true,
     );
   }
 
@@ -660,6 +668,7 @@ class AppStore extends ChangeNotifier {
       uploadBalances: false,
       uploadTransactions: false,
       uploadCheckouts: false,
+      uploadPurchasing: false,
     );
   }
 
@@ -668,6 +677,7 @@ class AppStore extends ChangeNotifier {
       uploadBalances: true,
       uploadTransactions: false,
       uploadCheckouts: false,
+      uploadPurchasing: false,
     );
   }
 
@@ -676,6 +686,7 @@ class AppStore extends ChangeNotifier {
       uploadBalances: true,
       uploadTransactions: true,
       uploadCheckouts: false,
+      uploadPurchasing: false,
     );
   }
 
@@ -684,6 +695,25 @@ class AppStore extends ChangeNotifier {
       uploadBalances: true,
       uploadTransactions: true,
       uploadCheckouts: true,
+      uploadPurchasing: false,
+    );
+  }
+
+  Future<AppActionResult> syncSuppliersNow() async {
+    return _runCloudInventorySync(
+      uploadBalances: false,
+      uploadTransactions: false,
+      uploadCheckouts: false,
+      uploadPurchasing: true,
+    );
+  }
+
+  Future<AppActionResult> syncPurchasingNow() async {
+    return _runCloudInventorySync(
+      uploadBalances: true,
+      uploadTransactions: true,
+      uploadCheckouts: true,
+      uploadPurchasing: true,
     );
   }
 
@@ -691,12 +721,15 @@ class AppStore extends ChangeNotifier {
     required bool uploadBalances,
     required bool uploadTransactions,
     required bool uploadCheckouts,
+    required bool uploadPurchasing,
   }) async {
     final result = await cloudSyncService.syncNow(
       localItems: _items,
       localBalances: _itemLocationBalances,
       localTransactions: _transactionsAllowedForCloudUpload,
       localCheckouts: _checkoutsAllowedForCloudUpload,
+      localSuppliers: _suppliers,
+      localPurchaseOrders: _reorderRequests,
       unitForItem: (item) => resolveUomAbbreviation(item.unitOfMeasureId),
       locationNameForBalance: (balance) =>
           resolveLocationName(balance.locationId),
@@ -716,6 +749,8 @@ class AppStore extends ChangeNotifier {
       canUploadInventoryTransactions:
           uploadTransactions && _canUploadInventoryTransactions,
       canUploadCheckouts: uploadCheckouts && _canUploadCheckouts,
+      canUploadPurchasing: uploadPurchasing && _canUploadPurchasing,
+      includeCostFields: permissions.canViewCosts,
     );
     _cloudSyncSummary = cloudSyncService.getSyncSummary();
     notifyListeners();
@@ -791,6 +826,34 @@ class AppStore extends ChangeNotifier {
     _cloudSyncSummary = cloudSyncService.getSyncSummary();
   }
 
+  void queueSupplierForSync(String supplierId) {
+    if (!isCloudWorkspaceActive || !_canUploadPurchasing) {
+      return;
+    }
+    unawaited(
+      cloudSyncService.queueLocalChange(
+        entity: CloudSyncEntity.supplier,
+        entityId: supplierId,
+        operation: CloudSyncOperation.update,
+      ),
+    );
+    _cloudSyncSummary = cloudSyncService.getSyncSummary();
+  }
+
+  void queuePurchaseOrderForSync(String purchaseOrderId) {
+    if (!isCloudWorkspaceActive || !_canUploadPurchasing) {
+      return;
+    }
+    unawaited(
+      cloudSyncService.queueLocalChange(
+        entity: CloudSyncEntity.purchaseOrder,
+        entityId: purchaseOrderId,
+        operation: CloudSyncOperation.update,
+      ),
+    );
+    _cloudSyncSummary = cloudSyncService.getSyncSummary();
+  }
+
   bool get _canUploadInventoryBalances =>
       permissions.canAdjustInventory ||
       permissions.canReceiveStock ||
@@ -800,6 +863,9 @@ class AppStore extends ChangeNotifier {
   bool get _canUploadInventoryTransactions => _canUploadInventoryBalances;
 
   bool get _canUploadCheckouts => permissions.canIssueItems;
+
+  bool get _canUploadPurchasing =>
+      permissions.canManageSuppliers || permissions.canManagePurchasing;
 
   List<CheckoutRecord> get _checkoutsAllowedForCloudUpload {
     if (!_canUploadCheckouts) {
@@ -2228,6 +2294,7 @@ class AppStore extends ChangeNotifier {
     );
     _reorderRequests[index] = updated;
     await _database.upsertReorderRequest(updated.toCompanion());
+    queuePurchaseOrderForSync(updated.id);
     notifyListeners();
     return true;
   }
@@ -2484,6 +2551,7 @@ class AppStore extends ChangeNotifier {
     final saved = supplier.copyWith(name: name);
     _suppliers.add(saved);
     unawaited(_database.upsertSupplier(saved.toCompanion()));
+    queueSupplierForSync(saved.id);
     notifyListeners();
     return true;
   }
@@ -2504,6 +2572,7 @@ class AppStore extends ChangeNotifier {
     final saved = supplier.copyWith(name: name, updatedAt: DateTime.now());
     _suppliers[supplierIndex] = saved;
     unawaited(_database.upsertSupplier(saved.toCompanion()));
+    queueSupplierForSync(saved.id);
     notifyListeners();
     return true;
   }
@@ -2524,6 +2593,7 @@ class AppStore extends ChangeNotifier {
     );
     _suppliers[supplierIndex] = archived;
     unawaited(_database.upsertSupplier(archived.toCompanion()));
+    queueSupplierForSync(archived.id);
     notifyListeners();
     return true;
   }
@@ -2560,6 +2630,7 @@ class AppStore extends ChangeNotifier {
     );
     _suppliers.add(supplier);
     unawaited(_database.upsertSupplier(supplier.toCompanion()));
+    queueSupplierForSync(supplier.id);
     notifyListeners();
     return supplier;
   }
@@ -4356,6 +4427,7 @@ class AppStore extends ChangeNotifier {
 
     _reorderRequests.add(request);
     unawaited(_database.upsertReorderRequest(request.toCompanion()));
+    queuePurchaseOrderForSync(request.id);
     notifyListeners();
     return true;
   }
@@ -4420,6 +4492,7 @@ class AppStore extends ChangeNotifier {
     );
     _reorderRequests[requestIndex] = updatedRequest;
     unawaited(_database.upsertReorderRequest(updatedRequest.toCompanion()));
+    queuePurchaseOrderForSync(updatedRequest.id);
     notifyListeners();
     return true;
   }
@@ -4460,6 +4533,7 @@ class AppStore extends ChangeNotifier {
     );
     _reorderRequests[requestIndex] = updatedRequest;
     unawaited(_database.upsertReorderRequest(updatedRequest.toCompanion()));
+    queuePurchaseOrderForSync(updatedRequest.id);
     notifyListeners();
     return true;
   }
@@ -4559,6 +4633,7 @@ class AppStore extends ChangeNotifier {
     );
     _reorderRequests[requestIndex] = updatedRequest;
     unawaited(_database.upsertReorderRequest(updatedRequest.toCompanion()));
+    queuePurchaseOrderForSync(updatedRequest.id);
     notifyListeners();
     return true;
   }
@@ -4590,6 +4665,7 @@ class AppStore extends ChangeNotifier {
     );
     _reorderRequests[requestIndex] = updatedRequest;
     unawaited(_database.upsertReorderRequest(updatedRequest.toCompanion()));
+    queuePurchaseOrderForSync(updatedRequest.id);
     notifyListeners();
     return true;
   }
@@ -4616,6 +4692,7 @@ class AppStore extends ChangeNotifier {
     );
     _reorderRequests[requestIndex] = updatedRequest;
     unawaited(_database.upsertReorderRequest(updatedRequest.toCompanion()));
+    queuePurchaseOrderForSync(updatedRequest.id);
     notifyListeners();
     return true;
   }

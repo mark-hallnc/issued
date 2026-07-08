@@ -4,6 +4,8 @@ export 'cloud_models.dart';
 export '../cloud/cloud_inventory_balance_models.dart';
 export '../cloud/cloud_checkout_models.dart';
 export '../cloud/cloud_inventory_transaction_models.dart';
+export '../cloud/cloud_purchasing_models.dart';
+export '../cloud/cloud_supplier_models.dart';
 export '../cloud/cloud_item_models.dart';
 export '../cloud/sync_models.dart';
 export 'company_models.dart';

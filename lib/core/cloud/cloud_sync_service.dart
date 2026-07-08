@@ -8,11 +8,15 @@ import '../models/checkout_models.dart';
 import '../models/cloud_models.dart';
 import '../models/inventory_models.dart';
 import '../models/item_location_balance_models.dart';
+import '../models/reorder_models.dart';
+import '../models/supplier_models.dart';
 import 'cloud_auth_service.dart';
 import 'cloud_checkout_service.dart';
 import 'cloud_inventory_balance_service.dart';
 import 'cloud_inventory_transaction_service.dart';
 import 'cloud_item_service.dart';
+import 'cloud_purchasing_service.dart';
+import 'cloud_supplier_service.dart';
 import 'supabase_config.dart';
 import 'sync_models.dart';
 import 'workspace_service.dart';
@@ -26,6 +30,8 @@ class CloudSyncService {
     CloudInventoryBalanceService? balanceService,
     CloudInventoryTransactionService? transactionService,
     CloudItemService? itemService,
+    CloudPurchasingService? purchasingService,
+    CloudSupplierService? supplierService,
     this.client,
   }) : checkoutService =
            checkoutService ?? CloudCheckoutService(authService: authService),
@@ -35,7 +41,11 @@ class CloudSyncService {
        transactionService =
            transactionService ??
            CloudInventoryTransactionService(authService: authService),
-       itemService = itemService ?? CloudItemService(authService: authService);
+       itemService = itemService ?? CloudItemService(authService: authService),
+       purchasingService =
+           purchasingService ?? CloudPurchasingService(authService: authService),
+       supplierService =
+           supplierService ?? CloudSupplierService(authService: authService);
 
   final WorkspaceService workspaceService;
   final AppDatabase database;
@@ -44,6 +54,8 @@ class CloudSyncService {
   final CloudInventoryBalanceService balanceService;
   final CloudInventoryTransactionService transactionService;
   final CloudItemService itemService;
+  final CloudPurchasingService purchasingService;
+  final CloudSupplierService supplierService;
   final SupabaseClient? client;
 
   CloudSyncSummary _summary = CloudSyncSummary.disabled();
@@ -96,6 +108,8 @@ class CloudSyncService {
     List<ItemLocationBalance> localBalances = const [],
     List<InventoryTransaction> localTransactions = const [],
     List<CheckoutRecord> localCheckouts = const [],
+    List<Supplier> localSuppliers = const [],
+    List<ReorderRequest> localPurchaseOrders = const [],
     String? Function(ItemLocationBalance balance)? locationNameForBalance,
     String? Function(String? locationId)? transactionLocationNameForId,
     String? Function(InventoryTransaction transaction)?
@@ -108,6 +122,8 @@ class CloudSyncService {
     bool canUploadInventoryBalances = false,
     bool canUploadInventoryTransactions = false,
     bool canUploadCheckouts = false,
+    bool canUploadPurchasing = false,
+    bool includeCostFields = false,
     bool canUploadItemCatalog = false,
   }) async {
     final client = _client;
@@ -269,6 +285,46 @@ class CloudSyncService {
               skippedCount: localCheckouts.length,
               isUploadOnly: true,
             );
+      final supplierResult = canUploadPurchasing
+          ? await supplierService.pushLocalSuppliers(
+              workspaceId: activeWorkspaceId,
+              suppliers: localSuppliers,
+              includeCosts: includeCostFields,
+            )
+          : CloudSupplierSyncResult(
+              uploadedCount: 0,
+              downloadedCount:
+                  (await supplierService.pullWorkspaceSuppliers(
+                    activeWorkspaceId,
+                  )).length,
+              skippedCount: localSuppliers.length,
+              isUploadOnly: true,
+            );
+      final cloudSuppliers = await supplierService.fetchWorkspaceSuppliers(
+        activeWorkspaceId,
+      );
+      final workspaceSupplierIdsByLocalSupplierId = {
+        for (final supplier in cloudSuppliers)
+          supplier.localSupplierId: supplier.id,
+      };
+      final purchasingResult = canUploadPurchasing
+          ? await purchasingService.pushLocalPurchaseOrders(
+              workspaceId: activeWorkspaceId,
+              reorders: localPurchaseOrders,
+              workspaceItemIdsByLocalItemId: workspaceItemIdsByLocalItemId,
+              workspaceSupplierIdsByLocalSupplierId:
+                  workspaceSupplierIdsByLocalSupplierId,
+              includeCosts: includeCostFields,
+            )
+          : CloudPurchasingSyncResult(
+              uploadedCount: 0,
+              downloadedCount:
+                  (await purchasingService.pullWorkspacePurchaseOrders(
+                    activeWorkspaceId,
+                  )).length,
+              skippedCount: localPurchaseOrders.length,
+              isUploadOnly: true,
+            );
       final finishedAt = DateTime.now();
       _summary = _summary.copyWith(
         status: CloudSyncStatus.ready,
@@ -278,14 +334,17 @@ class CloudSyncService {
             (canUploadItemCatalog &&
                 canUploadInventoryBalances &&
                 canUploadInventoryTransactions &&
-                canUploadCheckouts)
+                canUploadCheckouts &&
+                canUploadPurchasing)
             ? 0
             : _summary.pendingUploadCount,
         pendingDownloadCount: 0,
         clearLastError: true,
       );
       return CloudSyncResult.success(
-        message: canUploadCheckouts
+        message: canUploadPurchasing
+            ? 'Purchasing records uploaded. Cloud-to-device purchasing merge is not enabled yet.'
+            : canUploadCheckouts
             ? 'Checkouts uploaded. Cloud-to-device checkout merge is not enabled yet.'
             : canUploadInventoryTransactions
             ? 'Inventory transactions uploaded. Checkout upload is not allowed for your role.'
@@ -298,17 +357,23 @@ class CloudSyncService {
             itemCatalogResult.uploadedCount +
             balanceResult.uploadedCount +
             transactionResult.uploadedCount +
-            checkoutResult.uploadedCount,
+            checkoutResult.uploadedCount +
+            supplierResult.uploadedCount +
+            purchasingResult.uploadedCount,
         downloadedCount:
             itemCatalogResult.downloadedCount +
             balanceResult.downloadedCount +
             transactionResult.downloadedCount +
-            checkoutResult.downloadedCount,
+            checkoutResult.downloadedCount +
+            supplierResult.downloadedCount +
+            purchasingResult.downloadedCount,
         skippedCount:
             itemCatalogResult.skippedCount +
             balanceResult.skippedCount +
             transactionResult.skippedCount +
-            checkoutResult.skippedCount,
+            checkoutResult.skippedCount +
+            supplierResult.skippedCount +
+            purchasingResult.skippedCount,
       );
     } on SocketException catch (error) {
       return _offlineResult(error);

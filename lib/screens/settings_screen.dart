@@ -370,8 +370,12 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                     value: 'Enabled',
                   ),
                   const _CloudStatusLine(
-                    label: 'Purchasing',
-                    value: 'Not enabled',
+                    label: 'Suppliers',
+                    value: 'Enabled',
+                  ),
+                  const _CloudStatusLine(
+                    label: 'Purchasing/reorders',
+                    value: 'Enabled',
                   ),
                   const _CloudStatusLine(
                     label: 'Cycle counts',
@@ -389,7 +393,7 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                   ],
                   const SizedBox(height: 10),
                   const Text(
-                    'Item catalog, current balances, transaction history, and checkout upload are enabled. Purchasing and cycle count workflows are not fully synced yet.',
+                    'Item catalog, current balances, transaction history, checkouts, suppliers, and purchasing upload are enabled. Cycle count workflows are not fully synced yet.',
                   ),
                   const SizedBox(height: 12),
                   Wrap(
@@ -488,6 +492,25 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                             : null,
                         icon: const Icon(Icons.assignment_return_outlined),
                         label: const Text('Sync checkouts'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: store.isCloudSignedIn
+                            ? () async {
+                                final result = await store.syncPurchasingNow();
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        result.message ??
+                                            'Purchasing records synced.',
+                                      ),
+                                    ),
+                                  );
+                                }
+                              }
+                            : null,
+                        icon: const Icon(Icons.shopping_cart_outlined),
+                        label: const Text('Sync purchasing'),
                       ),
                       if (store.cloudSyncSummary.lastError != null)
                         OutlinedButton.icon(

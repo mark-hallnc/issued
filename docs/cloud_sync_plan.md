@@ -5,13 +5,13 @@
 Issued now has a workspace-scoped cloud sync foundation. The Flutter app can
 report sync readiness, verify a signed-in user's active workspace membership,
 register a sync client metadata row in Supabase, and upload item catalog
-metadata, current inventory balances, inventory movement history, and checkout
-records.
+metadata, current inventory balances, inventory movement history, checkout
+records, suppliers, and purchasing/reorder records.
 
 This is not full workflow sync. Balance sync captures current state, while
 transaction sync captures the local movement records that explain quantity
-changes. Purchasing and cycle count workflows still need their own cloud records
-in later phases.
+changes. Cycle count workflows still need their own cloud records in later
+phases.
 
 ## Synced now
 
@@ -24,27 +24,30 @@ in later phases.
 - Current item-location quantity balances in `workspace_inventory_balances`
 - Inventory movement history in `workspace_inventory_transactions`
 - Checkout records in `workspace_checkouts`
+- Suppliers in `workspace_suppliers`
+- Purchasing/reorder records in `workspace_purchase_orders`
 
 ## Not synced yet
 
-- Suppliers
-- Purchase orders or reorder requests
 - Cycle count sessions and line history
 - Local files or item photos
+- Supplier attachments or documents
+- Column-level cost security hardening
 
 Cloud sync is closer to backup now, but do not claim complete cloud backup until
 workflow-specific records and conflict handling are implemented. Transaction
 sync is upload-first; it does not replay cloud transactions onto local devices
 or recalculate balances from cloud history yet. Checkout sync is also
 upload-first and does not merge cloud checkout changes back to this device yet.
+Purchasing sync is also upload-first and does not merge cloud purchase changes
+back to this device yet.
 
 ## Next phases
 
-1. Purchase orders/reorders
-2. Cycle count sessions and line history
-3. Conflict resolution and background sync
-4. Offline outbox
-5. Audit/reconciliation
+1. Cycle count sessions and line history
+2. Conflict resolution and background sync
+3. Offline outbox
+4. Audit/reconciliation
 
 ## Apply the migration
 
@@ -91,3 +94,14 @@ supabase/migrations/0008_cloud_checkouts.sql
 It creates `workspace_checkouts` only. It intentionally does not create cloud
 purchase order, supplier document, cycle count session, push notification, or
 background worker tables.
+
+The purchasing migration is:
+
+```text
+supabase/migrations/0009_cloud_purchasing.sql
+```
+
+It creates `workspace_suppliers` and `workspace_purchase_orders` only. It
+intentionally does not create supplier document storage, invoice OCR, accounting
+integration, cycle count session, push notification, or background worker
+tables.
