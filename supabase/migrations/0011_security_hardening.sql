@@ -2,7 +2,7 @@
 -- This migration is intentionally data-preserving. It tightens workspace RLS,
 -- member-management rules, sync-client ownership, and hard-delete exposure.
 
-create or replace function public.is_workspace_member(p_workspace_id uuid)
+create or replace function public.is_workspace_member(workspace uuid)
 returns boolean
 language sql
 stable
@@ -12,16 +12,13 @@ as $$
   select exists (
     select 1
     from public.workspace_members wm
-    where wm.workspace_id = p_workspace_id
+    where wm.workspace_id = workspace
       and wm.user_id = (select auth.uid())
       and wm.status = 'active'
   );
 $$;
 
-create or replace function public.has_workspace_role(
-  p_workspace_id uuid,
-  allowed_roles text[]
-)
+create or replace function public.has_workspace_role(workspace uuid, allowed_roles text[])
 returns boolean
 language sql
 stable
@@ -31,24 +28,24 @@ as $$
   select exists (
     select 1
     from public.workspace_members wm
-    where wm.workspace_id = p_workspace_id
+    where wm.workspace_id = workspace
       and wm.user_id = (select auth.uid())
       and wm.status = 'active'
       and wm.role = any(allowed_roles)
   );
 $$;
 
-create or replace function public.is_workspace_owner(p_workspace_id uuid)
+create or replace function public.is_workspace_owner(workspace uuid)
 returns boolean
 language sql
 stable
 security definer
 set search_path = public
 as $$
-  select public.has_workspace_role(p_workspace_id, array['owner']);
+  select public.has_workspace_role(workspace, array['owner']);
 $$;
 
-create or replace function public.workspace_owner_count(p_workspace_id uuid)
+create or replace function public.workspace_owner_count(workspace uuid)
 returns integer
 language sql
 stable
@@ -57,7 +54,7 @@ set search_path = public
 as $$
   select count(*)::integer
   from public.workspace_members wm
-  where wm.workspace_id = p_workspace_id
+  where wm.workspace_id = workspace
     and wm.role = 'owner'
     and wm.status = 'active';
 $$;

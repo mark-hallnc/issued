@@ -1,6 +1,8 @@
 import '../database/model_mappers.dart';
 import '../models/inventory_models.dart';
 import '../models/supplier_models.dart';
+import 'cloud_item_models.dart';
+import 'cloud_supplier_models.dart';
 import 'cloud_sync_service.dart';
 import 'cloud_to_local_apply_service.dart';
 import 'sync_conflict_resolution_models.dart';
@@ -31,32 +33,32 @@ class SyncConflictResolutionService {
     List<Supplier> localSuppliers = const [],
     String defaultUnitOfMeasureId = 'uom-each',
     String defaultLocationId = 'loc-main',
-  }) {
-    return switch (action) {
-      SyncConflictResolutionAction.keepLocal => keepLocal(
-        conflict,
-        workspaceId: workspaceId,
-      ),
-      SyncConflictResolutionAction.useCloud => useCloud(
-        conflict,
-        workspaceId: workspaceId,
-        localItems: localItems,
-        localSuppliers: localSuppliers,
-        defaultUnitOfMeasureId: defaultUnitOfMeasureId,
-        defaultLocationId: defaultLocationId,
-      ),
-      SyncConflictResolutionAction.markReviewed => markReviewed(conflict),
-      SyncConflictResolutionAction.retry => retryConflict(conflict),
-      SyncConflictResolutionAction.unsupported => Future.value(
-        SyncConflictResolutionResult.failure(
+  }) async {
+    switch (action) {
+      case SyncConflictResolutionAction.keepLocal:
+        return keepLocal(conflict, workspaceId: workspaceId);
+      case SyncConflictResolutionAction.useCloud:
+        return useCloud(
+          conflict,
+          workspaceId: workspaceId,
+          localItems: localItems,
+          localSuppliers: localSuppliers,
+          defaultUnitOfMeasureId: defaultUnitOfMeasureId,
+          defaultLocationId: defaultLocationId,
+        );
+      case SyncConflictResolutionAction.markReviewed:
+        return markReviewed(conflict);
+      case SyncConflictResolutionAction.retry:
+        return retryConflict(conflict);
+      case SyncConflictResolutionAction.unsupported:
+        return SyncConflictResolutionResult.failure(
           action: action,
           entityType: conflict.entityType,
           localId: conflict.localId,
           cloudId: conflict.cloudId,
           message: 'This conflict cannot be resolved automatically.',
-        ),
-      ),
-    };
+        );
+    }
   }
 
   Future<SyncConflictResolutionResult> keepLocal(
@@ -108,14 +110,15 @@ class SyncConflictResolutionService {
     required String defaultLocationId,
   }) async {
     if (conflict.entityType == CloudSyncEntity.item) {
-      final cloudItems = await syncService.itemService.fetchWorkspaceItems(
-        workspaceId,
-      );
-      final cloudItem = _firstWhereOrNull(
-        cloudItems,
-        (item) =>
-            item.id == conflict.cloudId || item.localItemId == conflict.localId,
-      );
+      final List<CloudWorkspaceItem> cloudItems = await syncService.itemService
+          .fetchWorkspaceItems(workspaceId);
+      final CloudWorkspaceItem? cloudItem =
+          _firstWhereOrNull<CloudWorkspaceItem>(
+            cloudItems,
+            (item) =>
+                item.id == conflict.cloudId ||
+                item.localItemId == conflict.localId,
+          );
       if (cloudItem == null) {
         return _failure(
           conflict,
@@ -123,7 +126,7 @@ class SyncConflictResolutionService {
           'Cloud item could not be found.',
         );
       }
-      final localItem = _firstWhereOrNull(
+      final Item? localItem = _firstWhereOrNull<Item>(
         localItems,
         (item) => item.id == (cloudItem.localItemId ?? conflict.localId),
       );
@@ -160,9 +163,10 @@ class SyncConflictResolutionService {
       );
     }
     if (conflict.entityType == CloudSyncEntity.supplier) {
-      final cloudSuppliers = await syncService.supplierService
+      final List<CloudSupplier> cloudSuppliers = await syncService
+          .supplierService
           .fetchWorkspaceSuppliers(workspaceId);
-      final cloudSupplier = _firstWhereOrNull(
+      final CloudSupplier? cloudSupplier = _firstWhereOrNull<CloudSupplier>(
         cloudSuppliers,
         (supplier) =>
             supplier.id == conflict.cloudId ||
@@ -175,7 +179,7 @@ class SyncConflictResolutionService {
           'Cloud supplier could not be found.',
         );
       }
-      final localSupplier = _firstWhereOrNull(
+      final Supplier? localSupplier = _firstWhereOrNull<Supplier>(
         localSuppliers,
         (supplier) => supplier.id == cloudSupplier.localSupplierId,
       );

@@ -15,7 +15,7 @@ enum SyncMergeDecision {
 }
 
 class SyncMergeConflict {
-  const SyncMergeConflict({
+  SyncMergeConflict({
     String? id,
     required this.entityType,
     this.localId,
