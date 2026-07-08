@@ -54,7 +54,7 @@ class _DataHealthScreenState extends State<DataHealthScreen> {
                 icon: const Icon(Icons.download),
                 label: const Text('Export Backup'),
               ),
-              if (store.isCloudWorkspaceActive)
+              if (store.isCloudWorkspaceActive && store.canOpenSyncDiagnostics)
                 OutlinedButton.icon(
                   onPressed: () {
                     Navigator.of(context).push(

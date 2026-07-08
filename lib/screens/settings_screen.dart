@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../core/app_store.dart';
 import '../core/models/models.dart';
+import '../widgets/sync_status_chip.dart';
 import 'assignment_targets_screen.dart';
 import 'backup_restore_screen.dart';
 import 'cloud_adoption_wizard_screen.dart';
@@ -283,6 +284,7 @@ class CloudAccountSettingsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final store = AppStoreScope.of(context);
     final cloudEmail = store.currentCloudUser?.email;
+    final canOpenSyncDiagnostics = kDebugMode || store.canOpenSyncDiagnostics;
     return Scaffold(
       appBar: AppBar(title: const Text('Cloud Account')),
       body: ListView(
@@ -336,6 +338,23 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: SyncStatusChip(
+                      status: store.syncUserStatus,
+                      onOpenDiagnostics: canOpenSyncDiagnostics
+                          ? () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (context) =>
+                                      const SyncHealthScreen(),
+                                ),
+                              );
+                            }
+                          : null,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   _CloudStatusLine(
                     label: 'Status',
                     value: store.cloudSyncStatusLabel,
@@ -357,53 +376,63 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                       store.cloudSyncSummary.lastSuccessfulSyncAt,
                     ),
                   ),
-                  _CloudStatusLine(
-                    label: 'Last pull',
-                    value: _formatCloudSyncDate(store.lastCloudPullAt),
-                  ),
-                  _CloudStatusLine(
-                    label: 'Last push',
-                    value: _formatCloudSyncDate(store.lastCloudPushAt),
-                  ),
-                  _CloudStatusLine(
-                    label: 'Pending local changes',
-                    value: store.cloudSyncSummary.pendingUploadCount.toString(),
-                  ),
-                  _CloudStatusLine(
-                    label: 'Conflicts',
-                    value: store.syncConflictCount.toString(),
-                  ),
-                  _CloudStatusLine(
-                    label: 'Failed uploads',
-                    value: store.failedSyncUploadCount.toString(),
-                  ),
                   const _CloudStatusLine(
                     label: 'Auto sync',
                     value: 'Enabled while signed in',
                   ),
-                  const _CloudStatusLine(
-                    label: 'Item catalog',
-                    value: 'Enabled',
-                  ),
-                  const _CloudStatusLine(
-                    label: 'Quantities/balances',
-                    value: 'Enabled',
-                  ),
-                  const _CloudStatusLine(
-                    label: 'Transaction history',
-                    value: 'Enabled',
-                  ),
-                  const _CloudStatusLine(label: 'Checkouts', value: 'Enabled'),
-                  const _CloudStatusLine(label: 'Suppliers', value: 'Enabled'),
-                  const _CloudStatusLine(
-                    label: 'Purchasing/reorders',
-                    value: 'Enabled',
-                  ),
-                  const _CloudStatusLine(
-                    label: 'Cycle counts',
-                    value: 'Enabled',
-                  ),
-                  if (store.cloudSyncSummary.lastError != null) ...[
+                  if (canOpenSyncDiagnostics) ...[
+                    _CloudStatusLine(
+                      label: 'Last pull',
+                      value: _formatCloudSyncDate(store.lastCloudPullAt),
+                    ),
+                    _CloudStatusLine(
+                      label: 'Last push',
+                      value: _formatCloudSyncDate(store.lastCloudPushAt),
+                    ),
+                    _CloudStatusLine(
+                      label: 'Pending local changes',
+                      value: store.cloudSyncSummary.pendingUploadCount
+                          .toString(),
+                    ),
+                    _CloudStatusLine(
+                      label: 'Conflicts',
+                      value: store.syncConflictCount.toString(),
+                    ),
+                    _CloudStatusLine(
+                      label: 'Failed uploads',
+                      value: store.failedSyncUploadCount.toString(),
+                    ),
+                    const _CloudStatusLine(
+                      label: 'Item catalog',
+                      value: 'Enabled',
+                    ),
+                    const _CloudStatusLine(
+                      label: 'Quantities/balances',
+                      value: 'Enabled',
+                    ),
+                    const _CloudStatusLine(
+                      label: 'Transaction history',
+                      value: 'Enabled',
+                    ),
+                    const _CloudStatusLine(
+                      label: 'Checkouts',
+                      value: 'Enabled',
+                    ),
+                    const _CloudStatusLine(
+                      label: 'Suppliers',
+                      value: 'Enabled',
+                    ),
+                    const _CloudStatusLine(
+                      label: 'Purchasing/reorders',
+                      value: 'Enabled',
+                    ),
+                    const _CloudStatusLine(
+                      label: 'Cycle counts',
+                      value: 'Enabled',
+                    ),
+                  ],
+                  if (canOpenSyncDiagnostics &&
+                      store.cloudSyncSummary.lastError != null) ...[
                     const SizedBox(height: 6),
                     Text(
                       store.cloudSyncSummary.lastError!,
@@ -414,8 +443,10 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                     ),
                   ],
                   const SizedBox(height: 10),
-                  const Text(
-                    'Safe two-way sync is enabled for item and supplier metadata. Workflow records are downloaded for status and staged until conflict review is finished. Background sync is not enabled yet.',
+                  Text(
+                    canOpenSyncDiagnostics
+                        ? 'Safe two-way sync is enabled for item and supplier metadata. Workflow records are downloaded for status and staged until conflict review is finished. Background sync is not enabled yet.'
+                        : 'Changes sync automatically while you are signed in and this app is open.',
                   ),
                   if (store.hasSyncConflicts) ...[
                     const SizedBox(height: 10),
@@ -455,308 +486,318 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                     ),
                   ],
                   const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 8,
-                    children: [
-                      FilledButton.icon(
-                        onPressed: store.isCloudSignedIn
-                            ? () async {
-                                final result = await store.syncNow();
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        result.message ?? 'Sync checked.',
+                  if (canOpenSyncDiagnostics)
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 8,
+                      children: [
+                        FilledButton.icon(
+                          onPressed: store.isCloudSignedIn
+                              ? () async {
+                                  final result = await store.syncNow();
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          result.message ?? 'Sync checked.',
+                                        ),
                                       ),
-                                    ),
-                                  );
+                                    );
+                                  }
                                 }
-                              }
-                            : null,
-                        icon: const Icon(Icons.sync),
-                        label: const Text('Sync now'),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: store.isCloudSignedIn
-                            ? () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute<void>(
-                                    builder: (context) =>
-                                        const SyncHealthScreen(),
-                                  ),
-                                );
-                              }
-                            : null,
-                        icon: const Icon(Icons.health_and_safety_outlined),
-                        label: const Text('Sync Health'),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: store.isCloudSignedIn
-                            ? () async {
-                                await store.refreshCloudAdoptionSummary();
-                                if (context.mounted) {
+                              : null,
+                          icon: const Icon(Icons.sync),
+                          label: const Text('Sync now'),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: store.isCloudSignedIn
+                              ? () {
                                   Navigator.of(context).push(
                                     MaterialPageRoute<void>(
                                       builder: (context) =>
-                                          const CloudAdoptionWizardScreen(),
+                                          const SyncHealthScreen(),
                                     ),
                                   );
                                 }
-                              }
-                            : null,
-                        icon: const Icon(Icons.cloud_done_outlined),
-                        label: const Text('Cloud setup wizard'),
-                      ),
-                      if (kDebugMode)
+                              : null,
+                          icon: const Icon(Icons.health_and_safety_outlined),
+                          label: const Text('Sync Health'),
+                        ),
                         OutlinedButton.icon(
-                          onPressed: store.activeWorkspace == null
-                              ? null
-                              : () async {
-                                  final result = await store
-                                      .resetCloudAdoptionDecisionForDebug();
+                          onPressed: store.isCloudSignedIn
+                              ? () async {
+                                  await store.refreshCloudAdoptionSummary();
+                                  if (context.mounted) {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute<void>(
+                                        builder: (context) =>
+                                            const CloudAdoptionWizardScreen(),
+                                      ),
+                                    );
+                                  }
+                                }
+                              : null,
+                          icon: const Icon(Icons.cloud_done_outlined),
+                          label: const Text('Cloud setup wizard'),
+                        ),
+                        if (kDebugMode)
+                          OutlinedButton.icon(
+                            onPressed: store.activeWorkspace == null
+                                ? null
+                                : () async {
+                                    final result = await store
+                                        .resetCloudAdoptionDecisionForDebug();
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            result.message ??
+                                                'Cloud setup reset.',
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  },
+                            icon: const Icon(Icons.restart_alt),
+                            label: const Text('Reset setup decision'),
+                          ),
+                        OutlinedButton.icon(
+                          onPressed: store.isCloudSignedIn
+                              ? () async {
+                                  final result = await store.syncTwoWayNow();
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
                                         content: Text(
                                           result.message ??
-                                              'Cloud setup reset.',
+                                              'Two-way sync checked.',
                                         ),
                                       ),
                                     );
                                   }
-                                },
-                          icon: const Icon(Icons.restart_alt),
-                          label: const Text('Reset setup decision'),
+                                }
+                              : null,
+                          icon: const Icon(Icons.sync_alt),
+                          label: const Text('Two-way sync now'),
                         ),
-                      OutlinedButton.icon(
-                        onPressed: store.isCloudSignedIn
-                            ? () async {
-                                final result = await store.syncTwoWayNow();
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        result.message ??
-                                            'Two-way sync checked.',
+                        OutlinedButton.icon(
+                          onPressed: store.isCloudSignedIn
+                              ? () async {
+                                  final result = await store
+                                      .pullCloudChangesNow();
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          result.message ??
+                                              'Cloud changes pulled.',
+                                        ),
                                       ),
-                                    ),
-                                  );
+                                    );
+                                  }
                                 }
-                              }
-                            : null,
-                        icon: const Icon(Icons.sync_alt),
-                        label: const Text('Two-way sync now'),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: store.isCloudSignedIn
-                            ? () async {
-                                final result = await store
-                                    .pullCloudChangesNow();
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        result.message ??
-                                            'Cloud changes pulled.',
-                                      ),
-                                    ),
-                                  );
-                                }
-                              }
-                            : null,
-                        icon: const Icon(Icons.cloud_download_outlined),
-                        label: const Text('Pull cloud changes'),
-                      ),
-                      if (store.hasSyncConflicts)
+                              : null,
+                          icon: const Icon(Icons.cloud_download_outlined),
+                          label: const Text('Pull cloud changes'),
+                        ),
+                        if (store.hasSyncConflicts)
+                          OutlinedButton.icon(
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (context) =>
+                                      const SyncConflictsScreen(),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.report_problem_outlined),
+                            label: const Text('View conflicts'),
+                          ),
+                        if (store.hasSyncConflicts)
+                          OutlinedButton.icon(
+                            onPressed: store.clearSyncMergeConflicts,
+                            icon: const Icon(Icons.clear_all),
+                            label: const Text('Clear reviewed conflicts'),
+                          ),
                         OutlinedButton.icon(
                           onPressed: () {
                             Navigator.of(context).push(
                               MaterialPageRoute<void>(
-                                builder: (context) =>
-                                    const SyncConflictsScreen(),
+                                builder: (context) => const SyncQueueScreen(),
                               ),
                             );
                           },
-                          icon: const Icon(Icons.report_problem_outlined),
-                          label: const Text('View conflicts'),
+                          icon: const Icon(Icons.list_alt_outlined),
+                          label: const Text('View sync queue'),
                         ),
-                      if (store.hasSyncConflicts)
                         OutlinedButton.icon(
-                          onPressed: store.clearSyncMergeConflicts,
-                          icon: const Icon(Icons.clear_all),
-                          label: const Text('Clear reviewed conflicts'),
-                        ),
-                      OutlinedButton.icon(
-                        onPressed: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (context) => const SyncQueueScreen(),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.list_alt_outlined),
-                        label: const Text('View sync queue'),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: store.failedSyncUploadCount > 0
-                            ? () async {
-                                final result = await store
-                                    .retryFailedUploadsNow();
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        result.message ??
-                                            'Failed uploads queued.',
+                          onPressed: store.failedSyncUploadCount > 0
+                              ? () async {
+                                  final result = await store
+                                      .retryFailedUploadsNow();
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          result.message ??
+                                              'Failed uploads queued.',
+                                        ),
                                       ),
-                                    ),
-                                  );
+                                    );
+                                  }
                                 }
-                              }
-                            : null,
-                        icon: const Icon(Icons.refresh),
-                        label: const Text('Retry failed uploads'),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: () async {
-                          final result = await store
-                              .clearCompletedSyncQueueNow();
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  result.message ??
-                                      'Completed sync history cleared.',
+                              : null,
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Retry failed uploads'),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: () async {
+                            final result = await store
+                                .clearCompletedSyncQueueNow();
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    result.message ??
+                                        'Completed sync history cleared.',
+                                  ),
                                 ),
-                              ),
-                            );
-                          }
-                        },
-                        icon: const Icon(Icons.cleaning_services_outlined),
-                        label: const Text('Clear completed queue'),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: store.isCloudSignedIn
-                            ? () async {
-                                final result = await store.syncItemCatalogNow();
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        result.message ?? 'Catalog synced.',
-                                      ),
-                                    ),
-                                  );
-                                }
-                              }
-                            : null,
-                        icon: const Icon(Icons.inventory_2_outlined),
-                        label: const Text('Sync item catalog now'),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: store.isCloudSignedIn
-                            ? () async {
-                                final result = await store
-                                    .syncInventoryBalancesNow();
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        result.message ?? 'Balances synced.',
-                                      ),
-                                    ),
-                                  );
-                                }
-                              }
-                            : null,
-                        icon: const Icon(Icons.warehouse_outlined),
-                        label: const Text('Sync balances'),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: store.isCloudSignedIn
-                            ? () async {
-                                final result = await store
-                                    .syncInventoryTransactionsNow();
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        result.message ??
-                                            'Transaction history synced.',
-                                      ),
-                                    ),
-                                  );
-                                }
-                              }
-                            : null,
-                        icon: const Icon(Icons.receipt_long_outlined),
-                        label: const Text('Sync transaction history'),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: store.isCloudSignedIn
-                            ? () async {
-                                final result = await store.syncCheckoutsNow();
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        result.message ?? 'Checkouts synced.',
-                                      ),
-                                    ),
-                                  );
-                                }
-                              }
-                            : null,
-                        icon: const Icon(Icons.assignment_return_outlined),
-                        label: const Text('Sync checkouts'),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: store.isCloudSignedIn
-                            ? () async {
-                                final result = await store.syncPurchasingNow();
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        result.message ??
-                                            'Purchasing records synced.',
-                                      ),
-                                    ),
-                                  );
-                                }
-                              }
-                            : null,
-                        icon: const Icon(Icons.shopping_cart_outlined),
-                        label: const Text('Sync purchasing'),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: store.isCloudSignedIn
-                            ? () async {
-                                final result = await store.syncCycleCountsNow();
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        result.message ??
-                                            'Cycle counts synced.',
-                                      ),
-                                    ),
-                                  );
-                                }
-                              }
-                            : null,
-                        icon: const Icon(Icons.fact_check_outlined),
-                        label: const Text('Sync cycle counts'),
-                      ),
-                      if (store.cloudSyncSummary.lastError != null)
-                        OutlinedButton.icon(
-                          onPressed: store.clearCloudSyncError,
-                          icon: const Icon(Icons.clear),
-                          label: const Text('Clear error'),
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.cleaning_services_outlined),
+                          label: const Text('Clear completed queue'),
                         ),
-                    ],
-                  ),
+                        OutlinedButton.icon(
+                          onPressed: store.isCloudSignedIn
+                              ? () async {
+                                  final result = await store
+                                      .syncItemCatalogNow();
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          result.message ?? 'Catalog synced.',
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                }
+                              : null,
+                          icon: const Icon(Icons.inventory_2_outlined),
+                          label: const Text('Sync item catalog now'),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: store.isCloudSignedIn
+                              ? () async {
+                                  final result = await store
+                                      .syncInventoryBalancesNow();
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          result.message ?? 'Balances synced.',
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                }
+                              : null,
+                          icon: const Icon(Icons.warehouse_outlined),
+                          label: const Text('Sync balances'),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: store.isCloudSignedIn
+                              ? () async {
+                                  final result = await store
+                                      .syncInventoryTransactionsNow();
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          result.message ??
+                                              'Transaction history synced.',
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                }
+                              : null,
+                          icon: const Icon(Icons.receipt_long_outlined),
+                          label: const Text('Sync transaction history'),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: store.isCloudSignedIn
+                              ? () async {
+                                  final result = await store.syncCheckoutsNow();
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          result.message ?? 'Checkouts synced.',
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                }
+                              : null,
+                          icon: const Icon(Icons.assignment_return_outlined),
+                          label: const Text('Sync checkouts'),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: store.isCloudSignedIn
+                              ? () async {
+                                  final result = await store
+                                      .syncPurchasingNow();
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          result.message ??
+                                              'Purchasing records synced.',
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                }
+                              : null,
+                          icon: const Icon(Icons.shopping_cart_outlined),
+                          label: const Text('Sync purchasing'),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: store.isCloudSignedIn
+                              ? () async {
+                                  final result = await store
+                                      .syncCycleCountsNow();
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          result.message ??
+                                              'Cycle counts synced.',
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                }
+                              : null,
+                          icon: const Icon(Icons.fact_check_outlined),
+                          label: const Text('Sync cycle counts'),
+                        ),
+                        if (store.cloudSyncSummary.lastError != null)
+                          OutlinedButton.icon(
+                            onPressed: store.clearCloudSyncError,
+                            icon: const Icon(Icons.clear),
+                            label: const Text('Clear error'),
+                          ),
+                      ],
+                    )
+                  else
+                    const Text(
+                      'Sync runs automatically after sign-in, workspace selection, app resume, and local edits.',
+                    ),
                 ],
               ),
             ),

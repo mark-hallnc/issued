@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/app_store.dart';
 import '../core/models/models.dart';
 import '../core/permissions/app_permissions.dart';
+import '../widgets/sync_status_chip.dart';
 import 'activity_screen.dart';
 import 'add_item_screen.dart';
 import 'backup_restore_screen.dart';
@@ -14,6 +15,7 @@ import 'low_stock_screen.dart';
 import 'plan_screens.dart';
 import 'quick_issue_screen.dart';
 import 'scanner_screen.dart';
+import 'settings_screen.dart';
 import 'settings_detail_screens.dart';
 
 class DashboardScreen extends StatelessWidget {
@@ -84,33 +86,30 @@ class _CloudSyncStatusCard extends StatelessWidget {
     final summary = store.cloudSyncSummary;
     final workspace =
         summary.activeWorkspaceName ?? store.activeWorkspace?.name;
-    final queueText =
-        'Pending uploads: ${summary.pendingUploadCount}. Failed uploads: ${store.failedSyncUploadCount}.';
     return Card(
       child: ListTile(
         leading: const Icon(Icons.cloud_sync_outlined),
-        title: Text('Cloud sync: ${store.cloudSyncStatusLabel}'),
+        title: const Text('Sync'),
         subtitle: Text(
           workspace == null
               ? 'No active workspace selected.'
-              : '$workspace - safe two-way sync for catalog metadata is enabled. $queueText',
+              : '$workspace - changes sync automatically when the app is open.',
         ),
-        trailing: store.isCloudSignedIn
-            ? IconButton(
-                tooltip: 'Sync now',
-                onPressed: () async {
-                  final result = await store.syncNow();
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(result.message ?? 'Sync checked.'),
+        trailing: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 180),
+          child: SyncStatusChip(
+            status: store.syncUserStatus,
+            onOpenDiagnostics: store.canOpenSyncDiagnostics
+                ? () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (context) => const SettingsScreen(),
                       ),
                     );
                   }
-                },
-                icon: const Icon(Icons.sync),
-              )
-            : null,
+                : null,
+          ),
+        ),
       ),
     );
   }

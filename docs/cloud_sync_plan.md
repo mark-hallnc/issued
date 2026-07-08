@@ -122,6 +122,37 @@ Automatic sync is app-lifecycle based only:
 Manual Sync Now remains available. There are no OS background workers,
 push notifications, or realtime subscriptions yet.
 
+## Automatic Sync Polish
+
+Automatic sync is coordinated through a single in-app sync coordinator. The
+coordinator prevents duplicate concurrent syncs, remembers when a sync was
+requested during an active run, and runs once more after the current sync
+finishes. Local edits are debounced so several quick saves become one sync
+attempt.
+
+Sync now requests happen after:
+
+- app startup with a restored cloud session and active workspace
+- cloud login
+- workspace selection, creation, or invite acceptance
+- app resume, with a short cooldown
+- local item, balance, transaction, checkout, supplier, purchasing, or cycle
+  count changes
+- retrying failed uploads from diagnostics
+
+The adoption/setup decision still gates business-data sync. If a workspace
+needs setup, the app does not upload existing business data until the user
+chooses how the device should use the workspace.
+
+Cloud-to-local apply writes directly through the apply service/database path
+rather than the user-origin AppStore mutation methods, so pulled cloud changes
+do not enqueue themselves back into the outbox.
+
+Normal users see simple sync language such as "Synced just now", "Syncing...",
+or "Offline - changes will sync later". Sync Health, Sync Queue, conflict
+review, manual entity sync buttons, and reconciliation details are diagnostics
+for admin/manager roles or debug builds, not the normal workflow.
+
 ## Sync Health and Reconciliation
 
 The Sync Health screen is available from Settings under Cloud Account /

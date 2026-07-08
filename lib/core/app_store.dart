@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 
@@ -8,6 +9,8 @@ import 'cloud/cloud_adoption_models.dart';
 import 'cloud/cloud_adoption_service.dart';
 import 'cloud/cloud_auth_service.dart';
 import 'cloud/cloud_sync_service.dart';
+import 'cloud/sync_coordinator.dart';
+import 'cloud/sync_status_models.dart';
 import 'cloud/supabase_config.dart';
 import 'cloud/sync_conflict_resolution_models.dart';
 import 'cloud/sync_conflict_resolution_service.dart';
@@ -53,9 +56,6 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   int _sessionTimeoutMinutes = 10;
   bool _isInitialized = false;
   final PinHashService _pinHashService = PinHashService();
-  Timer? _autoSyncDebounce;
-  DateTime? _lastAutoSyncRequestedAt;
-  String? _lastAutoSyncReason;
   final CloudAuthService cloudAuthService = const CloudAuthService();
   late final WorkspaceService workspaceService = WorkspaceService(
     cloudAuthService,
@@ -64,6 +64,12 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     workspaceService: workspaceService,
     database: _database,
     authService: cloudAuthService,
+  );
+  late final SyncCoordinator syncCoordinator = SyncCoordinator(
+    syncService: cloudSyncService,
+    outboxService: cloudSyncService.outboxService,
+    canSync: _canRunAutomaticSync,
+    performSync: _performAutomaticSync,
   );
   late final SyncReconciliationService syncReconciliationService =
       SyncReconciliationService(
@@ -144,7 +150,12 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   DateTime? get lastCloudPullAt => cloudSyncService.getLastPullAt();
   DateTime? get lastCloudPushAt => cloudSyncService.getLastPushAt();
   DateTime? get lastCloudFullSyncAt => cloudSyncService.getLastFullSyncAt();
-  String? get lastAutoSyncReason => _lastAutoSyncReason;
+  String? get lastAutoSyncReason =>
+      _syncTriggerLabel(syncCoordinator.lastTrigger);
+  bool get isAutomaticSyncRunning => syncCoordinator.isSyncing;
+  bool get canOpenSyncDiagnostics =>
+      kDebugMode || permissions.isAdmin || permissions.isManager;
+  SyncUserStatusSummary get syncUserStatus => _buildSyncUserStatus();
   bool get isCloudSyncReady => cloudSyncService.isCloudSyncReady();
   String get cloudSyncStatusLabel =>
       cloudSyncStatusLabelForSummary(_cloudSyncSummary);
@@ -324,19 +335,13 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     }
     _isInitialized = true;
     notifyListeners();
-    _scheduleAutoSync(reason: 'startup', delay: const Duration(seconds: 2));
+    _requestAutomaticSync(trigger: SyncTrigger.startup);
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      final lastSync = cloudSyncSummary.lastSuccessfulSyncAt;
-      final shouldSync =
-          lastSync == null ||
-          DateTime.now().difference(lastSync) > const Duration(seconds: 60);
-      if (shouldSync) {
-        _scheduleAutoSync(reason: 'resume');
-      }
+      unawaited(syncCoordinator.onAppResumed());
     }
   }
 
@@ -371,11 +376,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
         _clearCloudSyncState();
       } else {
         _cloudModeEnabled = true;
-        unawaited(
-          loadMyWorkspaces().then(
-            (_) => _scheduleAutoSync(reason: 'cloud login'),
-          ),
-        );
+        unawaited(loadMyWorkspaces().then((_) => syncCoordinator.onLogin()));
       }
       notifyListeners();
     });
@@ -407,7 +408,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     _cloudModeEnabled = _currentCloudUser != null;
     if (_cloudModeEnabled) {
       await refreshCloudWorkspaceState();
-      _scheduleAutoSync(reason: 'cloud login');
+      unawaited(syncCoordinator.onLogin());
     } else {
       notifyListeners();
     }
@@ -480,7 +481,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     }
     notifyListeners();
     if (!shouldShowCloudAdoptionWizard) {
-      _scheduleAutoSync(reason: 'workspace restored');
+      _requestAutomaticSync(trigger: SyncTrigger.workspaceSelected);
     }
     return const AppActionResult.success();
   }
@@ -622,7 +623,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     await refreshCloudAdoptionSummary(notify: false);
     notifyListeners();
     if (!shouldShowCloudAdoptionWizard) {
-      _scheduleAutoSync(reason: 'invite accepted');
+      _requestAutomaticSync(trigger: SyncTrigger.workspaceSelected);
     }
     return AppActionResult.success(message: result.message);
   }
@@ -706,7 +707,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     await refreshCloudAdoptionSummary(notify: false);
     notifyListeners();
     if (!shouldShowCloudAdoptionWizard) {
-      _scheduleAutoSync(reason: 'workspace created');
+      _requestAutomaticSync(trigger: SyncTrigger.workspaceSelected);
     }
     return AppActionResult.success(message: result.message);
   }
@@ -726,7 +727,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     await refreshCloudAdoptionSummary(notify: false);
     notifyListeners();
     if (!shouldShowCloudAdoptionWizard) {
-      _scheduleAutoSync(reason: 'workspace selected');
+      _requestAutomaticSync(trigger: SyncTrigger.workspaceSelected);
     }
   }
 
@@ -815,7 +816,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     await cloudSyncService.retryFailedUploads();
     await _refreshSyncQueueCounts();
     notifyListeners();
-    _scheduleAutoSync(reason: 'retry failed uploads');
+    _requestAutomaticSync(trigger: SyncTrigger.retry);
     return const AppActionResult.success(message: 'Failed uploads queued.');
   }
 
@@ -1188,45 +1189,33 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     );
   }
 
-  void _scheduleAutoSync({
-    required String reason,
-    Duration delay = const Duration(seconds: 3),
-  }) {
-    if (!_isInitialized || !isCloudWorkspaceActive) {
-      return;
-    }
-    final adoptionState = _cloudAdoptionSummary?.state;
-    if (adoptionState == CloudAdoptionState.needsDecision ||
-        adoptionState == CloudAdoptionState.localOnlySelected ||
-        adoptionState == CloudAdoptionState.blocked) {
-      return;
-    }
-    final now = DateTime.now();
-    final lastRequested = _lastAutoSyncRequestedAt;
-    if (lastRequested != null &&
-        now.difference(lastRequested) < const Duration(seconds: 2)) {
-      return;
-    }
-    _lastAutoSyncRequestedAt = now;
-    _lastAutoSyncReason = reason;
-    _autoSyncDebounce?.cancel();
-    _autoSyncDebounce = Timer(delay, () {
-      unawaited(_runAutomaticSync(reason));
-    });
+  void _requestAutomaticSync({required SyncTrigger trigger}) {
+    unawaited(
+      syncCoordinator.requestSync(
+        trigger: trigger,
+        immediate: trigger != SyncTrigger.startup,
+      ),
+    );
   }
 
-  Future<void> _runAutomaticSync(String reason) async {
-    if (!isCloudWorkspaceActive) {
-      return;
+  bool _canRunAutomaticSync() {
+    if (!_isInitialized || !isCloudWorkspaceActive) {
+      return false;
     }
     final adoptionState = _cloudAdoptionSummary?.state;
-    if (adoptionState == CloudAdoptionState.needsDecision ||
-        adoptionState == CloudAdoptionState.localOnlySelected ||
-        adoptionState == CloudAdoptionState.blocked) {
+    return adoptionState != CloudAdoptionState.needsDecision &&
+        adoptionState != CloudAdoptionState.localOnlySelected &&
+        adoptionState != CloudAdoptionState.blocked;
+  }
+
+  Future<void> _performAutomaticSync(SyncTrigger trigger) async {
+    if (!_canRunAutomaticSync()) {
       return;
     }
-    _lastAutoSyncReason = reason;
-    await syncTwoWayNow();
+    final result = await syncTwoWayNow();
+    if (!result.success) {
+      throw result.data ?? result.message ?? 'Sync failed.';
+    }
     await _refreshSyncQueueCounts();
   }
 
@@ -1248,7 +1237,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
       ),
     );
     _cloudSyncSummary = cloudSyncService.getSyncSummary();
-    _scheduleAutoSync(reason: 'item changed');
+    syncCoordinator.onLocalChange();
   }
 
   void queueBalanceForSync(String balanceId) {
@@ -1263,7 +1252,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
       ),
     );
     _cloudSyncSummary = cloudSyncService.getSyncSummary();
-    _scheduleAutoSync(reason: 'balance changed');
+    syncCoordinator.onLocalChange();
   }
 
   void queueTransactionForSync(String transactionId) {
@@ -1278,7 +1267,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
       ),
     );
     _cloudSyncSummary = cloudSyncService.getSyncSummary();
-    _scheduleAutoSync(reason: 'transaction changed');
+    syncCoordinator.onLocalChange();
   }
 
   void queueCheckoutForSync(String checkoutId) {
@@ -1293,7 +1282,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
       ),
     );
     _cloudSyncSummary = cloudSyncService.getSyncSummary();
-    _scheduleAutoSync(reason: 'checkout changed');
+    syncCoordinator.onLocalChange();
   }
 
   void queueSupplierForSync(String supplierId) {
@@ -1308,7 +1297,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
       ),
     );
     _cloudSyncSummary = cloudSyncService.getSyncSummary();
-    _scheduleAutoSync(reason: 'supplier changed');
+    syncCoordinator.onLocalChange();
   }
 
   void queuePurchaseOrderForSync(String purchaseOrderId) {
@@ -1323,7 +1312,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
       ),
     );
     _cloudSyncSummary = cloudSyncService.getSyncSummary();
-    _scheduleAutoSync(reason: 'purchasing changed');
+    syncCoordinator.onLocalChange();
   }
 
   void queueCycleCountForSync(String countId) {
@@ -1338,7 +1327,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
       ),
     );
     _cloudSyncSummary = cloudSyncService.getSyncSummary();
-    _scheduleAutoSync(reason: 'cycle count changed');
+    syncCoordinator.onLocalChange();
   }
 
   void queueCycleCountLineForSync(String countLineId) {
@@ -1353,7 +1342,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
       ),
     );
     _cloudSyncSummary = cloudSyncService.getSyncSummary();
-    _scheduleAutoSync(reason: 'cycle count line changed');
+    syncCoordinator.onLocalChange();
   }
 
   bool get _canUploadInventoryBalances =>
@@ -6325,10 +6314,119 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  SyncUserStatusSummary _buildSyncUserStatus() {
+    if (!isCloudConfigured) {
+      return const SyncUserStatusSummary(
+        status: SyncUserStatus.disabled,
+        label: 'Sync off',
+        detail: 'Cloud sync is not configured.',
+        pendingCount: 0,
+        failedCount: 0,
+        conflictCount: 0,
+        canOpenDiagnostics: false,
+      );
+    }
+    if (!isCloudSignedIn) {
+      return SyncUserStatusSummary(
+        status: SyncUserStatus.signedOut,
+        label: 'Sign in to sync',
+        pendingCount: _cloudSyncSummary.pendingUploadCount,
+        failedCount: _failedSyncUploadCount,
+        conflictCount: syncConflictCount,
+        lastSyncedAt: _cloudSyncSummary.lastSuccessfulSyncAt,
+        canOpenDiagnostics: canOpenSyncDiagnostics,
+      );
+    }
+    if (_activeWorkspace == null) {
+      return SyncUserStatusSummary(
+        status: SyncUserStatus.noWorkspace,
+        label: 'Choose a workspace',
+        pendingCount: _cloudSyncSummary.pendingUploadCount,
+        failedCount: _failedSyncUploadCount,
+        conflictCount: syncConflictCount,
+        lastSyncedAt: _cloudSyncSummary.lastSuccessfulSyncAt,
+        canOpenDiagnostics: canOpenSyncDiagnostics,
+      );
+    }
+    if (shouldShowCloudAdoptionWizard) {
+      return SyncUserStatusSummary(
+        status: SyncUserStatus.setupRequired,
+        label: 'Workspace setup needed',
+        detail: 'Choose how this device should use the workspace.',
+        pendingCount: _cloudSyncSummary.pendingUploadCount,
+        failedCount: _failedSyncUploadCount,
+        conflictCount: syncConflictCount,
+        lastSyncedAt: _cloudSyncSummary.lastSuccessfulSyncAt,
+        canOpenDiagnostics: canOpenSyncDiagnostics,
+      );
+    }
+    if (syncCoordinator.isSyncing ||
+        _cloudSyncSummary.status == CloudSyncStatus.syncing) {
+      return SyncUserStatusSummary(
+        status: SyncUserStatus.syncing,
+        label: 'Syncing...',
+        pendingCount: _cloudSyncSummary.pendingUploadCount,
+        failedCount: _failedSyncUploadCount,
+        conflictCount: syncConflictCount,
+        lastSyncedAt: _cloudSyncSummary.lastSuccessfulSyncAt,
+        canOpenDiagnostics: canOpenSyncDiagnostics,
+      );
+    }
+    if (syncConflictCount > 0) {
+      return SyncUserStatusSummary(
+        status: SyncUserStatus.conflictsNeedReview,
+        label: 'Sync problem - tap to review',
+        detail: '$syncConflictCount records need review.',
+        pendingCount: _cloudSyncSummary.pendingUploadCount,
+        failedCount: _failedSyncUploadCount,
+        conflictCount: syncConflictCount,
+        lastSyncedAt: _cloudSyncSummary.lastSuccessfulSyncAt,
+        canOpenDiagnostics: canOpenSyncDiagnostics,
+      );
+    }
+    if (_failedSyncUploadCount > 0 ||
+        _cloudSyncSummary.status == CloudSyncStatus.error ||
+        _cloudSyncSummary.status == CloudSyncStatus.offline) {
+      return SyncUserStatusSummary(
+        status: SyncUserStatus.offlineOrFailed,
+        label: 'Offline - changes will sync later',
+        detail: _cloudSyncSummary.lastError ?? syncCoordinator.lastSyncError,
+        pendingCount: _cloudSyncSummary.pendingUploadCount,
+        failedCount: _failedSyncUploadCount,
+        conflictCount: syncConflictCount,
+        lastSyncedAt: _cloudSyncSummary.lastSuccessfulSyncAt,
+        canOpenDiagnostics: canOpenSyncDiagnostics,
+      );
+    }
+    if (_cloudSyncSummary.pendingUploadCount > 0) {
+      final count = _cloudSyncSummary.pendingUploadCount;
+      return SyncUserStatusSummary(
+        status: SyncUserStatus.pendingChanges,
+        label: '$count ${count == 1 ? 'change' : 'changes'} waiting to sync',
+        pendingCount: count,
+        failedCount: _failedSyncUploadCount,
+        conflictCount: syncConflictCount,
+        lastSyncedAt: _cloudSyncSummary.lastSuccessfulSyncAt,
+        canOpenDiagnostics: canOpenSyncDiagnostics,
+      );
+    }
+    return SyncUserStatusSummary(
+      status: SyncUserStatus.synced,
+      label: _cloudSyncSummary.lastSuccessfulSyncAt == null
+          ? 'Sync ready'
+          : 'Synced ${_relativeSyncTime(_cloudSyncSummary.lastSuccessfulSyncAt!)}',
+      pendingCount: 0,
+      failedCount: 0,
+      conflictCount: 0,
+      lastSyncedAt: _cloudSyncSummary.lastSuccessfulSyncAt,
+      canOpenDiagnostics: canOpenSyncDiagnostics,
+    );
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _autoSyncDebounce?.cancel();
+    syncCoordinator.dispose();
     unawaited(_cloudAuthSubscription?.cancel());
     unawaited(_database.close());
     super.dispose();
@@ -6359,6 +6457,34 @@ String cloudSyncStatusLabelForSummary(CloudSyncSummary summary) {
     CloudSyncStatus.offline => 'Offline',
     CloudSyncStatus.error => 'Error',
     CloudSyncStatus.needsSetup => 'Needs setup',
+  };
+}
+
+String _relativeSyncTime(DateTime value) {
+  final difference = DateTime.now().difference(value);
+  if (difference.inMinutes < 1) {
+    return 'just now';
+  }
+  if (difference.inHours < 1) {
+    return '${difference.inMinutes}m ago';
+  }
+  if (difference.inDays < 1) {
+    return '${difference.inHours}h ago';
+  }
+  return '${difference.inDays}d ago';
+}
+
+String? _syncTriggerLabel(SyncTrigger? trigger) {
+  return switch (trigger) {
+    SyncTrigger.login => 'login',
+    SyncTrigger.workspaceSelected => 'workspace selected',
+    SyncTrigger.appResume => 'app resume',
+    SyncTrigger.localChange => 'local change',
+    SyncTrigger.manual => 'manual',
+    SyncTrigger.retry => 'retry',
+    SyncTrigger.startup => 'startup',
+    SyncTrigger.connectivityRestored => 'connectivity restored',
+    null => null,
   };
 }
 
