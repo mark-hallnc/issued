@@ -2,6 +2,7 @@ import '../models/inventory_models.dart';
 import '../models/supplier_models.dart';
 import 'cloud_item_models.dart';
 import 'cloud_supplier_models.dart';
+import 'sync_conflict_resolution_models.dart';
 import 'sync_merge_models.dart';
 import 'sync_models.dart';
 
@@ -148,7 +149,13 @@ SyncMergeConflict mergeConflict({
     field: field,
     localValue: localValue?.toString(),
     cloudValue: cloudValue?.toString(),
+    localUpdatedAt: localValue is DateTime ? localValue : null,
+    cloudUpdatedAt: cloudValue is DateTime ? cloudValue : null,
     message: message,
+    severity: entityType == CloudSyncEntity.inventoryBalance ||
+            entityType == CloudSyncEntity.transaction
+        ? SyncConflictSeverity.dangerous
+        : SyncConflictSeverity.warning,
     createdAt: DateTime.now(),
   );
 }

@@ -9,6 +9,8 @@ import 'cloud/cloud_adoption_service.dart';
 import 'cloud/cloud_auth_service.dart';
 import 'cloud/cloud_sync_service.dart';
 import 'cloud/supabase_config.dart';
+import 'cloud/sync_conflict_resolution_models.dart';
+import 'cloud/sync_conflict_resolution_service.dart';
 import 'cloud/sync_reconciliation_models.dart';
 import 'cloud/sync_reconciliation_service.dart';
 import 'cloud/sync_outbox_service.dart';
@@ -80,6 +82,12 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     database: _database,
     reconciliationService: syncReconciliationService,
   );
+  late final SyncConflictResolutionService syncConflictResolutionService =
+      SyncConflictResolutionService(
+        syncService: cloudSyncService,
+        applyService: cloudSyncService.applyService,
+        outboxService: cloudSyncService.outboxService,
+      );
   supabase.User? _currentCloudUser;
   final List<CloudWorkspace> _availableWorkspaces = [];
   final List<CloudWorkspaceMember> _workspaceMembers = [];
@@ -109,6 +117,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   bool get hasSyncHealthProblems =>
       _syncReconciliationSummary?.overallStatus != SyncHealthStatus.healthy;
   int get syncConflictCount => syncMergeConflicts.length;
+  int get unresolvedSyncConflictCount => syncMergeConflicts.length;
   String get syncHealthStatusLabel => syncHealthStatusLabelFor(
     _syncReconciliationSummary?.overallStatus ?? SyncHealthStatus.unknown,
   );
@@ -976,6 +985,59 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   void clearSyncMergeConflicts() {
     cloudSyncService.clearMergeConflicts();
     notifyListeners();
+  }
+
+  Future<List<SyncMergeConflict>> refreshSyncConflicts() async {
+    return getSyncMergeConflicts();
+  }
+
+  Future<AppActionResult> resolveSyncConflict(
+    SyncMergeConflict conflict,
+    SyncConflictResolutionAction action,
+  ) async {
+    final workspace = _activeWorkspace;
+    if (workspace == null) {
+      return const AppActionResult.failure('Select a workspace first.');
+    }
+    try {
+      final result = await syncConflictResolutionService.resolveConflict(
+        conflict,
+        action,
+        workspaceId: workspace.id,
+        localItems: _items,
+        localSuppliers: _suppliers,
+        defaultUnitOfMeasureId: _defaultUnitOfMeasureId,
+        defaultLocationId: _defaultLocationId,
+      );
+      _cloudSyncSummary = cloudSyncService.getSyncSummary();
+      await _loadFromDatabase();
+      await _refreshSyncQueueCounts();
+      notifyListeners();
+      return result.success
+          ? AppActionResult.success(
+              message: result.message,
+              data: result,
+            )
+          : AppActionResult.failure(result.message, data: result.error);
+    } catch (error) {
+      return AppActionResult.failure(
+        'Could not resolve sync conflict.',
+        data: error,
+      );
+    }
+  }
+
+  Future<AppActionResult> markSyncConflictReviewed(
+    SyncMergeConflict conflict,
+  ) {
+    return resolveSyncConflict(
+      conflict,
+      SyncConflictResolutionAction.markReviewed,
+    );
+  }
+
+  Future<AppActionResult> retrySyncAfterConflictResolution() {
+    return syncNow();
   }
 
   Future<List<SyncOutboxEntry>> getSyncQueueEntries() {

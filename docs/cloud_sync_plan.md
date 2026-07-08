@@ -135,9 +135,29 @@ Workspace. It is diagnostic and non-destructive:
 - Count mismatches are shown as review signals, not automatic overwrite
   instructions.
 
-Conflict review is visibility-only for now. Operators can review and clear
-conflict notices after investigation, but the app does not yet offer automatic
-"choose local" or "choose cloud" resolution.
+Conflict review is conservative. Operators can choose local/cloud only for safe
+metadata cases, and complex workflow conflicts stay review-only.
+
+## User-Driven Conflict Resolution
+
+The Sync Review screen supports conservative user-driven conflict actions:
+
+- Keep local: queues the local record for upload and requires a follow-up sync.
+- Use cloud: applies cloud metadata locally for item and supplier conflicts.
+- Mark reviewed: removes the conflict notice without changing local or cloud
+  data.
+- Retry: leaves the conflict visible and lets the operator run sync again.
+
+Keep local/use cloud are enabled only where the app can avoid risky side
+effects. Item and supplier metadata can use both actions. Transactions,
+checkouts, purchasing records, and cycle count records may keep local by
+queueing an upload, but cloud overwrite is disabled until workflow-safe merge
+rules exist. Inventory balance conflicts are review-only because balances
+should usually be resolved by reviewing transactions or doing a count.
+
+Transaction history remains append-only. Conflict resolution must not edit old
+movement rows or re-apply quantity effects. Dangerous conflicts should be
+reviewed against source activity before a count or correction is created.
 
 ## Cloud Adoption Wizard
 

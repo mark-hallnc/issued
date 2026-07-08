@@ -1,4 +1,5 @@
 import 'sync_models.dart';
+import 'sync_conflict_resolution_models.dart';
 
 enum SyncMergeMode { uploadOnly, downloadOnly, twoWaySafe }
 
@@ -15,24 +16,64 @@ enum SyncMergeDecision {
 
 class SyncMergeConflict {
   const SyncMergeConflict({
+    String? id,
     required this.entityType,
     this.localId,
     this.cloudId,
     this.field,
     this.localValue,
     this.cloudValue,
+    this.localUpdatedAt,
+    this.cloudUpdatedAt,
     required this.message,
+    this.severity = SyncConflictSeverity.warning,
     required this.createdAt,
-  });
+    this.reviewedAt,
+    this.resolvedAt,
+    this.resolutionAction,
+  }) : id =
+           id ??
+           '${entityType.name}:${localId ?? ''}:${cloudId ?? ''}:${field ?? ''}:${createdAt.microsecondsSinceEpoch}';
 
+  final String id;
   final CloudSyncEntity entityType;
   final String? localId;
   final String? cloudId;
   final String? field;
   final String? localValue;
   final String? cloudValue;
+  final DateTime? localUpdatedAt;
+  final DateTime? cloudUpdatedAt;
   final String message;
+  final SyncConflictSeverity severity;
   final DateTime createdAt;
+  final DateTime? reviewedAt;
+  final DateTime? resolvedAt;
+  final SyncConflictResolutionAction? resolutionAction;
+
+  SyncMergeConflict copyWith({
+    DateTime? reviewedAt,
+    DateTime? resolvedAt,
+    SyncConflictResolutionAction? resolutionAction,
+  }) {
+    return SyncMergeConflict(
+      id: id,
+      entityType: entityType,
+      localId: localId,
+      cloudId: cloudId,
+      field: field,
+      localValue: localValue,
+      cloudValue: cloudValue,
+      localUpdatedAt: localUpdatedAt,
+      cloudUpdatedAt: cloudUpdatedAt,
+      message: message,
+      severity: severity,
+      createdAt: createdAt,
+      reviewedAt: reviewedAt ?? this.reviewedAt,
+      resolvedAt: resolvedAt ?? this.resolvedAt,
+      resolutionAction: resolutionAction ?? this.resolutionAction,
+    );
+  }
 }
 
 class SyncMergeSummary {

@@ -21,6 +21,7 @@ import 'cloud_purchasing_service.dart';
 import 'cloud_supplier_service.dart';
 import 'cloud_to_local_apply_service.dart';
 import 'supabase_config.dart';
+import 'sync_conflict_resolution_models.dart';
 import 'sync_merge_models.dart';
 import 'sync_models.dart';
 import 'sync_outbox_service.dart';
@@ -125,6 +126,18 @@ class CloudSyncService {
 
   void clearMergeConflicts() {
     _mergeConflicts.clear();
+  }
+
+  void resolveMergeConflict(
+    SyncMergeConflict conflict,
+    SyncConflictResolutionAction action,
+  ) {
+    final resolved = conflict.copyWith(
+      reviewedAt: DateTime.now(),
+      resolvedAt: DateTime.now(),
+      resolutionAction: action,
+    );
+    _mergeConflicts.removeWhere((item) => item.id == resolved.id);
   }
 
   Future<int> getPendingUploadCount([String? workspaceId]) async {
