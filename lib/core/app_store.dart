@@ -7,6 +7,8 @@ import 'backup/backup_service.dart';
 import 'cloud/cloud_auth_service.dart';
 import 'cloud/cloud_sync_service.dart';
 import 'cloud/supabase_config.dart';
+import 'cloud/sync_reconciliation_models.dart';
+import 'cloud/sync_reconciliation_service.dart';
 import 'cloud/sync_outbox_service.dart';
 import 'cloud/workspace_service.dart';
 import 'database/app_database.dart';
@@ -59,6 +61,19 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     database: _database,
     authService: cloudAuthService,
   );
+  late final SyncReconciliationService syncReconciliationService =
+      SyncReconciliationService(
+        database: _database,
+        syncService: cloudSyncService,
+        outboxService: cloudSyncService.outboxService,
+        itemService: cloudSyncService.itemService,
+        balanceService: cloudSyncService.balanceService,
+        transactionService: cloudSyncService.transactionService,
+        checkoutService: cloudSyncService.checkoutService,
+        supplierService: cloudSyncService.supplierService,
+        purchasingService: cloudSyncService.purchasingService,
+        cycleCountService: cloudSyncService.cycleCountService,
+      );
   supabase.User? _currentCloudUser;
   final List<CloudWorkspace> _availableWorkspaces = [];
   final List<CloudWorkspaceMember> _workspaceMembers = [];
@@ -68,6 +83,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   CloudWorkspaceRole? _currentCloudRole;
   bool _cloudModeEnabled = false;
   CloudSyncSummary _cloudSyncSummary = CloudSyncSummary.disabled();
+  SyncReconciliationSummary? _syncReconciliationSummary;
   int _failedSyncUploadCount = 0;
   StreamSubscription<dynamic>? _cloudAuthSubscription;
 
@@ -76,11 +92,18 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   bool get isCloudSignedIn => _currentCloudUser != null;
   bool get cloudModeEnabled => _cloudModeEnabled;
   CloudSyncSummary get cloudSyncSummary => _cloudSyncSummary;
+  SyncReconciliationSummary? get syncReconciliationSummary =>
+      _syncReconciliationSummary;
   int get failedSyncUploadCount => _failedSyncUploadCount;
   List<SyncMergeConflict> get syncMergeConflicts =>
       cloudSyncService.getMergeConflicts();
   bool get hasSyncConflicts => syncMergeConflicts.isNotEmpty;
+  bool get hasSyncHealthProblems =>
+      _syncReconciliationSummary?.overallStatus != SyncHealthStatus.healthy;
   int get syncConflictCount => syncMergeConflicts.length;
+  String get syncHealthStatusLabel => syncHealthStatusLabelFor(
+    _syncReconciliationSummary?.overallStatus ?? SyncHealthStatus.unknown,
+  );
   DateTime? get lastCloudPullAt => cloudSyncService.getLastPullAt();
   DateTime? get lastCloudPushAt => cloudSyncService.getLastPushAt();
   DateTime? get lastCloudFullSyncAt => cloudSyncService.getLastFullSyncAt();
@@ -890,6 +913,33 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     return cloudSyncService.getOutboxEntries();
   }
 
+  Future<SyncReconciliationSummary> refreshSyncReconciliation() async {
+    final workspace = _activeWorkspace;
+    if (!isCloudWorkspaceActive || workspace == null) {
+      final summary = SyncReconciliationSummary(
+        workspaceId: workspace?.id ?? '',
+        workspaceName: workspace?.name,
+        checkedAt: DateTime.now(),
+        overallStatus: SyncHealthStatus.unsupported,
+        entities: const [],
+        messages: const [
+          'Sign in and select a workspace to view cloud sync health.',
+        ],
+      );
+      _syncReconciliationSummary = summary;
+      notifyListeners();
+      return summary;
+    }
+    final summary = await syncReconciliationService.buildSummary(
+      workspace.id,
+      workspaceName: workspace.name,
+    );
+    _syncReconciliationSummary = summary;
+    _failedSyncUploadCount = summary.totalFailed;
+    notifyListeners();
+    return summary;
+  }
+
   Future<void> _refreshSyncQueueCounts() async {
     final workspace = _activeWorkspace;
     if (workspace == null) {
@@ -1052,7 +1102,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     }
     unawaited(
       cloudSyncService.queueLocalChange(
-        entity: CloudSyncEntity.count,
+        entity: CloudSyncEntity.countLine,
         entityId: countLineId,
         operation: CloudSyncOperation.update,
       ),

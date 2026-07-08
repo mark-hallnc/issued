@@ -12,6 +12,7 @@ import 'label_center_screen.dart';
 import 'reports_screen.dart';
 import 'settings_detail_screens.dart';
 import 'sync_conflicts_screen.dart';
+import 'sync_health_screen.dart';
 import 'sync_queue_screen.dart';
 import 'workspace_members_screen.dart';
 import 'workspace_selection_screen.dart';
@@ -470,6 +471,20 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                             : null,
                         icon: const Icon(Icons.sync),
                         label: const Text('Sync now'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: store.isCloudSignedIn
+                            ? () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (context) =>
+                                        const SyncHealthScreen(),
+                                  ),
+                                );
+                              }
+                            : null,
+                        icon: const Icon(Icons.health_and_safety_outlined),
+                        label: const Text('Sync Health'),
                       ),
                       OutlinedButton.icon(
                         onPressed: store.isCloudSignedIn

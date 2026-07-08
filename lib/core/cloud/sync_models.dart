@@ -11,6 +11,7 @@ enum CloudSyncEntity {
   location,
   purchaseOrder,
   count,
+  countLine,
   user,
   settings,
 }

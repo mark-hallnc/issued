@@ -15,6 +15,14 @@ changes. Local changes are queued by workspace/entity/operation, coalesced to
 avoid repeated updates for the same row, retried with backoff after failures,
 and kept on-device when the app closes or the user signs out.
 
+The app now includes a Sync Health screen for reconciliation review. It compares
+local record counts with cloud record counts, shows pending and failed outbox
+entries, surfaces merge conflicts, and gives operators safe actions to refresh,
+sync now, retry failed uploads, view the queue, and view conflicts. A mismatch
+does not always mean data loss; it can mean an upload is pending, a migration is
+missing, or a workflow record is intentionally fetch-only until conflict
+resolution is stronger.
+
 This is not full workflow sync. Balance sync captures current state, while
 transaction sync captures the local movement records that explain quantity
 changes. Cycle count sync captures count sessions and counted lines, but it
@@ -39,11 +47,14 @@ and reported as skipped/unsupported until durable conflict handling exists.
 - Cycle count sessions in `workspace_cycle_counts`
 - Cycle count lines in `workspace_cycle_count_lines`
 - Cloud-to-local item and supplier metadata where safe
+- Sync Health reconciliation counts for items, balances, transactions,
+  checkouts, suppliers, purchasing/reorders, cycle count sessions, and cycle
+  count lines
 
 ## Not synced yet
 
 - Background sync workers
-- Full conflict resolution UI
+- User-driven conflict resolution
 - Local files or item photos
 - Supplier attachments or documents
 - Real-time push updates
@@ -106,16 +117,30 @@ Automatic sync is app-lifecycle based only:
 Manual Sync Now remains available. There are no OS background workers,
 push notifications, or realtime subscriptions yet.
 
+## Sync Health and Reconciliation
+
+The Sync Health screen is available from Settings under Cloud Account /
+Workspace. It is diagnostic and non-destructive:
+
+- Local counts come from Drift.
+- Cloud counts come from authenticated Supabase reads and respect RLS.
+- Pending and failed counts come from the local `sync_outbox`.
+- Conflict counts come from the safe merge conflict list.
+- Count mismatches are shown as review signals, not automatic overwrite
+  instructions.
+
+Conflict review is visibility-only for now. Operators can review and clear
+conflict notices after investigation, but the app does not yet offer automatic
+"choose local" or "choose cloud" resolution.
+
 ## Next phases
 
-1. Durable local sync outbox
-2. Entity-specific outbox push processing
-3. Automatic sync hardening on startup/resume/change
-4. Conflict resolution UI
-5. Background sync
-6. Real-time updates
-7. Audit/reconciliation
-8. Optional file/document attachment sync
+1. Entity-specific outbox push processing
+2. User-driven conflict resolution
+3. Initial workspace upload/download wizard
+4. Background sync
+5. Real-time updates
+6. Optional file/document attachment sync
 
 ## Apply the migration
 

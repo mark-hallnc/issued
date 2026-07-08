@@ -63,6 +63,7 @@ String _entityLabel(CloudSyncEntity entity) {
     CloudSyncEntity.location => 'Location',
     CloudSyncEntity.purchaseOrder => 'Purchasing',
     CloudSyncEntity.count => 'Cycle count',
+    CloudSyncEntity.countLine => 'Cycle count line',
     CloudSyncEntity.user => 'User',
     CloudSyncEntity.settings => 'Settings',
   };

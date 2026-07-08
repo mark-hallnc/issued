@@ -150,6 +150,18 @@ class CloudInventoryBalanceService {
     return fetchWorkspaceBalances(workspaceId, since: since);
   }
 
+  Future<int> countWorkspaceBalances(String workspaceId) async {
+    final rows = await _fetchCountRows(
+      'workspace_inventory_balances',
+      workspaceId,
+    );
+    return rows.length;
+  }
+
+  Future<DateTime?> latestWorkspaceBalanceUpdateAt(String workspaceId) {
+    return _latestUpdatedAt('workspace_inventory_balances', workspaceId);
+  }
+
   SupabaseClient _requireClient() {
     final client = _client;
     if (client == null) {
@@ -172,5 +184,37 @@ class CloudInventoryBalanceService {
     if (workspaceId.trim().isEmpty) {
       throw ArgumentError('A workspace is required.');
     }
+  }
+
+  Future<List<dynamic>> _fetchCountRows(
+    String table,
+    String workspaceId,
+  ) async {
+    final client = _requireClient();
+    _requireUser();
+    _requireWorkspaceId(workspaceId);
+    final rows = await client
+        .from(table)
+        .select('id')
+        .eq('workspace_id', workspaceId);
+    return rows as List<dynamic>;
+  }
+
+  Future<DateTime?> _latestUpdatedAt(String table, String workspaceId) async {
+    final client = _requireClient();
+    _requireUser();
+    _requireWorkspaceId(workspaceId);
+    final rows = await client
+        .from(table)
+        .select('updated_at')
+        .eq('workspace_id', workspaceId)
+        .order('updated_at', ascending: false)
+        .limit(1);
+    if (rows.isEmpty) {
+      return null;
+    }
+    final row = rows.first;
+    final value = row['updated_at'];
+    return value is String ? DateTime.tryParse(value) : null;
   }
 }

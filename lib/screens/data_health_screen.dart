@@ -8,6 +8,7 @@ import '../core/app_store.dart';
 import '../core/backup/backup_service.dart';
 import '../core/data_health/data_health_service.dart';
 import '../core/models/models.dart';
+import 'sync_health_screen.dart';
 
 class DataHealthScreen extends StatefulWidget {
   const DataHealthScreen({super.key});
@@ -53,6 +54,18 @@ class _DataHealthScreenState extends State<DataHealthScreen> {
                 icon: const Icon(Icons.download),
                 label: const Text('Export Backup'),
               ),
+              if (store.isCloudWorkspaceActive)
+                OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (context) => const SyncHealthScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.cloud_sync_outlined),
+                  label: const Text('Cloud Sync Health'),
+                ),
               if (report != null &&
                   report.issues.any((issue) => issue.canRepair))
                 OutlinedButton.icon(
