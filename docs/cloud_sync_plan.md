@@ -60,7 +60,6 @@ and reported as skipped/unsupported until durable conflict handling exists.
 ## Not synced yet
 
 - Background sync workers
-- User-driven conflict resolution
 - Local files or item photos
 - Supplier attachments or documents
 - Real-time push updates
@@ -260,3 +259,15 @@ supabase/migrations/0010_cloud_cycle_counts.sql
 It creates `workspace_cycle_counts` and `workspace_cycle_count_lines` only. It
 intentionally does not create attachment storage, push notification, billing,
 background worker, or conflict-resolution tables.
+
+The production security hardening migration is:
+
+```text
+supabase/migrations/0011_security_hardening.sql
+```
+
+It reasserts active-member workspace isolation, tightens sync table write
+policies to owner/admin/manager roles, restricts sync-client rows to the signed
+in user, protects the last active workspace owner, and documents the remaining
+cost privacy limitation: cost columns are still row-readable to active members
+until column-level views/RPCs or separate cost tables are added.

@@ -116,7 +116,8 @@ class SyncReconciliationService {
       CloudSyncEntity.item => (await database.getAllItems()).length,
       CloudSyncEntity.inventoryBalance =>
         (await database.getAllItemLocationBalances()).length,
-      CloudSyncEntity.transaction => (await database.getAllTransactions()).length,
+      CloudSyncEntity.transaction =>
+        (await database.getAllTransactions()).length,
       CloudSyncEntity.checkout =>
         (await database.getAllCheckoutRecords()).length,
       CloudSyncEntity.supplier => (await database.getAllSuppliers()).length,

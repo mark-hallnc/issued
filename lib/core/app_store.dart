@@ -1014,10 +1014,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
       await _refreshSyncQueueCounts();
       notifyListeners();
       return result.success
-          ? AppActionResult.success(
-              message: result.message,
-              data: result,
-            )
+          ? AppActionResult.success(message: result.message, data: result)
           : AppActionResult.failure(result.message, data: result.error);
     } catch (error) {
       return AppActionResult.failure(
@@ -1027,9 +1024,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  Future<AppActionResult> markSyncConflictReviewed(
-    SyncMergeConflict conflict,
-  ) {
+  Future<AppActionResult> markSyncConflictReviewed(SyncMergeConflict conflict) {
     return resolveSyncConflict(
       conflict,
       SyncConflictResolutionAction.markReviewed,

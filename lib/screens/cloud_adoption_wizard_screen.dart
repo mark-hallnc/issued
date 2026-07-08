@@ -115,6 +115,10 @@ class _CloudAdoptionWizardScreenState extends State<CloudAdoptionWizardScreen> {
     BuildContext context,
     CloudAdoptionChoice choice,
   ) async {
+    final confirmed = await _confirmChoice(context, choice);
+    if (confirmed != true || !context.mounted) {
+      return;
+    }
     setState(() => _isBusy = true);
     final store = AppStoreScope.of(context);
     final result = await store.completeCloudAdoption(choice);
@@ -129,6 +133,42 @@ class _CloudAdoptionWizardScreenState extends State<CloudAdoptionWizardScreen> {
       Navigator.of(context).pop();
     }
   }
+}
+
+Future<bool?> _confirmChoice(BuildContext context, CloudAdoptionChoice choice) {
+  final title = switch (choice) {
+    CloudAdoptionChoice.uploadLocalData => 'Upload this device?',
+    CloudAdoptionChoice.startFreshCloud => 'Start fresh?',
+    CloudAdoptionChoice.keepLocalOnly => 'Keep local-only?',
+    CloudAdoptionChoice.cancel => 'Cancel setup?',
+  };
+  final message = switch (choice) {
+    CloudAdoptionChoice.uploadLocalData =>
+      'This will upload local inventory from this device into the selected workspace. Continue only if this device should seed or merge workspace data.',
+    CloudAdoptionChoice.startFreshCloud =>
+      'Existing local inventory will stay on this device and will not be uploaded automatically. New changes after this setup decision can sync.',
+    CloudAdoptionChoice.keepLocalOnly =>
+      'This device will not sync inventory with the selected workspace until you enable cloud setup later.',
+    CloudAdoptionChoice.cancel =>
+      'You can return to cloud setup from Settings later.',
+  };
+  return showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(title),
+      content: Text(message),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          child: const Text('Continue'),
+        ),
+      ],
+    ),
+  );
 }
 
 class _IntroCard extends StatelessWidget {

@@ -43,6 +43,9 @@ class _SyncConflictsScreenState extends State<SyncConflictsScreen> {
                 final conflict = conflicts[index];
                 return _ConflictCard(
                   conflict: conflict,
+                  canViewCosts: store.permissions.canViewCosts,
+                  canResolveData:
+                      store.permissions.isAdmin || store.permissions.isManager,
                   isResolving: _isResolving,
                   onResolve: (action) => _resolve(conflict, action),
                 );
@@ -97,17 +100,22 @@ class _SyncConflictsScreenState extends State<SyncConflictsScreen> {
 class _ConflictCard extends StatelessWidget {
   const _ConflictCard({
     required this.conflict,
+    required this.canViewCosts,
+    required this.canResolveData,
     required this.isResolving,
     required this.onResolve,
   });
 
   final SyncMergeConflict conflict;
+  final bool canViewCosts;
+  final bool canResolveData;
   final bool isResolving;
   final ValueChanged<SyncConflictResolutionAction> onResolve;
 
   @override
   Widget build(BuildContext context) {
-    final actions = _actionsFor(conflict);
+    final actions = _actionsFor(conflict, canResolveData: canResolveData);
+    final hideValues = !canViewCosts && _isCostSensitiveConflict(conflict);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -133,10 +141,14 @@ class _ConflictCard extends StatelessWidget {
             if (conflict.field != null) _Line('Field', conflict.field!),
             if (conflict.localId != null) _Line('Local', conflict.localId!),
             if (conflict.cloudId != null) _Line('Cloud', conflict.cloudId!),
-            if (conflict.localValue != null)
+            if (!hideValues && conflict.localValue != null)
               _Line('Local value', conflict.localValue!),
-            if (conflict.cloudValue != null)
+            if (hideValues && conflict.localValue != null)
+              const _Line('Local value', 'Hidden by role'),
+            if (!hideValues && conflict.cloudValue != null)
               _Line('Cloud value', conflict.cloudValue!),
+            if (hideValues && conflict.cloudValue != null)
+              const _Line('Cloud value', 'Hidden by role'),
             _Line('Created', _formatDate(conflict.createdAt)),
             if (conflict.severity == SyncConflictSeverity.dangerous) ...[
               const SizedBox(height: 8),
@@ -192,11 +204,17 @@ class _Line extends StatelessWidget {
   }
 }
 
-List<SyncConflictResolutionAction> _actionsFor(SyncMergeConflict conflict) {
+List<SyncConflictResolutionAction> _actionsFor(
+  SyncMergeConflict conflict, {
+  required bool canResolveData,
+}) {
   final actions = <SyncConflictResolutionAction>[
     SyncConflictResolutionAction.markReviewed,
     SyncConflictResolutionAction.retry,
   ];
+  if (!canResolveData) {
+    return actions;
+  }
   if (isSafeAutoApplyAction(
     conflict.entityType,
     SyncConflictResolutionAction.keepLocal,
@@ -210,6 +228,24 @@ List<SyncConflictResolutionAction> _actionsFor(SyncMergeConflict conflict) {
     actions.insert(1, SyncConflictResolutionAction.useCloud);
   }
   return actions;
+}
+
+bool _isCostSensitiveConflict(SyncMergeConflict conflict) {
+  final field = conflict.field?.toLowerCase() ?? '';
+  final message = conflict.message.toLowerCase();
+  const sensitiveTerms = [
+    'cost',
+    'price',
+    'value',
+    'amount',
+    'minimum_order',
+    'variance_value',
+    'unit_cost',
+    'total_cost',
+  ];
+  return sensitiveTerms.any(
+    (term) => field.contains(term) || message.contains(term),
+  );
 }
 
 Future<bool?> _confirmAction(

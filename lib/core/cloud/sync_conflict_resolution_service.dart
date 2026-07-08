@@ -142,8 +142,7 @@ class SyncConflictResolutionService {
           category: _nonBlank(cloudItem.category) ?? localItem.category,
           barcode: _nonBlank(cloudItem.barcode) ?? localItem.barcode,
           sku: _nonBlank(cloudItem.sku) ?? localItem.sku,
-          minimumQuantity:
-              cloudItem.reorderPoint ?? localItem.minimumQuantity,
+          minimumQuantity: cloudItem.reorderPoint ?? localItem.minimumQuantity,
           unitCost: cloudItem.unitCost ?? localItem.unitCost,
           isActive: cloudItem.isActive,
           updatedAt: cloudItem.updatedAt,
@@ -189,8 +188,7 @@ class SyncConflictResolutionService {
         final updated = localSupplier.copyWith(
           name: _nonBlank(cloudSupplier.name) ?? localSupplier.name,
           contactName:
-              _nonBlank(cloudSupplier.contactName) ??
-              localSupplier.contactName,
+              _nonBlank(cloudSupplier.contactName) ?? localSupplier.contactName,
           email: _nonBlank(cloudSupplier.email) ?? localSupplier.email,
           phone: _nonBlank(cloudSupplier.phone) ?? localSupplier.phone,
           website: _nonBlank(cloudSupplier.website) ?? localSupplier.website,

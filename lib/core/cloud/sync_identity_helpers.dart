@@ -152,7 +152,8 @@ SyncMergeConflict mergeConflict({
     localUpdatedAt: localValue is DateTime ? localValue : null,
     cloudUpdatedAt: cloudValue is DateTime ? cloudValue : null,
     message: message,
-    severity: entityType == CloudSyncEntity.inventoryBalance ||
+    severity:
+        entityType == CloudSyncEntity.inventoryBalance ||
             entityType == CloudSyncEntity.transaction
         ? SyncConflictSeverity.dangerous
         : SyncConflictSeverity.warning,
