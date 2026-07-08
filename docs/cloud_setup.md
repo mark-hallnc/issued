@@ -107,5 +107,7 @@ This foundation adds auth, workspace membership, workspace selection, and
 invites. It also adds sync metadata, item catalog upload, current inventory
 balance, movement history, and checkout record upload for future
 workspace-based sync. It also uploads suppliers and purchasing/reorder records.
-It also uploads cycle count sessions and lines. It does not include supplier
-documents, background sync workers, push updates, or conflict-resolution UI yet.
+It also uploads cycle count sessions and lines. Safe cloud-to-local item and
+supplier metadata merges are enabled, and skipped conflicts are visible in
+Settings. It does not include supplier documents, background sync workers, push
+updates, or full conflict-resolution workflows yet.

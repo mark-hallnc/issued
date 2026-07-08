@@ -2,6 +2,7 @@ export 'assignment_target_models.dart';
 export 'checkout_models.dart';
 export 'cloud_models.dart';
 export '../cloud/cloud_cycle_count_models.dart';
+export '../cloud/sync_merge_models.dart';
 export '../cloud/cloud_inventory_balance_models.dart';
 export '../cloud/cloud_checkout_models.dart';
 export '../cloud/cloud_inventory_transaction_models.dart';

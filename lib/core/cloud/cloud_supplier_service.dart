@@ -36,16 +36,24 @@ class CloudSupplierService {
   }
 
   Future<List<CloudSupplier>> fetchWorkspaceSuppliers(
-    String workspaceId,
-  ) async {
+    String workspaceId, {
+    DateTime? since,
+  }) async {
     final client = _requireClient();
     _requireUser();
     _requireWorkspaceId(workspaceId);
-    final rows = await client
-        .from('workspace_suppliers')
-        .select()
-        .eq('workspace_id', workspaceId)
-        .order('name', ascending: true);
+    final rows = since == null
+        ? await client
+              .from('workspace_suppliers')
+              .select()
+              .eq('workspace_id', workspaceId)
+              .order('name', ascending: true)
+        : await client
+              .from('workspace_suppliers')
+              .select()
+              .eq('workspace_id', workspaceId)
+              .gte('updated_at', since.toUtc().toIso8601String())
+              .order('name', ascending: true);
     return [
       for (final row in rows as List<dynamic>)
         CloudSupplier.fromJson(row as Map<String, dynamic>),
@@ -148,8 +156,11 @@ class CloudSupplierService {
     );
   }
 
-  Future<List<CloudSupplier>> pullWorkspaceSuppliers(String workspaceId) {
-    return fetchWorkspaceSuppliers(workspaceId);
+  Future<List<CloudSupplier>> pullWorkspaceSuppliers(
+    String workspaceId, {
+    DateTime? since,
+  }) {
+    return fetchWorkspaceSuppliers(workspaceId, since: since);
   }
 
   SupabaseClient _requireClient() {

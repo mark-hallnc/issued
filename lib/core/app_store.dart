@@ -71,6 +71,13 @@ class AppStore extends ChangeNotifier {
   bool get isCloudSignedIn => _currentCloudUser != null;
   bool get cloudModeEnabled => _cloudModeEnabled;
   CloudSyncSummary get cloudSyncSummary => _cloudSyncSummary;
+  List<SyncMergeConflict> get syncMergeConflicts =>
+      cloudSyncService.getMergeConflicts();
+  bool get hasSyncConflicts => syncMergeConflicts.isNotEmpty;
+  int get syncConflictCount => syncMergeConflicts.length;
+  DateTime? get lastCloudPullAt => cloudSyncService.getLastPullAt();
+  DateTime? get lastCloudPushAt => cloudSyncService.getLastPushAt();
+  DateTime? get lastCloudFullSyncAt => cloudSyncService.getLastFullSyncAt();
   bool get isCloudSyncReady => cloudSyncService.isCloudSyncReady();
   String get cloudSyncStatusLabel =>
       cloudSyncStatusLabelForSummary(_cloudSyncSummary);
@@ -659,6 +666,10 @@ class AppStore extends ChangeNotifier {
   }
 
   Future<AppActionResult> syncNow() async {
+    return syncTwoWayNow();
+  }
+
+  Future<AppActionResult> syncTwoWayNow() async {
     return _runCloudInventorySync(
       uploadBalances: true,
       uploadTransactions: true,
@@ -666,6 +677,27 @@ class AppStore extends ChangeNotifier {
       uploadPurchasing: true,
       uploadCycleCounts: true,
     );
+  }
+
+  Future<AppActionResult> pullCloudChangesNow() async {
+    final result = await cloudSyncService.pullFromCloud(
+      localItems: _items,
+      localBalances: _itemLocationBalances,
+      localTransactions: _transactions,
+      localCheckouts: _checkoutRecords,
+      localSuppliers: _suppliers,
+      localPurchaseOrders: _reorderRequests,
+      localCycleCounts: _cycleCountSessions,
+      localCycleCountLines: _cycleCountLines,
+      defaultUnitOfMeasureId: _defaultUnitOfMeasureId,
+      defaultLocationId: _defaultLocationId,
+    );
+    _cloudSyncSummary = cloudSyncService.getSyncSummary();
+    await _loadFromDatabase();
+    notifyListeners();
+    return result.success
+        ? AppActionResult.success(message: result.message)
+        : AppActionResult.failure(result.message, data: result.error);
   }
 
   Future<AppActionResult> syncItemCatalogNow() async {
@@ -754,6 +786,8 @@ class AppStore extends ChangeNotifier {
       localPurchaseOrders: _reorderRequests,
       localCycleCounts: _cycleCountSessions,
       localCycleCountLines: _cycleCountLines,
+      defaultUnitOfMeasureId: _defaultUnitOfMeasureId,
+      defaultLocationId: _defaultLocationId,
       unitForItem: (item) => resolveUomAbbreviation(item.unitOfMeasureId),
       locationNameForBalance: (balance) =>
           resolveLocationName(balance.locationId),
@@ -782,6 +816,7 @@ class AppStore extends ChangeNotifier {
       includeCostFields: permissions.canViewCosts,
     );
     _cloudSyncSummary = cloudSyncService.getSyncSummary();
+    await _loadFromDatabase();
     notifyListeners();
     return result.success
         ? AppActionResult.success(message: result.message)
@@ -791,6 +826,13 @@ class AppStore extends ChangeNotifier {
   void clearCloudSyncError() {
     cloudSyncService.clearSyncError();
     _cloudSyncSummary = cloudSyncService.getSyncSummary();
+    notifyListeners();
+  }
+
+  List<SyncMergeConflict> getSyncMergeConflicts() => syncMergeConflicts;
+
+  void clearSyncMergeConflicts() {
+    cloudSyncService.clearMergeConflicts();
     notifyListeners();
   }
 
@@ -926,6 +968,24 @@ class AppStore extends ChangeNotifier {
 
   bool get _canUploadCycleCounts =>
       permissions.canManageCycleCounts || permissions.canApproveCycleCounts;
+
+  String get _defaultUnitOfMeasureId {
+    for (final unit in _unitsOfMeasure) {
+      if (unit.isActive) {
+        return unit.id;
+      }
+    }
+    return 'uom-each';
+  }
+
+  String get _defaultLocationId {
+    for (final location in _locations) {
+      if (location.isActive) {
+        return location.id;
+      }
+    }
+    return 'loc-main';
+  }
 
   double? _varianceValueForCycleCountLine(CycleCountLine line) {
     final item = _itemById(line.itemId);

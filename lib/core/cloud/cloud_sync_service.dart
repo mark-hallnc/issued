@@ -19,7 +19,9 @@ import 'cloud_inventory_transaction_service.dart';
 import 'cloud_item_service.dart';
 import 'cloud_purchasing_service.dart';
 import 'cloud_supplier_service.dart';
+import 'cloud_to_local_apply_service.dart';
 import 'supabase_config.dart';
+import 'sync_merge_models.dart';
 import 'sync_models.dart';
 import 'workspace_service.dart';
 
@@ -35,6 +37,7 @@ class CloudSyncService {
     CloudPurchasingService? purchasingService,
     CloudSupplierService? supplierService,
     CloudCycleCountService? cycleCountService,
+    CloudToLocalApplyService? applyService,
     this.client,
   }) : checkoutService =
            checkoutService ?? CloudCheckoutService(authService: authService),
@@ -50,7 +53,8 @@ class CloudSyncService {
        purchasingService =
            purchasingService ?? CloudPurchasingService(authService: authService),
        supplierService =
-           supplierService ?? CloudSupplierService(authService: authService);
+           supplierService ?? CloudSupplierService(authService: authService),
+       applyService = applyService ?? CloudToLocalApplyService(database: database);
 
   final WorkspaceService workspaceService;
   final AppDatabase database;
@@ -62,12 +66,17 @@ class CloudSyncService {
   final CloudItemService itemService;
   final CloudPurchasingService purchasingService;
   final CloudSupplierService supplierService;
+  final CloudToLocalApplyService applyService;
   final SupabaseClient? client;
 
   CloudSyncSummary _summary = CloudSyncSummary.disabled();
   String? _activeWorkspaceId;
   String? _activeWorkspaceName;
   bool _paused = false;
+  final List<SyncMergeConflict> _mergeConflicts = [];
+  final Map<String, DateTime> _lastPullAtByWorkspace = {};
+  final Map<String, DateTime> _lastPushAtByWorkspace = {};
+  final Map<String, DateTime> _lastFullSyncAtByWorkspace = {};
 
   SupabaseClient? get _client {
     if (!SupabaseConfig.isConfigured) {
@@ -77,6 +86,37 @@ class CloudSyncService {
   }
 
   CloudSyncSummary getSyncSummary() => _summary;
+
+  List<SyncMergeConflict> getMergeConflicts() =>
+      List.unmodifiable(_mergeConflicts);
+
+  DateTime? getLastPullAt([String? workspaceId]) {
+    final id = workspaceId ?? _activeWorkspaceId;
+    if (id == null) {
+      return null;
+    }
+    return _lastPullAtByWorkspace[id];
+  }
+
+  DateTime? getLastPushAt([String? workspaceId]) {
+    final id = workspaceId ?? _activeWorkspaceId;
+    if (id == null) {
+      return null;
+    }
+    return _lastPushAtByWorkspace[id];
+  }
+
+  DateTime? getLastFullSyncAt([String? workspaceId]) {
+    final id = workspaceId ?? _activeWorkspaceId;
+    if (id == null) {
+      return null;
+    }
+    return _lastFullSyncAtByWorkspace[id];
+  }
+
+  void clearMergeConflicts() {
+    _mergeConflicts.clear();
+  }
 
   Future<CloudSyncSummary> initializeForWorkspace(
     String workspaceId, {
@@ -129,6 +169,8 @@ class CloudSyncService {
     String? Function(String locationId)? cycleCountLocationNameForId,
     double? Function(CycleCountLine line)? varianceValueForCycleCountLine,
     String? Function(Item item)? unitForItem,
+    String defaultUnitOfMeasureId = 'uom-each',
+    String defaultLocationId = 'loc-main',
     bool canUploadInventoryBalances = false,
     bool canUploadInventoryTransactions = false,
     bool canUploadCheckouts = false,
@@ -359,7 +401,33 @@ class CloudSyncService {
                 isUploadOnly: true,
               );
             }());
+      if (canUploadItemCatalog ||
+          canUploadInventoryBalances ||
+          canUploadInventoryTransactions ||
+          canUploadCheckouts ||
+          canUploadPurchasing ||
+          canUploadCycleCounts) {
+        _lastPushAtByWorkspace[activeWorkspaceId] = DateTime.now();
+      }
+      final mergeSummary = await _pullAndApplyCloud(
+        workspaceId: activeWorkspaceId,
+        localItems: localItems,
+        localBalances: localBalances,
+        localTransactions: localTransactions,
+        localCheckouts: localCheckouts,
+        localSuppliers: localSuppliers,
+        localPurchaseOrders: localPurchaseOrders,
+        localCycleCounts: localCycleCounts,
+        localCycleCountLines: localCycleCountLines,
+        defaultUnitOfMeasureId: defaultUnitOfMeasureId,
+        defaultLocationId: defaultLocationId,
+      );
       final finishedAt = DateTime.now();
+      _lastPullAtByWorkspace[activeWorkspaceId] = finishedAt;
+      _lastFullSyncAtByWorkspace[activeWorkspaceId] = finishedAt;
+      _mergeConflicts
+        ..clear()
+        ..addAll(mergeSummary.conflicts);
       _summary = _summary.copyWith(
         status: CloudSyncStatus.ready,
         lastSyncAt: finishedAt,
@@ -376,20 +444,23 @@ class CloudSyncService {
         pendingDownloadCount: 0,
         clearLastError: true,
       );
+      final conflictText = mergeSummary.conflictCount > 0
+          ? ' ${mergeSummary.conflictCount} cloud records need review.'
+          : '';
       return CloudSyncResult.success(
         message: canUploadCycleCounts
-            ? 'Cycle counts uploaded. Cloud-to-device count merge is not enabled yet.'
+            ? 'Safe two-way sync completed. Some workflow records are fetch-only until conflict review is finished.$conflictText'
             : canUploadPurchasing
-            ? 'Purchasing records uploaded. Cloud-to-device purchasing merge is not enabled yet.'
+            ? 'Purchasing records uploaded. Safe cloud download applied where possible.$conflictText'
             : canUploadCheckouts
-            ? 'Checkouts uploaded. Cloud-to-device checkout merge is not enabled yet.'
+            ? 'Checkouts uploaded. Safe cloud download applied where possible.$conflictText'
             : canUploadInventoryTransactions
-            ? 'Inventory transactions uploaded. Checkout upload is not allowed for your role.'
+            ? 'Inventory transactions uploaded. Safe cloud download applied where possible.$conflictText'
             : canUploadInventoryBalances
-            ? 'Inventory balances synced. Transaction upload is not allowed for your role.'
+            ? 'Inventory balances synced. Safe cloud download applied where possible.$conflictText'
             : canUploadItemCatalog
-            ? 'Item catalog uploaded. Balance upload is not allowed for your role.'
-            : 'Cloud inventory sync checked. Your role cannot upload inventory changes.',
+            ? 'Item catalog uploaded. Safe cloud download applied where possible.$conflictText'
+            : 'Cloud changes pulled where safe. Your role cannot upload inventory changes.$conflictText',
         uploadedCount:
             itemCatalogResult.uploadedCount +
             balanceResult.uploadedCount +
@@ -413,7 +484,10 @@ class CloudSyncService {
             checkoutResult.skippedCount +
             supplierResult.skippedCount +
             purchasingResult.skippedCount +
-            cycleCountResult.skippedCount,
+            cycleCountResult.skippedCount +
+            mergeSummary.skippedCount +
+            mergeSummary.unsupportedCount +
+            mergeSummary.duplicateCount,
       );
     } on SocketException catch (error) {
       return _offlineResult(error);
@@ -438,6 +512,256 @@ class CloudSyncService {
       );
       return CloudSyncResult.failure(message: message, error: error);
     }
+  }
+
+  Future<CloudSyncResult> pullFromCloud({
+    List<Item> localItems = const [],
+    List<ItemLocationBalance> localBalances = const [],
+    List<InventoryTransaction> localTransactions = const [],
+    List<CheckoutRecord> localCheckouts = const [],
+    List<Supplier> localSuppliers = const [],
+    List<ReorderRequest> localPurchaseOrders = const [],
+    List<CycleCountSession> localCycleCounts = const [],
+    List<CycleCountLine> localCycleCountLines = const [],
+    String defaultUnitOfMeasureId = 'uom-each',
+    String defaultLocationId = 'loc-main',
+  }) {
+    return syncNow(
+      localItems: localItems,
+      localBalances: localBalances,
+      localTransactions: localTransactions,
+      localCheckouts: localCheckouts,
+      localSuppliers: localSuppliers,
+      localPurchaseOrders: localPurchaseOrders,
+      localCycleCounts: localCycleCounts,
+      localCycleCountLines: localCycleCountLines,
+      defaultUnitOfMeasureId: defaultUnitOfMeasureId,
+      defaultLocationId: defaultLocationId,
+      canUploadItemCatalog: false,
+      canUploadInventoryBalances: false,
+      canUploadInventoryTransactions: false,
+      canUploadCheckouts: false,
+      canUploadPurchasing: false,
+      canUploadCycleCounts: false,
+    );
+  }
+
+  Future<CloudSyncResult> pushToCloud({
+    List<Item> localItems = const [],
+    List<ItemLocationBalance> localBalances = const [],
+    List<InventoryTransaction> localTransactions = const [],
+    List<CheckoutRecord> localCheckouts = const [],
+    List<Supplier> localSuppliers = const [],
+    List<ReorderRequest> localPurchaseOrders = const [],
+    List<CycleCountSession> localCycleCounts = const [],
+    List<CycleCountLine> localCycleCountLines = const [],
+    String? Function(ItemLocationBalance balance)? locationNameForBalance,
+    String? Function(String? locationId)? transactionLocationNameForId,
+    String? Function(InventoryTransaction transaction)?
+        assignmentLabelForTransaction,
+    String? Function(CheckoutRecord checkout)? checkedOutToLabelForCheckout,
+    String? Function(String? personId)? personNameForCheckout,
+    String? Function(String? userId)? performedByNameForTransaction,
+    String? Function(String? userId)? performedByEmailForTransaction,
+    String? Function(String locationId)? cycleCountLocationNameForId,
+    double? Function(CycleCountLine line)? varianceValueForCycleCountLine,
+    String? Function(Item item)? unitForItem,
+    String defaultUnitOfMeasureId = 'uom-each',
+    String defaultLocationId = 'loc-main',
+    bool canUploadInventoryBalances = false,
+    bool canUploadInventoryTransactions = false,
+    bool canUploadCheckouts = false,
+    bool canUploadPurchasing = false,
+    bool canUploadCycleCounts = false,
+    bool includeCostFields = false,
+    bool canUploadItemCatalog = false,
+  }) {
+    return syncNow(
+      localItems: localItems,
+      localBalances: localBalances,
+      localTransactions: localTransactions,
+      localCheckouts: localCheckouts,
+      localSuppliers: localSuppliers,
+      localPurchaseOrders: localPurchaseOrders,
+      localCycleCounts: localCycleCounts,
+      localCycleCountLines: localCycleCountLines,
+      locationNameForBalance: locationNameForBalance,
+      transactionLocationNameForId: transactionLocationNameForId,
+      assignmentLabelForTransaction: assignmentLabelForTransaction,
+      checkedOutToLabelForCheckout: checkedOutToLabelForCheckout,
+      personNameForCheckout: personNameForCheckout,
+      performedByNameForTransaction: performedByNameForTransaction,
+      performedByEmailForTransaction: performedByEmailForTransaction,
+      cycleCountLocationNameForId: cycleCountLocationNameForId,
+      varianceValueForCycleCountLine: varianceValueForCycleCountLine,
+      unitForItem: unitForItem,
+      defaultUnitOfMeasureId: defaultUnitOfMeasureId,
+      defaultLocationId: defaultLocationId,
+      canUploadInventoryBalances: canUploadInventoryBalances,
+      canUploadInventoryTransactions: canUploadInventoryTransactions,
+      canUploadCheckouts: canUploadCheckouts,
+      canUploadPurchasing: canUploadPurchasing,
+      canUploadCycleCounts: canUploadCycleCounts,
+      includeCostFields: includeCostFields,
+      canUploadItemCatalog: canUploadItemCatalog,
+    );
+  }
+
+  Future<CloudSyncResult> syncTwoWay({
+    List<Item> localItems = const [],
+    List<ItemLocationBalance> localBalances = const [],
+    List<InventoryTransaction> localTransactions = const [],
+    List<CheckoutRecord> localCheckouts = const [],
+    List<Supplier> localSuppliers = const [],
+    List<ReorderRequest> localPurchaseOrders = const [],
+    List<CycleCountSession> localCycleCounts = const [],
+    List<CycleCountLine> localCycleCountLines = const [],
+    String? Function(ItemLocationBalance balance)? locationNameForBalance,
+    String? Function(String? locationId)? transactionLocationNameForId,
+    String? Function(InventoryTransaction transaction)?
+        assignmentLabelForTransaction,
+    String? Function(CheckoutRecord checkout)? checkedOutToLabelForCheckout,
+    String? Function(String? personId)? personNameForCheckout,
+    String? Function(String? userId)? performedByNameForTransaction,
+    String? Function(String? userId)? performedByEmailForTransaction,
+    String? Function(String locationId)? cycleCountLocationNameForId,
+    double? Function(CycleCountLine line)? varianceValueForCycleCountLine,
+    String? Function(Item item)? unitForItem,
+    String defaultUnitOfMeasureId = 'uom-each',
+    String defaultLocationId = 'loc-main',
+    bool canUploadInventoryBalances = false,
+    bool canUploadInventoryTransactions = false,
+    bool canUploadCheckouts = false,
+    bool canUploadPurchasing = false,
+    bool canUploadCycleCounts = false,
+    bool includeCostFields = false,
+    bool canUploadItemCatalog = false,
+  }) {
+    return pushToCloud(
+      localItems: localItems,
+      localBalances: localBalances,
+      localTransactions: localTransactions,
+      localCheckouts: localCheckouts,
+      localSuppliers: localSuppliers,
+      localPurchaseOrders: localPurchaseOrders,
+      localCycleCounts: localCycleCounts,
+      localCycleCountLines: localCycleCountLines,
+      locationNameForBalance: locationNameForBalance,
+      transactionLocationNameForId: transactionLocationNameForId,
+      assignmentLabelForTransaction: assignmentLabelForTransaction,
+      checkedOutToLabelForCheckout: checkedOutToLabelForCheckout,
+      personNameForCheckout: personNameForCheckout,
+      performedByNameForTransaction: performedByNameForTransaction,
+      performedByEmailForTransaction: performedByEmailForTransaction,
+      cycleCountLocationNameForId: cycleCountLocationNameForId,
+      varianceValueForCycleCountLine: varianceValueForCycleCountLine,
+      unitForItem: unitForItem,
+      defaultUnitOfMeasureId: defaultUnitOfMeasureId,
+      defaultLocationId: defaultLocationId,
+      canUploadInventoryBalances: canUploadInventoryBalances,
+      canUploadInventoryTransactions: canUploadInventoryTransactions,
+      canUploadCheckouts: canUploadCheckouts,
+      canUploadPurchasing: canUploadPurchasing,
+      canUploadCycleCounts: canUploadCycleCounts,
+      includeCostFields: includeCostFields,
+      canUploadItemCatalog: canUploadItemCatalog,
+    );
+  }
+
+  Future<CloudSyncResult> syncEntityTwoWay(CloudSyncEntity entity) async {
+    return CloudSyncResult.failure(
+      message:
+          '${entity.name} single-entity two-way sync is not enabled yet. Use full safe two-way sync.',
+    );
+  }
+
+  Future<SyncMergeSummary> _pullAndApplyCloud({
+    required String workspaceId,
+    required List<Item> localItems,
+    required List<ItemLocationBalance> localBalances,
+    required List<InventoryTransaction> localTransactions,
+    required List<CheckoutRecord> localCheckouts,
+    required List<Supplier> localSuppliers,
+    required List<ReorderRequest> localPurchaseOrders,
+    required List<CycleCountSession> localCycleCounts,
+    required List<CycleCountLine> localCycleCountLines,
+    required String defaultUnitOfMeasureId,
+    required String defaultLocationId,
+  }) async {
+    final since = _lastPullAtByWorkspace[workspaceId];
+    final lastFullSyncAt = _lastFullSyncAtByWorkspace[workspaceId];
+    final cloudItems = await itemService.pullItemCatalog(
+      workspaceId,
+      since: since,
+    );
+    final itemSummary = await applyService.applyCloudItems(
+      cloudItems: cloudItems,
+      localItems: localItems,
+      defaultUnitOfMeasureId: defaultUnitOfMeasureId,
+      defaultLocationId: defaultLocationId,
+      lastFullSyncAt: lastFullSyncAt,
+    );
+    final cloudSuppliers = await supplierService.pullWorkspaceSuppliers(
+      workspaceId,
+      since: since,
+    );
+    final supplierSummary = await applyService.applyCloudSuppliers(
+      cloudSuppliers: cloudSuppliers,
+      localSuppliers: localSuppliers,
+      lastFullSyncAt: lastFullSyncAt,
+    );
+    final cloudBalances = await balanceService.pullWorkspaceBalances(
+      workspaceId,
+      since: since,
+    );
+    final balanceSummary = await applyService.applyCloudInventoryBalances(
+      cloudBalances: cloudBalances,
+      localBalances: localBalances,
+    );
+    final cloudTransactions = await transactionService.pullWorkspaceTransactions(
+      workspaceId,
+      since: since,
+    );
+    final transactionSummary =
+        await applyService.applyCloudInventoryTransactions(
+          cloudTransactions: cloudTransactions,
+          localTransactions: localTransactions,
+        );
+    final cloudCheckouts = await checkoutService.pullWorkspaceCheckouts(
+      workspaceId,
+      since: since,
+    );
+    final checkoutSummary = await applyService.applyCloudCheckouts(
+      cloudCheckouts: cloudCheckouts,
+      localCheckouts: localCheckouts,
+    );
+    final cloudPurchaseOrders =
+        await purchasingService.pullWorkspacePurchaseOrders(
+          workspaceId,
+          since: since,
+        );
+    final purchasingSummary = await applyService.applyCloudPurchasing(
+      cloudPurchaseOrders: cloudPurchaseOrders,
+      localPurchaseOrders: localPurchaseOrders,
+    );
+    final cloudCounts = await cycleCountService.pullWorkspaceCycleCounts(
+      workspaceId,
+      since: since,
+    );
+    final cycleCountSummary = await applyService.applyCloudCycleCounts(
+      cloudCycleCounts: cloudCounts.counts,
+      cloudCycleCountLines: cloudCounts.lines,
+      localCycleCounts: localCycleCounts,
+      localCycleCountLines: localCycleCountLines,
+    );
+
+    return itemSummary
+        .merge(supplierSummary)
+        .merge(balanceSummary)
+        .merge(transactionSummary)
+        .merge(checkoutSummary)
+        .merge(purchasingSummary)
+        .merge(cycleCountSummary);
   }
 
   void pauseSync() {
@@ -474,6 +798,7 @@ class CloudSyncService {
     _activeWorkspaceId = null;
     _activeWorkspaceName = null;
     _paused = false;
+    _mergeConflicts.clear();
     _summary = CloudSyncSummary.disabled();
   }
 

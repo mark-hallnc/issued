@@ -36,16 +36,24 @@ class CloudInventoryBalanceService {
   }
 
   Future<List<CloudInventoryBalance>> fetchWorkspaceBalances(
-    String workspaceId,
-  ) async {
+    String workspaceId, {
+    DateTime? since,
+  }) async {
     final client = _requireClient();
     _requireUser();
     _requireWorkspaceId(workspaceId);
-    final rows = await client
-        .from('workspace_inventory_balances')
-        .select()
-        .eq('workspace_id', workspaceId)
-        .order('updated_at', ascending: false);
+    final rows = since == null
+        ? await client
+              .from('workspace_inventory_balances')
+              .select()
+              .eq('workspace_id', workspaceId)
+              .order('updated_at', ascending: false)
+        : await client
+              .from('workspace_inventory_balances')
+              .select()
+              .eq('workspace_id', workspaceId)
+              .gte('updated_at', since.toUtc().toIso8601String())
+              .order('updated_at', ascending: false);
     return [
       for (final row in rows as List<dynamic>)
         CloudInventoryBalance.fromJson(row as Map<String, dynamic>),
@@ -136,9 +144,11 @@ class CloudInventoryBalanceService {
   }
 
   Future<List<CloudInventoryBalance>> pullWorkspaceBalances(
-    String workspaceId,
+    String workspaceId, {
+    DateTime? since,
+  },
   ) {
-    return fetchWorkspaceBalances(workspaceId);
+    return fetchWorkspaceBalances(workspaceId, since: since);
   }
 
   SupabaseClient _requireClient() {

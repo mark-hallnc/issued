@@ -36,16 +36,24 @@ class CloudItemService {
   }
 
   Future<List<CloudWorkspaceItem>> fetchWorkspaceItems(
-    String workspaceId,
-  ) async {
+    String workspaceId, {
+    DateTime? since,
+  }) async {
     final client = _requireClient();
     _requireUser();
     _requireWorkspaceId(workspaceId);
-    final rows = await client
-        .from('workspace_items')
-        .select()
-        .eq('workspace_id', workspaceId)
-        .order('updated_at', ascending: false);
+    final rows = since == null
+        ? await client
+              .from('workspace_items')
+              .select()
+              .eq('workspace_id', workspaceId)
+              .order('updated_at', ascending: false)
+        : await client
+              .from('workspace_items')
+              .select()
+              .eq('workspace_id', workspaceId)
+              .gte('updated_at', since.toUtc().toIso8601String())
+              .order('updated_at', ascending: false);
     return [
       for (final row in rows as List<dynamic>)
         CloudWorkspaceItem.fromJson(row as Map<String, dynamic>),
@@ -125,8 +133,11 @@ class CloudItemService {
     return CloudWorkspaceItem.fromJson(row);
   }
 
-  Future<List<CloudWorkspaceItem>> pullItemCatalog(String workspaceId) {
-    return fetchWorkspaceItems(workspaceId);
+  Future<List<CloudWorkspaceItem>> pullItemCatalog(
+    String workspaceId, {
+    DateTime? since,
+  }) {
+    return fetchWorkspaceItems(workspaceId, since: since);
   }
 
   Future<CloudItemCatalogSyncResult> pushItemCatalog({

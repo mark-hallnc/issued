@@ -11,6 +11,7 @@ import 'import_export_screen.dart';
 import 'label_center_screen.dart';
 import 'reports_screen.dart';
 import 'settings_detail_screens.dart';
+import 'sync_conflicts_screen.dart';
 import 'workspace_members_screen.dart';
 import 'workspace_selection_screen.dart';
 
@@ -350,8 +351,20 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                     ),
                   ),
                   _CloudStatusLine(
+                    label: 'Last pull',
+                    value: _formatCloudSyncDate(store.lastCloudPullAt),
+                  ),
+                  _CloudStatusLine(
+                    label: 'Last push',
+                    value: _formatCloudSyncDate(store.lastCloudPushAt),
+                  ),
+                  _CloudStatusLine(
                     label: 'Pending local changes',
                     value: store.cloudSyncSummary.pendingUploadCount.toString(),
+                  ),
+                  _CloudStatusLine(
+                    label: 'Conflicts',
+                    value: store.syncConflictCount.toString(),
                   ),
                   const _CloudStatusLine(
                     label: 'Item catalog',
@@ -393,8 +406,35 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                   ],
                   const SizedBox(height: 10),
                   const Text(
-                    'Item catalog, current balances, transaction history, checkouts, suppliers, purchasing, and cycle count upload are enabled. Background sync and conflict UI are not enabled yet.',
+                    'Safe two-way sync is enabled for item and supplier metadata. Workflow records are downloaded for status and staged until conflict review is finished. Background sync is not enabled yet.',
                   ),
+                  if (store.hasSyncConflicts) ...[
+                    const SizedBox(height: 10),
+                    Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF7E6),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFF79009)),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Sync needs review',
+                              style: TextStyle(fontWeight: FontWeight.w800),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${store.syncConflictCount} records were skipped because local and cloud data both changed.',
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   Wrap(
                     spacing: 10,
@@ -418,6 +458,64 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                         icon: const Icon(Icons.sync),
                         label: const Text('Sync now'),
                       ),
+                      OutlinedButton.icon(
+                        onPressed: store.isCloudSignedIn
+                            ? () async {
+                                final result = await store.syncTwoWayNow();
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        result.message ??
+                                            'Two-way sync checked.',
+                                      ),
+                                    ),
+                                  );
+                                }
+                              }
+                            : null,
+                        icon: const Icon(Icons.sync_alt),
+                        label: const Text('Two-way sync now'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: store.isCloudSignedIn
+                            ? () async {
+                                final result = await store
+                                    .pullCloudChangesNow();
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        result.message ??
+                                            'Cloud changes pulled.',
+                                      ),
+                                    ),
+                                  );
+                                }
+                              }
+                            : null,
+                        icon: const Icon(Icons.cloud_download_outlined),
+                        label: const Text('Pull cloud changes'),
+                      ),
+                      if (store.hasSyncConflicts)
+                        OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (context) =>
+                                    const SyncConflictsScreen(),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.report_problem_outlined),
+                          label: const Text('View conflicts'),
+                        ),
+                      if (store.hasSyncConflicts)
+                        OutlinedButton.icon(
+                          onPressed: store.clearSyncMergeConflicts,
+                          icon: const Icon(Icons.clear_all),
+                          label: const Text('Clear reviewed conflicts'),
+                        ),
                       OutlinedButton.icon(
                         onPressed: store.isCloudSignedIn
                             ? () async {
