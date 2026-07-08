@@ -4,10 +4,12 @@ import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../database/app_database.dart';
+import '../models/checkout_models.dart';
 import '../models/cloud_models.dart';
 import '../models/inventory_models.dart';
 import '../models/item_location_balance_models.dart';
 import 'cloud_auth_service.dart';
+import 'cloud_checkout_service.dart';
 import 'cloud_inventory_balance_service.dart';
 import 'cloud_inventory_transaction_service.dart';
 import 'cloud_item_service.dart';
@@ -20,11 +22,14 @@ class CloudSyncService {
     required this.workspaceService,
     required this.database,
     this.authService = const CloudAuthService(),
+    CloudCheckoutService? checkoutService,
     CloudInventoryBalanceService? balanceService,
     CloudInventoryTransactionService? transactionService,
     CloudItemService? itemService,
     this.client,
-  }) : balanceService =
+  }) : checkoutService =
+           checkoutService ?? CloudCheckoutService(authService: authService),
+       balanceService =
            balanceService ??
            CloudInventoryBalanceService(authService: authService),
        transactionService =
@@ -35,6 +40,7 @@ class CloudSyncService {
   final WorkspaceService workspaceService;
   final AppDatabase database;
   final CloudAuthService authService;
+  final CloudCheckoutService checkoutService;
   final CloudInventoryBalanceService balanceService;
   final CloudInventoryTransactionService transactionService;
   final CloudItemService itemService;
@@ -89,15 +95,19 @@ class CloudSyncService {
     List<Item> localItems = const [],
     List<ItemLocationBalance> localBalances = const [],
     List<InventoryTransaction> localTransactions = const [],
+    List<CheckoutRecord> localCheckouts = const [],
     String? Function(ItemLocationBalance balance)? locationNameForBalance,
     String? Function(String? locationId)? transactionLocationNameForId,
     String? Function(InventoryTransaction transaction)?
         assignmentLabelForTransaction,
+    String? Function(CheckoutRecord checkout)? checkedOutToLabelForCheckout,
+    String? Function(String? personId)? personNameForCheckout,
     String? Function(String? userId)? performedByNameForTransaction,
     String? Function(String? userId)? performedByEmailForTransaction,
     String? Function(Item item)? unitForItem,
     bool canUploadInventoryBalances = false,
     bool canUploadInventoryTransactions = false,
+    bool canUploadCheckouts = false,
     bool canUploadItemCatalog = false,
   }) async {
     final client = _client;
@@ -240,6 +250,25 @@ class CloudSyncService {
               skippedCount: localTransactions.length,
               isUploadOnly: true,
             );
+      final checkoutResult = canUploadCheckouts
+          ? await checkoutService.pushLocalCheckouts(
+              workspaceId: activeWorkspaceId,
+              checkouts: localCheckouts,
+              workspaceItemIdsByLocalItemId: workspaceItemIdsByLocalItemId,
+              checkedOutToLabelFor: checkedOutToLabelForCheckout,
+              personNameFor: personNameForCheckout,
+              userNameFor: performedByNameForTransaction,
+              userEmailFor: performedByEmailForTransaction,
+            )
+          : CloudCheckoutSyncResult(
+              uploadedCount: 0,
+              downloadedCount:
+                  (await checkoutService.pullWorkspaceCheckouts(
+                    activeWorkspaceId,
+                  )).length,
+              skippedCount: localCheckouts.length,
+              isUploadOnly: true,
+            );
       final finishedAt = DateTime.now();
       _summary = _summary.copyWith(
         status: CloudSyncStatus.ready,
@@ -248,15 +277,18 @@ class CloudSyncService {
         pendingUploadCount:
             (canUploadItemCatalog &&
                 canUploadInventoryBalances &&
-                canUploadInventoryTransactions)
+                canUploadInventoryTransactions &&
+                canUploadCheckouts)
             ? 0
             : _summary.pendingUploadCount,
         pendingDownloadCount: 0,
         clearLastError: true,
       );
       return CloudSyncResult.success(
-        message: canUploadInventoryTransactions
-            ? 'Inventory transactions uploaded. Cloud-to-device transaction merge is not enabled yet.'
+        message: canUploadCheckouts
+            ? 'Checkouts uploaded. Cloud-to-device checkout merge is not enabled yet.'
+            : canUploadInventoryTransactions
+            ? 'Inventory transactions uploaded. Checkout upload is not allowed for your role.'
             : canUploadInventoryBalances
             ? 'Inventory balances synced. Transaction upload is not allowed for your role.'
             : canUploadItemCatalog
@@ -265,15 +297,18 @@ class CloudSyncService {
         uploadedCount:
             itemCatalogResult.uploadedCount +
             balanceResult.uploadedCount +
-            transactionResult.uploadedCount,
+            transactionResult.uploadedCount +
+            checkoutResult.uploadedCount,
         downloadedCount:
             itemCatalogResult.downloadedCount +
             balanceResult.downloadedCount +
-            transactionResult.downloadedCount,
+            transactionResult.downloadedCount +
+            checkoutResult.downloadedCount,
         skippedCount:
             itemCatalogResult.skippedCount +
             balanceResult.skippedCount +
-            transactionResult.skippedCount,
+            transactionResult.skippedCount +
+            checkoutResult.skippedCount,
       );
     } on SocketException catch (error) {
       return _offlineResult(error);

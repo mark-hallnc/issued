@@ -85,8 +85,11 @@ class AppStore extends ChangeNotifier {
   String get cloudTransactionSyncStatus => isCloudWorkspaceActive
       ? 'Transaction history upload enabled'
       : 'Transaction history sync disabled';
-  DateTime? get lastTransactionSyncAt =>
-      _cloudSyncSummary.lastSuccessfulSyncAt;
+  DateTime? get lastTransactionSyncAt => _cloudSyncSummary.lastSuccessfulSyncAt;
+  String get cloudCheckoutSyncStatus => isCloudWorkspaceActive
+      ? 'Checkout upload enabled'
+      : 'Checkout sync disabled';
+  DateTime? get lastCheckoutSyncAt => _cloudSyncSummary.lastSuccessfulSyncAt;
   bool get isCloudWorkspaceActive =>
       _cloudModeEnabled &&
       _currentCloudUser != null &&
@@ -648,6 +651,7 @@ class AppStore extends ChangeNotifier {
     return _runCloudInventorySync(
       uploadBalances: true,
       uploadTransactions: true,
+      uploadCheckouts: true,
     );
   }
 
@@ -655,6 +659,7 @@ class AppStore extends ChangeNotifier {
     return _runCloudInventorySync(
       uploadBalances: false,
       uploadTransactions: false,
+      uploadCheckouts: false,
     );
   }
 
@@ -662,6 +667,7 @@ class AppStore extends ChangeNotifier {
     return _runCloudInventorySync(
       uploadBalances: true,
       uploadTransactions: false,
+      uploadCheckouts: false,
     );
   }
 
@@ -669,17 +675,28 @@ class AppStore extends ChangeNotifier {
     return _runCloudInventorySync(
       uploadBalances: true,
       uploadTransactions: true,
+      uploadCheckouts: false,
+    );
+  }
+
+  Future<AppActionResult> syncCheckoutsNow() async {
+    return _runCloudInventorySync(
+      uploadBalances: true,
+      uploadTransactions: true,
+      uploadCheckouts: true,
     );
   }
 
   Future<AppActionResult> _runCloudInventorySync({
     required bool uploadBalances,
     required bool uploadTransactions,
+    required bool uploadCheckouts,
   }) async {
     final result = await cloudSyncService.syncNow(
       localItems: _items,
       localBalances: _itemLocationBalances,
       localTransactions: _transactionsAllowedForCloudUpload,
+      localCheckouts: _checkoutsAllowedForCloudUpload,
       unitForItem: (item) => resolveUomAbbreviation(item.unitOfMeasureId),
       locationNameForBalance: (balance) =>
           resolveLocationName(balance.locationId),
@@ -690,12 +707,15 @@ class AppStore extends ChangeNotifier {
         locationId: transaction.assignedToLocationId,
         text: transaction.assignedToText,
       ),
+      checkedOutToLabelForCheckout: resolveCheckoutAssigneeName,
+      personNameForCheckout: resolvePersonName,
       performedByNameForTransaction: resolveUserName,
       performedByEmailForTransaction: _resolveUserEmail,
       canUploadItemCatalog: permissions.canManageItems,
       canUploadInventoryBalances: uploadBalances && _canUploadInventoryBalances,
       canUploadInventoryTransactions:
           uploadTransactions && _canUploadInventoryTransactions,
+      canUploadCheckouts: uploadCheckouts && _canUploadCheckouts,
     );
     _cloudSyncSummary = cloudSyncService.getSyncSummary();
     notifyListeners();
@@ -757,6 +777,20 @@ class AppStore extends ChangeNotifier {
     _cloudSyncSummary = cloudSyncService.getSyncSummary();
   }
 
+  void queueCheckoutForSync(String checkoutId) {
+    if (!isCloudWorkspaceActive || !_canUploadCheckouts) {
+      return;
+    }
+    unawaited(
+      cloudSyncService.queueLocalChange(
+        entity: CloudSyncEntity.checkout,
+        entityId: checkoutId,
+        operation: CloudSyncOperation.update,
+      ),
+    );
+    _cloudSyncSummary = cloudSyncService.getSyncSummary();
+  }
+
   bool get _canUploadInventoryBalances =>
       permissions.canAdjustInventory ||
       permissions.canReceiveStock ||
@@ -764,6 +798,15 @@ class AppStore extends ChangeNotifier {
       permissions.canTransferStock;
 
   bool get _canUploadInventoryTransactions => _canUploadInventoryBalances;
+
+  bool get _canUploadCheckouts => permissions.canIssueItems;
+
+  List<CheckoutRecord> get _checkoutsAllowedForCloudUpload {
+    if (!_canUploadCheckouts) {
+      return const [];
+    }
+    return _checkoutRecords;
+  }
 
   List<InventoryTransaction> get _transactionsAllowedForCloudUpload {
     if (permissions.isAdmin || permissions.isManager) {
@@ -3916,6 +3959,7 @@ class AppStore extends ChangeNotifier {
     );
     _checkoutRecords.add(record);
     unawaited(_database.upsertCheckoutRecord(record.toCompanion()));
+    queueCheckoutForSync(record.id);
 
     final transaction = InventoryTransaction(
       id: 'txn-checkout-${now.microsecondsSinceEpoch}',
@@ -4018,6 +4062,7 @@ class AppStore extends ChangeNotifier {
     );
     _checkoutRecords[recordIndex] = updatedRecord;
     unawaited(_database.upsertCheckoutRecord(updatedRecord.toCompanion()));
+    queueCheckoutForSync(updatedRecord.id);
 
     final transaction = InventoryTransaction(
       id: 'txn-return-${now.microsecondsSinceEpoch}',

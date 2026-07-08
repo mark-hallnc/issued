@@ -91,7 +91,7 @@ class _CloudSyncStatusCard extends StatelessWidget {
         subtitle: Text(
           workspace == null
               ? 'No active workspace selected.'
-              : '$workspace - catalog, balances, and transactions sync enabled. Checkout and purchasing workflows are not fully synced.',
+              : '$workspace - catalog, balances, transactions, and checkouts sync enabled. Purchasing and cycle counts are not fully synced.',
         ),
         trailing: store.isCloudSignedIn
             ? IconButton(

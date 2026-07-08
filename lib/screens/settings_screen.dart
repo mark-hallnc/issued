@@ -367,14 +367,14 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                   ),
                   const _CloudStatusLine(
                     label: 'Checkouts',
-                    value: 'Not fully enabled',
+                    value: 'Enabled',
                   ),
                   const _CloudStatusLine(
                     label: 'Purchasing',
                     value: 'Not enabled',
                   ),
                   const _CloudStatusLine(
-                    label: 'Cycle count history',
+                    label: 'Cycle counts',
                     value: 'Not fully enabled',
                   ),
                   if (store.cloudSyncSummary.lastError != null) ...[
@@ -389,7 +389,7 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                   ],
                   const SizedBox(height: 10),
                   const Text(
-                    'Item catalog, current balances, and transaction history upload are enabled. Cloud checkout and purchasing workflows are not fully synced yet.',
+                    'Item catalog, current balances, transaction history, and checkout upload are enabled. Purchasing and cycle count workflows are not fully synced yet.',
                   ),
                   const SizedBox(height: 12),
                   Wrap(
@@ -470,6 +470,24 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                             : null,
                         icon: const Icon(Icons.receipt_long_outlined),
                         label: const Text('Sync transaction history'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: store.isCloudSignedIn
+                            ? () async {
+                                final result = await store.syncCheckoutsNow();
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        result.message ?? 'Checkouts synced.',
+                                      ),
+                                    ),
+                                  );
+                                }
+                              }
+                            : null,
+                        icon: const Icon(Icons.assignment_return_outlined),
+                        label: const Text('Sync checkouts'),
                       ),
                       if (store.cloudSyncSummary.lastError != null)
                         OutlinedButton.icon(
