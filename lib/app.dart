@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'core/app_store.dart';
 import 'screens/counts_screen.dart';
 import 'screens/dashboard_screen.dart';
+import 'screens/invite_acceptance_screen.dart';
 import 'screens/items_screen.dart';
 import 'screens/quick_issue_screen.dart';
 import 'screens/scan_screen.dart';
@@ -107,6 +108,9 @@ class _IssuedAppState extends State<IssuedApp> {
             return AnimatedBuilder(
               animation: _store,
               builder: (context, _) {
+                if (_store.shouldShowInviteAcceptance) {
+                  return const InviteAcceptanceScreen();
+                }
                 if (_store.shouldShowCloudWorkspaceStartup) {
                   if (_store.activeWorkspace == null ||
                       _store.pendingCloudInvites.isNotEmpty) {

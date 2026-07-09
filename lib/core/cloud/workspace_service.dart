@@ -192,7 +192,11 @@ class WorkspaceService {
             ? WorkspaceResult.success(null, message: message ?? 'Invite sent.')
             : WorkspaceResult.failure(message ?? 'Invite could not be sent.');
       }
-      return const WorkspaceResult.success(null, message: 'Invite sent.');
+      return const WorkspaceResult.success(
+        null,
+        message:
+            'Invite sent. They should open the email and sign in with that email address.',
+      );
     } catch (error) {
       return WorkspaceResult.failure(_friendlyDatabaseError(error.toString()));
     }
@@ -269,6 +273,49 @@ class WorkspaceService {
       final workspace = CloudWorkspace.fromJson(row);
       setActiveWorkspace(workspace);
       return WorkspaceResult.success(workspace, message: 'Invite accepted.');
+    } on PostgrestException catch (error) {
+      return WorkspaceResult.failure(_friendlyDatabaseError(error.message));
+    } catch (_) {
+      return const WorkspaceResult.failure('Could not accept invite.');
+    }
+  }
+
+  Future<WorkspaceResult<CloudWorkspace>> acceptInviteByToken(
+    String token,
+  ) async {
+    final client = _client;
+    final cleanToken = token.trim();
+    if (client == null) {
+      return WorkspaceResult.failure(SupabaseConfig.missingConfigMessage);
+    }
+    if (_authService.currentUser == null) {
+      return const WorkspaceResult.failure('Sign in to accept the invite.');
+    }
+    if (cleanToken.isEmpty) {
+      return const WorkspaceResult.failure(
+        'Invite link is missing or invalid.',
+      );
+    }
+    try {
+      final response = await client.rpc(
+        'accept_workspace_invite_by_token',
+        params: {'p_token': cleanToken},
+      );
+      final row = response is List && response.isNotEmpty
+          ? response.first as Map<String, dynamic>
+          : response as Map<String, dynamic>;
+      final workspaceId = row['workspace_id']?.toString();
+      if (workspaceId == null || workspaceId.isEmpty) {
+        return const WorkspaceResult.failure('Invite could not be accepted.');
+      }
+      final workspaceRow = await client
+          .from('workspaces')
+          .select()
+          .eq('id', workspaceId)
+          .single();
+      final workspace = CloudWorkspace.fromJson(workspaceRow);
+      setActiveWorkspace(workspace);
+      return WorkspaceResult.success(workspace, message: 'Workspace joined.');
     } on PostgrestException catch (error) {
       return WorkspaceResult.failure(_friendlyDatabaseError(error.message));
     } catch (_) {
@@ -462,6 +509,18 @@ String _friendlyDatabaseError(String message) {
   }
   if (lower.contains('not authenticated')) {
     return 'Sign in to continue.';
+  }
+  if (lower.contains('expired')) {
+    return 'This invite has expired. Ask the workspace admin to send a new one.';
+  }
+  if (lower.contains('no longer available')) {
+    return 'This invite is no longer available.';
+  }
+  if (lower.contains('does not match')) {
+    return 'This invite belongs to a different email address. Sign in with the email that received the invite.';
+  }
+  if (lower.contains('missing or invalid')) {
+    return 'Invite link is missing or invalid.';
   }
   if (lower.contains('not allowed') ||
       lower.contains('permission') ||

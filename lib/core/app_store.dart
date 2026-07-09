@@ -9,6 +9,7 @@ import 'cloud/cloud_adoption_models.dart';
 import 'cloud/cloud_adoption_service.dart';
 import 'cloud/cloud_auth_service.dart';
 import 'cloud/cloud_sync_service.dart';
+import 'cloud/invite_link_service.dart';
 import 'cloud/sync_coordinator.dart';
 import 'cloud/sync_error_models.dart';
 import 'cloud/sync_error_service.dart';
@@ -62,6 +63,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   bool _isInitialized = false;
   final PinHashService _pinHashService = PinHashService();
   final CloudAuthService cloudAuthService = const CloudAuthService();
+  final InviteLinkService inviteLinkService = InviteLinkService();
   final SyncErrorService syncErrorService = SyncErrorService();
   late final WorkspaceService workspaceService = WorkspaceService(
     cloudAuthService,
@@ -117,6 +119,12 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   SyncQaSession? _syncQaSession;
   int _failedSyncUploadCount = 0;
   StreamSubscription<dynamic>? _cloudAuthSubscription;
+  StreamSubscription<String>? _inviteLinkSubscription;
+  String? _pendingInviteToken;
+  String? _pendingInviteWorkspaceName;
+  String? _inviteAcceptanceMessage;
+  String? _inviteAcceptanceError;
+  bool _isAcceptingPendingInvite = false;
 
   bool get isInitialized => _isInitialized;
   bool get isCloudConfigured => SupabaseConfig.isConfigured;
@@ -203,6 +211,16 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
       _cloudModeEnabled &&
       _currentCloudUser != null &&
       _activeWorkspace != null;
+  bool get hasPendingInvite => _pendingInviteToken?.isNotEmpty == true;
+  bool get shouldShowInviteAcceptance =>
+      hasPendingInvite ||
+      _inviteAcceptanceMessage != null ||
+      _inviteAcceptanceError != null;
+  String? get pendingInviteToken => _pendingInviteToken;
+  String? get pendingInviteWorkspaceName => _pendingInviteWorkspaceName;
+  String? get inviteAcceptanceMessage => _inviteAcceptanceMessage;
+  String? get inviteAcceptanceError => _inviteAcceptanceError;
+  bool get isAcceptingPendingInvite => _isAcceptingPendingInvite;
   bool get shouldShowCloudWorkspaceStartup => _currentCloudUser != null;
   supabase.User? get currentCloudUser => _currentCloudUser;
   List<CloudWorkspace> get availableWorkspaces =>
@@ -333,6 +351,11 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> initialize() async {
     WidgetsBinding.instance.addObserver(this);
+    await inviteLinkService.init();
+    _pendingInviteToken = await inviteLinkService.getPendingInviteToken();
+    _inviteLinkSubscription ??= inviteLinkService.tokenStream.listen(
+      (token) => unawaited(handleIncomingInviteToken(token)),
+    );
     await _loadFromDatabase();
     await _ensureBasePlanData();
     await _ensureCompanyForExistingData();
@@ -345,6 +368,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     initializeCloud();
     if (_currentCloudUser != null) {
       await refreshCloudWorkspaceState();
+      await acceptPendingInviteAfterSignIn();
     }
     _isInitialized = true;
     notifyListeners();
@@ -389,7 +413,11 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
         _clearCloudSyncState();
       } else {
         _cloudModeEnabled = true;
-        unawaited(loadMyWorkspaces().then((_) => syncCoordinator.onLogin()));
+        unawaited(
+          loadMyWorkspaces()
+              .then((_) => acceptPendingInviteAfterSignIn())
+              .then((_) => syncCoordinator.onLogin()),
+        );
       }
       notifyListeners();
     });
@@ -419,8 +447,9 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     final result = await cloudAuthService.verifyOtp(email: email, token: token);
     _currentCloudUser = cloudAuthService.currentUser;
     _cloudModeEnabled = _currentCloudUser != null;
-    if (_cloudModeEnabled) {
+    if (result.success && _cloudModeEnabled) {
       await refreshCloudWorkspaceState();
+      await acceptPendingInviteAfterSignIn();
       unawaited(syncCoordinator.onLogin());
     } else {
       notifyListeners();
@@ -639,6 +668,92 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
       _requestAutomaticSync(trigger: SyncTrigger.workspaceSelected);
     }
     return AppActionResult.success(message: result.message);
+  }
+
+  Future<AppActionResult> handleIncomingInviteToken(String token) async {
+    final cleanToken = token.trim();
+    if (cleanToken.isEmpty) {
+      return const AppActionResult.failure(
+        'Invite link is missing or invalid.',
+      );
+    }
+    await inviteLinkService.setPendingInviteToken(cleanToken);
+    _pendingInviteToken = cleanToken;
+    _pendingInviteWorkspaceName = null;
+    _inviteAcceptanceMessage = null;
+    _inviteAcceptanceError = null;
+    notifyListeners();
+    if (_currentCloudUser == null) {
+      return const AppActionResult.success(
+        message: 'Sign in with the invited email to join this workspace.',
+      );
+    }
+    return acceptPendingInviteAfterSignIn();
+  }
+
+  Future<AppActionResult> acceptPendingInviteAfterSignIn() async {
+    if (_isAcceptingPendingInvite) {
+      return const AppActionResult.success();
+    }
+    final token =
+        _pendingInviteToken ?? await inviteLinkService.getPendingInviteToken();
+    if (token == null || token.trim().isEmpty) {
+      return const AppActionResult.success();
+    }
+    if (_currentCloudUser == null) {
+      _pendingInviteToken = token;
+      notifyListeners();
+      return const AppActionResult.failure(
+        'Sign in with the invited email to join this workspace.',
+      );
+    }
+
+    _isAcceptingPendingInvite = true;
+    _inviteAcceptanceMessage = null;
+    _inviteAcceptanceError = null;
+    notifyListeners();
+
+    final result = await workspaceService.acceptInviteByToken(token);
+    _isAcceptingPendingInvite = false;
+    if (!result.success || result.data == null) {
+      _inviteAcceptanceError = result.message ?? 'Could not accept invite.';
+      notifyListeners();
+      return AppActionResult.failure(_inviteAcceptanceError);
+    }
+
+    final workspace = result.data!;
+    if (!_availableWorkspaces.any((item) => item.id == workspace.id)) {
+      _availableWorkspaces.add(workspace);
+    }
+    _activeWorkspace = workspace;
+    _pendingInviteWorkspaceName = workspace.name;
+    _cloudModeEnabled = true;
+    workspaceService.setActiveWorkspace(workspace);
+    await inviteLinkService.clearPendingInviteToken();
+    _pendingInviteToken = null;
+    await loadMyWorkspaces();
+    _activeWorkspace = workspace;
+    workspaceService.setActiveWorkspace(workspace);
+    await loadWorkspaceMembers(notify: false);
+    await loadWorkspaceInvites(notify: false);
+    await initializeCloudSyncForActiveWorkspace(notify: false);
+    await refreshCloudAdoptionSummary(notify: false);
+    _inviteAcceptanceMessage = 'Workspace joined.';
+    notifyListeners();
+    if (!shouldShowCloudAdoptionWizard) {
+      _requestAutomaticSync(trigger: SyncTrigger.workspaceSelected);
+    }
+    return const AppActionResult.success(message: 'Workspace joined.');
+  }
+
+  Future<void> clearPendingInvite() async {
+    await inviteLinkService.clearPendingInviteToken();
+    _pendingInviteToken = null;
+    _pendingInviteWorkspaceName = null;
+    _inviteAcceptanceMessage = null;
+    _inviteAcceptanceError = null;
+    _isAcceptingPendingInvite = false;
+    notifyListeners();
   }
 
   Future<AppActionResult> updateCloudMemberRole({
@@ -6602,6 +6717,8 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     syncCoordinator.dispose();
     unawaited(_cloudAuthSubscription?.cancel());
+    unawaited(_inviteLinkSubscription?.cancel());
+    unawaited(inviteLinkService.dispose());
     unawaited(_database.close());
     super.dispose();
   }

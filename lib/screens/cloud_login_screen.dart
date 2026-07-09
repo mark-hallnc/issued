@@ -50,6 +50,26 @@ class _CloudLoginScreenState extends State<CloudLoginScreen> {
             ),
             const SizedBox(height: 12),
           ] else ...[
+            if (store.hasPendingInvite) ...[
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Icon(Icons.mark_email_unread_outlined),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'You have an invitation waiting. Sign in with the invited email to continue.',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
             TextField(
               controller: _emailController,
               keyboardType: TextInputType.emailAddress,
@@ -120,6 +140,10 @@ class _CloudLoginScreenState extends State<CloudLoginScreen> {
       result.message ?? (result.success ? 'Signed in.' : 'Sign in failed.'),
     );
     if (result.success) {
+      if (store.shouldShowInviteAcceptance) {
+        Navigator.of(context).pop();
+        return;
+      }
       Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(
           builder: (context) => const WorkspaceSelectionScreen(),

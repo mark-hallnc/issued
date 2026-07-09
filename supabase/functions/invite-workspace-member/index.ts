@@ -9,6 +9,9 @@ const corsHeaders = {
 };
 
 const allowedRoles = new Set(["admin", "manager", "worker", "viewOnly"]);
+const publicInviteBaseUrl =
+  Deno.env.get("PUBLIC_INVITE_BASE_URL") ??
+    "https://issuedinventory.com/invite";
 
 serve(async (request) => {
   if (request.method === "OPTIONS") {
@@ -43,7 +46,6 @@ serve(async (request) => {
   const workspaceId = body.workspaceId?.trim();
   const email = body.email?.trim().toLowerCase();
   const role = body.role?.trim();
-  const displayName = body.displayName?.trim();
 
   if (!workspaceId || !isUuid(workspaceId)) {
     return json({ success: false, message: "Workspace is required." }, 400);
@@ -91,6 +93,18 @@ serve(async (request) => {
     );
   }
 
+  const { data: workspace, error: workspaceError } = await adminClient
+    .from("workspaces")
+    .select("id, name")
+    .eq("id", workspaceId)
+    .maybeSingle();
+  if (workspaceError || !workspace) {
+    return json(
+      { success: false, message: "Could not find that workspace." },
+      404,
+    );
+  }
+
   const { data: existingMembers, error: existingMemberError } =
     await adminClient
       .from("workspace_members")
@@ -117,6 +131,7 @@ serve(async (request) => {
   const expiresAt = new Date(
     Date.now() + 14 * 24 * 60 * 60 * 1000,
   ).toISOString();
+  const inviteToken = createInviteToken();
 
   const { error: inviteError } = await adminClient
     .from("workspace_invites")
@@ -125,6 +140,7 @@ serve(async (request) => {
         workspace_id: workspaceId,
         email,
         role,
+        invite_token: inviteToken,
         status: "pending",
         invited_by: caller.id,
         invited_user_id: null,
@@ -141,16 +157,13 @@ serve(async (request) => {
     );
   }
 
-  const redirectTo = Deno.env.get("INVITE_REDIRECT_URL") ?? undefined;
-  const { error: inviteEmailError } =
-    await adminClient.auth.admin.inviteUserByEmail(email, {
-      data: {
-        workspace_id: workspaceId,
-        role,
-        display_name: displayName,
-      },
-      redirectTo,
-    });
+  const inviteUrl = `${publicInviteBaseUrl}?token=${encodeURIComponent(inviteToken)}`;
+  const inviteEmailError = await sendInviteEmail({
+    to: email,
+    workspaceName: workspace.name?.toString() ?? "Issued workspace",
+    role,
+    inviteUrl,
+  });
 
   if (inviteEmailError) {
     return json(
@@ -163,7 +176,14 @@ serve(async (request) => {
     );
   }
 
-  return json({ success: true, message: "Invite sent." }, 200);
+  return json(
+    {
+      success: true,
+      message:
+        "Invite sent. They should open the email and sign in with that email address.",
+    },
+    200,
+  );
 });
 
 type InviteRequest = {
@@ -190,4 +210,118 @@ function looksLikeEmail(value: string): boolean {
 function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
     .test(value);
+}
+
+function createInviteToken(): string {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return btoa(String.fromCharCode(...bytes))
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replaceAll("=", "");
+}
+
+async function sendInviteEmail({
+  to,
+  workspaceName,
+  role,
+  inviteUrl,
+}: {
+  to: string;
+  workspaceName: string;
+  role: string;
+  inviteUrl: string;
+}): Promise<Error | null> {
+  const resendApiKey = Deno.env.get("RESEND_API_KEY");
+  if (!resendApiKey) {
+    return new Error("RESEND_API_KEY is not configured.");
+  }
+
+  const from = Deno.env.get("INVITE_EMAIL_FROM") ??
+    "Issued <noreply@issuedinventory.com>";
+  const roleLabel = roleLabelFor(role);
+  const subject = `You're invited to ${workspaceName} in Issued`;
+  const html = inviteEmailHtml({
+    workspaceName,
+    roleLabel,
+    invitedEmail: to,
+    inviteUrl,
+  });
+  const text = [
+    `You were invited to the ${workspaceName} workspace in Issued.`,
+    `Role: ${roleLabel}`,
+    `Invited email: ${to}`,
+    "",
+    "Open Issued:",
+    inviteUrl,
+    "",
+    "Sign in with this email address to accept the invite.",
+    "If you do not have Issued installed yet, this link will show setup instructions.",
+  ].join("\n");
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${resendApiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from,
+      to,
+      subject,
+      html,
+      text,
+    }),
+  });
+
+  if (!response.ok) {
+    const details = await response.text();
+    return new Error(`Resend failed: ${response.status} ${details}`);
+  }
+  return null;
+}
+
+function inviteEmailHtml({
+  workspaceName,
+  roleLabel,
+  invitedEmail,
+  inviteUrl,
+}: {
+  workspaceName: string;
+  roleLabel: string;
+  invitedEmail: string;
+  inviteUrl: string;
+}): string {
+  const safeWorkspace = escapeHtml(workspaceName);
+  const safeRole = escapeHtml(roleLabel);
+  const safeEmail = escapeHtml(invitedEmail);
+  const safeUrl = escapeHtml(inviteUrl);
+  return `
+    <div style="font-family:Arial,sans-serif;color:#17212f;line-height:1.5;max-width:560px;margin:0 auto;padding:24px;">
+      <div style="font-size:24px;font-weight:700;margin-bottom:18px;">Issued</div>
+      <h1 style="font-size:22px;margin:0 0 12px;">You've been invited to a workspace</h1>
+      <p style="margin:0 0 16px;">You were invited to <strong>${safeWorkspace}</strong> in Issued.</p>
+      <p style="margin:0 0 16px;"><strong>Role:</strong> ${safeRole}<br><strong>Invited email:</strong> ${safeEmail}</p>
+      <p style="margin:0 0 22px;">Sign in with this email address to accept the invite.</p>
+      <p style="margin:0 0 22px;">
+        <a href="${safeUrl}" style="display:inline-block;background:#1e3a5f;color:#ffffff;text-decoration:none;font-weight:700;padding:12px 18px;border-radius:8px;">Open Issued</a>
+      </p>
+      <p style="margin:0 0 8px;">If you do not have Issued installed yet, this link will show setup instructions.</p>
+      <p style="margin:0;color:#526173;font-size:13px;">If the button does not work, copy and paste this URL into your browser:<br>${safeUrl}</p>
+    </div>
+  `;
+}
+
+function roleLabelFor(role: string): string {
+  if (role === "viewOnly") return "View-only";
+  return role.charAt(0).toUpperCase() + role.slice(1);
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }

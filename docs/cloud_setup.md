@@ -26,6 +26,8 @@ Open the Supabase SQL editor and run:
 -- supabase/migrations/0008_cloud_checkouts.sql
 -- supabase/migrations/0009_cloud_purchasing.sql
 -- supabase/migrations/0010_cloud_cycle_counts.sql
+-- supabase/migrations/0011_security_hardening.sql
+-- supabase/migrations/0012_invite_link_acceptance.sql
 ```
 
 This creates:
@@ -37,6 +39,7 @@ This creates:
 - RLS helper functions
 - `create_workspace_with_owner(workspace_name text)`
 - `accept_workspace_invite(invite_id uuid)`
+- `accept_workspace_invite_by_token(p_token text)`
 - `revoke_workspace_invite(invite_id uuid)`
 - sync metadata tables: `workspace_sync_state`, `sync_clients`
 - item catalog metadata table: `workspace_items`
@@ -69,7 +72,9 @@ The function reads:
 
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
-- `INVITE_REDIRECT_URL`, optional for Supabase invite links
+- `RESEND_API_KEY`
+- `INVITE_EMAIL_FROM`, optional
+- `PUBLIC_INVITE_BASE_URL`, optional, defaults to `https://issuedinventory.com/invite`
 
 ## 4. Build or Run with Dart Defines
 
@@ -90,9 +95,8 @@ Without these values, Issued stays usable in Local-Only Mode.
 7. Confirm the workspace appears and the member role is active.
 
 Supabase Magic Link / OTP templates should include `{{ .Token }}` when Issued
-uses code entry. Supabase invite templates can be used for invite email
-delivery. Custom SMTP/Resend should be configured in Supabase for reliable
-delivery and template editing.
+uses code entry. Workspace invite emails are sent by the Edge Function through
+Resend and use `https://issuedinventory.com/invite?token=<invite_token>`.
 
 ## Security Notes
 
