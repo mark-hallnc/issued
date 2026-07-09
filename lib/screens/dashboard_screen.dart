@@ -15,8 +15,8 @@ import 'low_stock_screen.dart';
 import 'plan_screens.dart';
 import 'quick_issue_screen.dart';
 import 'scanner_screen.dart';
-import 'settings_screen.dart';
 import 'settings_detail_screens.dart';
+import 'sync_health_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -99,11 +99,12 @@ class _CloudSyncStatusCard extends StatelessWidget {
           constraints: const BoxConstraints(maxWidth: 180),
           child: SyncStatusChip(
             status: store.syncUserStatus,
-            onOpenDiagnostics: store.canOpenSyncDiagnostics
+            onOpenDiagnostics:
+                store.canOpenSyncDiagnostics && store.isCloudWorkspaceActive
                 ? () {
                     Navigator.of(context).push(
                       MaterialPageRoute<void>(
-                        builder: (context) => const SettingsScreen(),
+                        builder: (context) => const SyncHealthScreen(),
                       ),
                     );
                   }

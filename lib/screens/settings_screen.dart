@@ -6,7 +6,6 @@ import '../core/models/models.dart';
 import '../widgets/sync_status_chip.dart';
 import 'assignment_targets_screen.dart';
 import 'backup_restore_screen.dart';
-import 'cloud_adoption_wizard_screen.dart';
 import 'cloud_login_screen.dart';
 import 'data_health_screen.dart';
 import 'import_export_screen.dart';
@@ -27,11 +26,13 @@ class SettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final content = SettingsContent(onOpenSettings: (screen) {
-      Navigator.of(
-        context,
-      ).push(MaterialPageRoute<void>(builder: (context) => screen));
-    });
+    final content = SettingsContent(
+      onOpenSettings: (screen) {
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute<void>(builder: (context) => screen));
+      },
+    );
     if (embeddedInShell) {
       return content;
     }
@@ -352,6 +353,11 @@ class CloudAccountSettingsScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
+          _AccountWorkspaceActions(
+            store: store,
+            onOpenWorkspace: () => _openWorkspaceFlow(context, store),
+          ),
+          const SizedBox(height: 12),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -549,23 +555,6 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                               : null,
                           icon: const Icon(Icons.health_and_safety_outlined),
                           label: const Text('Sync Health'),
-                        ),
-                        OutlinedButton.icon(
-                          onPressed: store.isCloudSignedIn
-                              ? () async {
-                                  await store.refreshCloudAdoptionSummary();
-                                  if (context.mounted) {
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute<void>(
-                                        builder: (context) =>
-                                            const CloudAdoptionWizardScreen(),
-                                      ),
-                                    );
-                                  }
-                                }
-                              : null,
-                          icon: const Icon(Icons.cloud_done_outlined),
-                          label: const Text('Cloud setup wizard'),
                         ),
                         if (kDebugMode)
                           OutlinedButton.icon(
@@ -829,92 +818,144 @@ class CloudAccountSettingsScreen extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 12),
-          FilledButton(
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (context) => const CloudLoginScreen(),
-                ),
-              );
-            },
-            child: Text(store.isCloudSignedIn ? 'Reconnect Cloud' : 'Sign In'),
-          ),
-          const SizedBox(height: 10),
-          OutlinedButton(
-            onPressed: store.isCloudSignedIn
-                ? () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (context) => const WorkspaceSelectionScreen(),
-                      ),
-                    );
-                  }
-                : null,
-            child: const Text('Select Workspace'),
-          ),
-          const SizedBox(height: 10),
-          OutlinedButton(
-            onPressed: store.activeWorkspace == null
-                ? null
-                : () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (context) => const WorkspaceMembersScreen(),
-                      ),
-                    );
-                  },
-            child: const Text('Members / Invites'),
-          ),
-          const SizedBox(height: 10),
-          OutlinedButton(
-            onPressed: store.isCloudSignedIn
-                ? () async {
-                    if (store.cloudSyncSummary.pendingUploadCount > 0 ||
-                        store.failedSyncUploadCount > 0) {
-                      final shouldSignOut = await showDialog<bool>(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text('Unsynced changes'),
-                          content: const Text(
-                            'This device has unsynced changes. They will stay on this device, but they cannot upload while signed out.',
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.of(context).pop(false),
-                              child: const Text('Cancel'),
-                            ),
-                            FilledButton(
-                              onPressed: () => Navigator.of(context).pop(true),
-                              child: const Text('Sign out'),
-                            ),
-                          ],
-                        ),
-                      );
-                      if (shouldSignOut != true) {
-                        return;
-                      }
-                    }
-                    final result = await store.signOutCloud();
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(result.message ?? 'Signed out.'),
-                        ),
-                      );
-                    }
-                  }
-                : null,
-            child: const Text('Sign Out'),
-          ),
-          const SizedBox(height: 10),
-          OutlinedButton(
-            onPressed: store.disableCloudModeAndUseLocalOnly,
-            child: const Text('Use Local-Only Mode'),
-          ),
         ],
       ),
     );
+  }
+
+  Future<void> _openWorkspaceFlow(BuildContext context, AppStore store) async {
+    if (!store.isCloudSignedIn) {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (context) => const CloudLoginScreen()),
+      );
+      return;
+    }
+    await store.getWorkspaceNavigationDecision();
+    if (!context.mounted) {
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => const WorkspaceSelectionScreen(),
+      ),
+    );
+  }
+}
+
+class _AccountWorkspaceActions extends StatelessWidget {
+  const _AccountWorkspaceActions({
+    required this.store,
+    required this.onOpenWorkspace,
+  });
+
+  final AppStore store;
+  final VoidCallback onOpenWorkspace;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Account / Workspace',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 8),
+            Text(_accountHelpText(store)),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 10,
+              runSpacing: 8,
+              children: [
+                if (!store.isCloudSignedIn)
+                  FilledButton(
+                    onPressed: onOpenWorkspace,
+                    child: const Text('Sign in'),
+                  )
+                else
+                  FilledButton(
+                    onPressed: onOpenWorkspace,
+                    child: const Text('Manage workspace'),
+                  ),
+                if (store.activeWorkspace != null)
+                  OutlinedButton(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (context) => const WorkspaceMembersScreen(),
+                        ),
+                      );
+                    },
+                    child: const Text('Members / Invites'),
+                  ),
+                if (store.isCloudSignedIn)
+                  OutlinedButton(
+                    onPressed: () => _signOut(context, store),
+                    child: const Text('Sign out'),
+                  ),
+                OutlinedButton(
+                  onPressed: store.disableCloudModeAndUseLocalOnly,
+                  child: const Text('Use this device without sync'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _accountHelpText(AppStore store) {
+    if (!store.isCloudConfigured) {
+      return 'Account sign-in is not configured for this build.';
+    }
+    if (!store.isCloudSignedIn) {
+      return 'Sign in from here to sync ${store.localWorkspaceName} across devices.';
+    }
+    final workspace = store.activeWorkspace?.name;
+    if (workspace == null) {
+      return 'Set up sync for ${store.localWorkspaceName} or choose a workspace from your account.';
+    }
+    return '$workspace is selected. ${store.cloudSyncStatusLabel}.';
+  }
+
+  Future<void> _signOut(BuildContext context, AppStore store) async {
+    if (store.cloudSyncSummary.pendingUploadCount > 0 ||
+        store.failedSyncUploadCount > 0) {
+      final shouldSignOut = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Unsynced changes'),
+          content: const Text(
+            'This device has unsynced changes. They will stay on this device, but they cannot upload while signed out.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Sign out'),
+            ),
+          ],
+        ),
+      );
+      if (shouldSignOut != true || !context.mounted) {
+        return;
+      }
+    }
+    final result = await store.signOutCloud();
+    if (context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(result.message ?? 'Signed out.')));
+    }
   }
 }
 

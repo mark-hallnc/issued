@@ -122,6 +122,33 @@ Automatic sync is app-lifecycle based only:
 Manual Sync Now remains available. There are no OS background workers,
 push notifications, or realtime subscriptions yet.
 
+## Workspace/sign-in flow rules
+
+The first-use workspace created during app setup is the user's workspace. It is
+not a throwaway mode and should be recognized when the user signs in later.
+
+Signing in connects that workspace to the user's account or asks the user to
+choose an existing account workspace. If the device has a completed workspace
+setup but no selected account workspace, the app should show "Set up sync for
+this workspace" for the existing workspace name instead of asking the user to
+create another workspace.
+
+Sync settings are status and troubleshooting surfaces, not onboarding. The
+normal sign-in and workspace actions belong in Account / Workspace. Sync
+diagnostics may expose refresh, retry, queue, conflict, and health tools for
+admins or debug builds, but they should not be the primary path to sign in,
+select a workspace, or create a workspace.
+
+Workspace selection must refresh account memberships before showing an empty
+state. "No workspaces yet" is valid only after a refresh returns no account
+workspaces and the device does not already have a completed first-use
+workspace. If the device does have one, show the setup-sync path for that
+workspace.
+
+Diagnostics are not normal user flow. Needs-attention surfaces can show sync
+status, retry, and diagnostics for permitted users, but should not send users
+to Settings unless that screen has the exact action they need.
+
 ## Automatic Sync Polish
 
 Automatic sync is coordinated through a single in-app sync coordinator. The

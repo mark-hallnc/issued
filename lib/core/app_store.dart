@@ -157,10 +157,10 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     return switch (summary.state) {
       CloudAdoptionState.notNeeded => 'Not needed',
       CloudAdoptionState.needsDecision => 'Needs setup decision',
-      CloudAdoptionState.localOnlySelected => 'Local-only',
+      CloudAdoptionState.localOnlySelected => 'Not syncing this device',
       CloudAdoptionState.uploadSelected => 'Upload selected',
       CloudAdoptionState.startFreshSelected => 'Started fresh',
-      CloudAdoptionState.completed => 'Uploaded local data',
+      CloudAdoptionState.completed => 'Workspace setup complete',
       CloudAdoptionState.blocked => 'Blocked',
       CloudAdoptionState.error => 'Error',
     };
@@ -233,6 +233,10 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
       List.unmodifiable(_pendingCloudInvites);
   CloudWorkspace? get activeWorkspace => _activeWorkspace;
   CloudWorkspaceRole? get currentCloudRole => _currentCloudRole;
+  bool get hasLocalWorkspace => isSetupComplete;
+  String get localWorkspaceName => _company?.name.trim().isNotEmpty == true
+      ? _company!.name.trim()
+      : 'Issued Workspace';
   List<Item> get items => List.unmodifiable(_items);
   List<UnitOfMeasure> get unitsOfMeasure => List.unmodifiable(_unitsOfMeasure);
   List<Location> get locations => List.unmodifiable(_locations);
@@ -538,6 +542,37 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     return loadMyWorkspaces();
   }
 
+  Future<WorkspaceNavigationDecision> getWorkspaceNavigationDecision({
+    bool refresh = true,
+  }) async {
+    if (!isSetupComplete) {
+      return WorkspaceNavigationDecision.needsLocalWorkspace;
+    }
+    if (!isCloudConfigured || !isCloudSignedIn) {
+      return WorkspaceNavigationDecision.signedOut;
+    }
+    if (refresh) {
+      final result = await refreshCloudWorkspaceState();
+      if (!result.success) {
+        return WorkspaceNavigationDecision.error;
+      }
+    }
+    if (_activeWorkspace != null) {
+      await refreshCloudAdoptionSummary(notify: false);
+      if (shouldShowCloudAdoptionWizard) {
+        return WorkspaceNavigationDecision.needsCloudAdoption;
+      }
+      return WorkspaceNavigationDecision.hasActiveCloudWorkspace;
+    }
+    if (_availableWorkspaces.isNotEmpty) {
+      return WorkspaceNavigationDecision.chooseCloudWorkspace;
+    }
+    if (hasLocalWorkspace) {
+      return WorkspaceNavigationDecision.needsCloudAdoption;
+    }
+    return WorkspaceNavigationDecision.createCloudWorkspace;
+  }
+
   Future<AppActionResult> loadWorkspaceMembers({bool notify = true}) async {
     final workspace = _activeWorkspace;
     if (workspace == null) {
@@ -818,7 +853,8 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<AppActionResult> createCloudWorkspace(String name) async {
-    final result = await workspaceService.createWorkspace(name);
+    final workspaceName = name.trim().isEmpty ? localWorkspaceName : name;
+    final result = await workspaceService.createWorkspace(workspaceName);
     if (!result.success || result.data == null) {
       return AppActionResult.failure(result.message);
     }
@@ -838,6 +874,10 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
       _requestAutomaticSync(trigger: SyncTrigger.workspaceSelected);
     }
     return AppActionResult.success(message: result.message);
+  }
+
+  Future<AppActionResult> connectLocalWorkspaceToCloud() {
+    return createCloudWorkspace(localWorkspaceName);
   }
 
   void setActiveCloudWorkspace(CloudWorkspace workspace) {
@@ -1083,7 +1123,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
             adoptionState == CloudAdoptionState.blocked ||
             adoptionState == CloudAdoptionState.localOnlySelected)) {
       return const AppActionResult.failure(
-        'Choose how this device should use the cloud workspace before syncing.',
+        'Choose how this device should use the workspace before syncing.',
       );
     }
     final adoptionCutoff = forceUploadExistingLocalData
@@ -1380,7 +1420,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
         cloudCycleCountCount: 0,
         hasLocalBusinessData: false,
         hasCloudBusinessData: false,
-        message: 'Select a cloud workspace to set up sync.',
+        message: 'Select a workspace to set up sync.',
       );
       _cloudAdoptionSummary = summary;
       if (notify) notifyListeners();
@@ -1404,13 +1444,13 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     }
     if (choice == CloudAdoptionChoice.cancel) {
       await refreshCloudAdoptionSummary();
-      return const AppActionResult.success(message: 'Cloud setup paused.');
+      return const AppActionResult.success(message: 'Workspace setup paused.');
     }
     if (choice == CloudAdoptionChoice.keepLocalOnly) {
       await cloudAdoptionService.markAdoptionCompleted(workspace.id, choice);
       disableCloudModeAndUseLocalOnly();
       return const AppActionResult.success(
-        message: 'This device will stay local-only for now.',
+        message: 'This device will not sync this workspace for now.',
       );
     }
     if (choice == CloudAdoptionChoice.startFreshCloud) {
@@ -1418,7 +1458,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
       await refreshCloudAdoptionSummary();
       return const AppActionResult.success(
         message:
-            'Cloud setup saved. Existing local data will not be uploaded automatically.',
+            'Workspace setup saved. Existing data on this device will not be uploaded automatically.',
       );
     }
     if (!permissions.isAdmin && !permissions.isManager) {
@@ -1444,7 +1484,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     await refreshCloudAdoptionSummary();
     return AppActionResult.success(
       message:
-          '${result.message ?? 'Local data uploaded.'} Cloud setup is complete.',
+          '${result.message ?? 'Device data uploaded.'} Workspace setup is complete.',
       data: result.data,
     );
   }
@@ -6617,7 +6657,8 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     if (!isCloudSignedIn) {
       return SyncUserStatusSummary(
         status: SyncUserStatus.signedOut,
-        label: 'Sign in to sync',
+        label: 'Sync not connected',
+        detail: 'Sign in from Account / Workspace to sync this workspace.',
         pendingCount: _cloudSyncSummary.pendingUploadCount,
         failedCount: _failedSyncUploadCount,
         conflictCount: syncConflictCount,
@@ -6628,7 +6669,12 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     if (_activeWorkspace == null) {
       return SyncUserStatusSummary(
         status: SyncUserStatus.noWorkspace,
-        label: 'Choose a workspace',
+        label: hasLocalWorkspace
+            ? 'Workspace sync not set up'
+            : 'Choose a workspace',
+        detail: hasLocalWorkspace
+            ? 'Set up sync for $localWorkspaceName from Account / Workspace.'
+            : 'Choose or create a workspace before syncing.',
         pendingCount: _cloudSyncSummary.pendingUploadCount,
         failedCount: _failedSyncUploadCount,
         conflictCount: syncConflictCount,
@@ -6877,6 +6923,17 @@ class AppActionResult {
   final bool success;
   final String? message;
   final Object? data;
+}
+
+enum WorkspaceNavigationDecision {
+  signedOut,
+  needsLocalWorkspace,
+  localWorkspaceOnly,
+  needsCloudAdoption,
+  hasActiveCloudWorkspace,
+  chooseCloudWorkspace,
+  createCloudWorkspace,
+  error,
 }
 
 class LostDamagedReportRow {

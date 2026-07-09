@@ -144,6 +144,18 @@ class _CloudLoginScreenState extends State<CloudLoginScreen> {
         Navigator.of(context).pop();
         return;
       }
+      final decision = await store.getWorkspaceNavigationDecision(
+        refresh: false,
+      );
+      if (!mounted) {
+        return;
+      }
+      if (decision == WorkspaceNavigationDecision.hasActiveCloudWorkspace) {
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        }
+        return;
+      }
       Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(
           builder: (context) => const WorkspaceSelectionScreen(),

@@ -20,7 +20,7 @@ class _CloudAdoptionWizardScreenState extends State<CloudAdoptionWizardScreen> {
     final store = AppStoreScope.of(context);
     final summary = store.cloudAdoptionSummary;
     return Scaffold(
-      appBar: AppBar(title: const Text('Set up cloud sync')),
+      appBar: AppBar(title: const Text('Set up sync for this workspace')),
       body: summary == null
           ? const Center(child: CircularProgressIndicator())
           : ListView(
@@ -39,12 +39,12 @@ class _CloudAdoptionWizardScreenState extends State<CloudAdoptionWizardScreen> {
                   if (summary.hasLocalBusinessData)
                     const _WarningCard(
                       message:
-                          'This device has local inventory data. Choose carefully before uploading it to a shared workspace.',
+                          'This device already has inventory data. Choose carefully before connecting it to a shared workspace.',
                     ),
                   if (summary.hasCloudBusinessData)
                     const _WarningCard(
                       message:
-                          'This workspace already has cloud data. Uploading this device may create duplicates if it came from a different source.',
+                          'This workspace already has online data. Connecting this device may create duplicates if it came from a different source.',
                     ),
                   if (summary.hasLocalBusinessData &&
                       summary.hasCloudBusinessData)
@@ -59,13 +59,13 @@ class _CloudAdoptionWizardScreenState extends State<CloudAdoptionWizardScreen> {
                               });
                             },
                       title: const Text(
-                        'I understand this may merge local and cloud data.',
+                        'I understand this may merge data from this device and the online workspace.',
                       ),
                     ),
                   const SizedBox(height: 8),
                   _ChoiceCard(
                     icon: Icons.cloud_upload_outlined,
-                    title: 'Upload this device\'s data',
+                    title: 'Connect this workspace',
                     description:
                         'Use the inventory currently on this device as the starting data for this workspace.',
                     enabled:
@@ -80,16 +80,16 @@ class _CloudAdoptionWizardScreenState extends State<CloudAdoptionWizardScreen> {
                   ),
                   _ChoiceCard(
                     icon: Icons.add_business_outlined,
-                    title: 'Start fresh in this workspace',
+                    title: 'Start with the online workspace',
                     description:
-                        'Do not upload this device\'s local inventory. Keep the workspace empty until you add or sync new data.',
+                        'Do not upload this device\'s existing inventory. Keep the workspace empty until you add or sync new data.',
                     enabled: !_isBusy,
                     onTap: () =>
                         _complete(context, CloudAdoptionChoice.startFreshCloud),
                   ),
                   _ChoiceCard(
                     icon: Icons.cloud_off_outlined,
-                    title: 'Keep this device local-only for now',
+                    title: 'Not now',
                     description:
                         'Do not sync this device with the workspace yet. You can enable it later.',
                     enabled: !_isBusy,
@@ -127,7 +127,7 @@ class _CloudAdoptionWizardScreenState extends State<CloudAdoptionWizardScreen> {
     }
     setState(() => _isBusy = false);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(result.message ?? 'Cloud setup updated.')),
+      SnackBar(content: Text(result.message ?? 'Workspace setup updated.')),
     );
     if (result.success) {
       Navigator.of(context).pop();
@@ -137,20 +137,20 @@ class _CloudAdoptionWizardScreenState extends State<CloudAdoptionWizardScreen> {
 
 Future<bool?> _confirmChoice(BuildContext context, CloudAdoptionChoice choice) {
   final title = switch (choice) {
-    CloudAdoptionChoice.uploadLocalData => 'Upload this device?',
-    CloudAdoptionChoice.startFreshCloud => 'Start fresh?',
-    CloudAdoptionChoice.keepLocalOnly => 'Keep local-only?',
+    CloudAdoptionChoice.uploadLocalData => 'Connect this workspace?',
+    CloudAdoptionChoice.startFreshCloud => 'Start with online workspace?',
+    CloudAdoptionChoice.keepLocalOnly => 'Not now?',
     CloudAdoptionChoice.cancel => 'Cancel setup?',
   };
   final message = switch (choice) {
     CloudAdoptionChoice.uploadLocalData =>
-      'This will upload local inventory from this device into the selected workspace. Continue only if this device should seed or merge workspace data.',
+      'This will use inventory from this device as the starting data for the selected workspace. Continue only if this device should seed or merge workspace data.',
     CloudAdoptionChoice.startFreshCloud =>
-      'Existing local inventory will stay on this device and will not be uploaded automatically. New changes after this setup decision can sync.',
+      'Existing inventory will stay on this device and will not be uploaded automatically. New changes after this setup decision can sync.',
     CloudAdoptionChoice.keepLocalOnly =>
-      'This device will not sync inventory with the selected workspace until you enable cloud setup later.',
+      'This device will not sync inventory with the selected workspace until you enable setup later.',
     CloudAdoptionChoice.cancel =>
-      'You can return to cloud setup from Settings later.',
+      'You can return to workspace setup from Settings later.',
   };
   return showDialog<bool>(
     context: context,
@@ -220,7 +220,7 @@ class _DataSummaryCard extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             _CountLine(
-              label: 'Local items',
+              label: 'Items on this device',
               value: summary.localItemCount,
               cloudValue: summary.cloudItemCount,
             ),
@@ -280,7 +280,7 @@ class _CountLine extends StatelessWidget {
         children: [
           Expanded(child: Text(label)),
           Text(
-            'Local $value  Cloud $cloudValue',
+            'Device $value  Online $cloudValue',
             style: const TextStyle(fontWeight: FontWeight.w700),
           ),
         ],
