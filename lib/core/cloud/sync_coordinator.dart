@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'cloud_sync_service.dart';
+import 'sync_error_service.dart';
 import 'sync_outbox_service.dart';
 
 enum SyncTrigger {
@@ -18,16 +19,20 @@ class SyncCoordinator {
   SyncCoordinator({
     required this.syncService,
     required this.outboxService,
+    required this.errorService,
     required this.canSync,
     required this.performSync,
+    this.onStateChanged,
     this.debounceDelay = const Duration(seconds: 3),
     this.resumeInterval = const Duration(seconds: 60),
   });
 
   final CloudSyncService syncService;
   final SyncOutboxService outboxService;
+  final SyncErrorService errorService;
   final bool Function() canSync;
   final Future<void> Function(SyncTrigger trigger) performSync;
+  final void Function()? onStateChanged;
   final Duration debounceDelay;
   final Duration resumeInterval;
 
@@ -64,15 +69,23 @@ class SyncCoordinator {
     lastTrigger = trigger;
     lastSyncStartedAt = DateTime.now();
     lastSyncError = null;
+    onStateChanged?.call();
     try {
       await performSync(trigger);
       consecutiveFailures = 0;
       lastSyncCompletedAt = DateTime.now();
-    } catch (error) {
+      errorService.clearLatestError();
+    } catch (error, stackTrace) {
       consecutiveFailures += 1;
-      lastSyncError = _friendlyError(error);
+      final userError = errorService.recordError(
+        error,
+        stackTrace: stackTrace,
+        context: 'Automatic sync: ${trigger.name}',
+      );
+      lastSyncError = userError.message;
     } finally {
       isSyncing = false;
+      onStateChanged?.call();
     }
 
     if (syncRequestedWhileRunning) {
@@ -122,28 +135,4 @@ class SyncCoordinator {
   void dispose() {
     _debounceTimer?.cancel();
   }
-}
-
-String _friendlyError(Object error) {
-  final text = error.toString().toLowerCase();
-  if (text.contains('permission') ||
-      text.contains('rls') ||
-      text.contains('row-level')) {
-    return 'You do not have permission to sync this change.';
-  }
-  if (text.contains('socket') ||
-      text.contains('network') ||
-      text.contains('offline') ||
-      text.contains('failed host lookup')) {
-    return 'Offline - changes will sync later.';
-  }
-  if (text.contains('relation') ||
-      text.contains('does not exist') ||
-      text.contains('schema')) {
-    return 'Sync setup needs attention.';
-  }
-  if (text.contains('function') && text.contains('not found')) {
-    return 'Invite service is not deployed.';
-  }
-  return 'Sync problem - tap to review.';
 }

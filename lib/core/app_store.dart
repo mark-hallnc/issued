@@ -10,6 +10,8 @@ import 'cloud/cloud_adoption_service.dart';
 import 'cloud/cloud_auth_service.dart';
 import 'cloud/cloud_sync_service.dart';
 import 'cloud/sync_coordinator.dart';
+import 'cloud/sync_error_models.dart';
+import 'cloud/sync_error_service.dart';
 import 'cloud/sync_status_models.dart';
 import 'cloud/supabase_config.dart';
 import 'cloud/sync_conflict_resolution_models.dart';
@@ -57,6 +59,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   bool _isInitialized = false;
   final PinHashService _pinHashService = PinHashService();
   final CloudAuthService cloudAuthService = const CloudAuthService();
+  final SyncErrorService syncErrorService = SyncErrorService();
   late final WorkspaceService workspaceService = WorkspaceService(
     cloudAuthService,
   );
@@ -68,8 +71,10 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   late final SyncCoordinator syncCoordinator = SyncCoordinator(
     syncService: cloudSyncService,
     outboxService: cloudSyncService.outboxService,
+    errorService: syncErrorService,
     canSync: _canRunAutomaticSync,
     performSync: _performAutomaticSync,
+    onStateChanged: notifyListeners,
   );
   late final SyncReconciliationService syncReconciliationService =
       SyncReconciliationService(
@@ -156,6 +161,8 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   bool get canOpenSyncDiagnostics =>
       kDebugMode || permissions.isAdmin || permissions.isManager;
   SyncUserStatusSummary get syncUserStatus => _buildSyncUserStatus();
+  SyncUserError? get latestSyncUserError => syncErrorService.latestError;
+  List<SyncUserError> get recentSyncErrors => syncErrorService.recentErrors;
   bool get isCloudSyncReady => cloudSyncService.isCloudSyncReady();
   String get cloudSyncStatusLabel =>
       cloudSyncStatusLabelForSummary(_cloudSyncSummary);
@@ -792,21 +799,42 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<AppActionResult> pullCloudChangesNow() async {
-    final result = await cloudSyncService.pullFromCloud(
-      localItems: _items,
-      localBalances: _itemLocationBalances,
-      localTransactions: _transactions,
-      localCheckouts: _checkoutRecords,
-      localSuppliers: _suppliers,
-      localPurchaseOrders: _reorderRequests,
-      localCycleCounts: _cycleCountSessions,
-      localCycleCountLines: _cycleCountLines,
-      defaultUnitOfMeasureId: _defaultUnitOfMeasureId,
-      defaultLocationId: _defaultLocationId,
-    );
+    final CloudSyncResult result;
+    try {
+      result = await cloudSyncService.pullFromCloud(
+        localItems: _items,
+        localBalances: _itemLocationBalances,
+        localTransactions: _transactions,
+        localCheckouts: _checkoutRecords,
+        localSuppliers: _suppliers,
+        localPurchaseOrders: _reorderRequests,
+        localCycleCounts: _cycleCountSessions,
+        localCycleCountLines: _cycleCountLines,
+        defaultUnitOfMeasureId: _defaultUnitOfMeasureId,
+        defaultLocationId: _defaultLocationId,
+      );
+    } catch (error, stackTrace) {
+      final userError = syncErrorService.recordError(
+        error,
+        stackTrace: stackTrace,
+        context: 'Pull cloud changes',
+      );
+      _cloudSyncSummary = cloudSyncService.getSyncSummary();
+      notifyListeners();
+      return AppActionResult.failure(userError.message, data: error);
+    }
     _cloudSyncSummary = cloudSyncService.getSyncSummary();
     await _loadFromDatabase();
     notifyListeners();
+    if (result.success) {
+      syncErrorService.clearLatestError();
+    } else {
+      final userError = syncErrorService.recordError(
+        result.error ?? result.message,
+        context: 'Pull cloud changes result',
+      );
+      return AppActionResult.failure(userError.message, data: result.error);
+    }
     return result.success
         ? AppActionResult.success(message: result.message)
         : AppActionResult.failure(result.message, data: result.error);
@@ -827,6 +855,25 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     return const AppActionResult.success(
       message: 'Completed sync history cleared.',
     );
+  }
+
+  void clearSyncDiagnostics() {
+    syncErrorService.clearAllErrors();
+    notifyListeners();
+  }
+
+  AppActionResult friendlySyncFailure(
+    Object error, {
+    StackTrace? stackTrace,
+    String? context,
+  }) {
+    final userError = syncErrorService.recordError(
+      error,
+      stackTrace: stackTrace,
+      context: context,
+    );
+    notifyListeners();
+    return AppActionResult.failure(userError.message, data: error);
   }
 
   Future<AppActionResult> syncItemCatalogNow() async {
@@ -929,44 +976,70 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     final localPurchaseOrders = _purchaseOrdersForCloudUpload(adoptionCutoff);
     final localCycleCounts = _cycleCountsForCloudUpload(adoptionCutoff);
     final localCycleCountLines = _cycleCountLinesForCloudUpload(adoptionCutoff);
-    final result = await cloudSyncService.syncNow(
-      localItems: localItems,
-      localBalances: localBalances,
-      localTransactions: localTransactions,
-      localCheckouts: localCheckouts,
-      localSuppliers: localSuppliers,
-      localPurchaseOrders: localPurchaseOrders,
-      localCycleCounts: localCycleCounts,
-      localCycleCountLines: localCycleCountLines,
-      defaultUnitOfMeasureId: _defaultUnitOfMeasureId,
-      defaultLocationId: _defaultLocationId,
-      unitForItem: (item) => resolveUomAbbreviation(item.unitOfMeasureId),
-      locationNameForBalance: (balance) =>
-          resolveLocationName(balance.locationId),
-      transactionLocationNameForId: resolveLocationName,
-      assignmentLabelForTransaction: (transaction) => resolveAssignedTo(
-        personId: transaction.assignedToPersonId,
-        targetId: transaction.assignedToTargetId,
-        locationId: transaction.assignedToLocationId,
-        text: transaction.assignedToText,
-      ),
-      checkedOutToLabelForCheckout: resolveCheckoutAssigneeName,
-      personNameForCheckout: resolvePersonName,
-      performedByNameForTransaction: resolveUserName,
-      performedByEmailForTransaction: _resolveUserEmail,
-      cycleCountLocationNameForId: resolveLocationName,
-      varianceValueForCycleCountLine: permissions.canViewCosts
-          ? _varianceValueForCycleCountLine
-          : null,
-      canUploadItemCatalog: permissions.canManageItems,
-      canUploadInventoryBalances: uploadBalances && _canUploadInventoryBalances,
-      canUploadInventoryTransactions:
-          uploadTransactions && _canUploadInventoryTransactions,
-      canUploadCheckouts: uploadCheckouts && _canUploadCheckouts,
-      canUploadPurchasing: uploadPurchasing && _canUploadPurchasing,
-      canUploadCycleCounts: uploadCycleCounts && _canUploadCycleCounts,
-      includeCostFields: permissions.canViewCosts,
-    );
+    final CloudSyncResult result;
+    try {
+      result = await cloudSyncService.syncNow(
+        localItems: localItems,
+        localBalances: localBalances,
+        localTransactions: localTransactions,
+        localCheckouts: localCheckouts,
+        localSuppliers: localSuppliers,
+        localPurchaseOrders: localPurchaseOrders,
+        localCycleCounts: localCycleCounts,
+        localCycleCountLines: localCycleCountLines,
+        defaultUnitOfMeasureId: _defaultUnitOfMeasureId,
+        defaultLocationId: _defaultLocationId,
+        unitForItem: (item) => resolveUomAbbreviation(item.unitOfMeasureId),
+        locationNameForBalance: (balance) =>
+            resolveLocationName(balance.locationId),
+        transactionLocationNameForId: resolveLocationName,
+        assignmentLabelForTransaction: (transaction) => resolveAssignedTo(
+          personId: transaction.assignedToPersonId,
+          targetId: transaction.assignedToTargetId,
+          locationId: transaction.assignedToLocationId,
+          text: transaction.assignedToText,
+        ),
+        checkedOutToLabelForCheckout: resolveCheckoutAssigneeName,
+        personNameForCheckout: resolvePersonName,
+        performedByNameForTransaction: resolveUserName,
+        performedByEmailForTransaction: _resolveUserEmail,
+        cycleCountLocationNameForId: resolveLocationName,
+        varianceValueForCycleCountLine: permissions.canViewCosts
+            ? _varianceValueForCycleCountLine
+            : null,
+        canUploadItemCatalog: permissions.canManageItems,
+        canUploadInventoryBalances:
+            uploadBalances && _canUploadInventoryBalances,
+        canUploadInventoryTransactions:
+            uploadTransactions && _canUploadInventoryTransactions,
+        canUploadCheckouts: uploadCheckouts && _canUploadCheckouts,
+        canUploadPurchasing: uploadPurchasing && _canUploadPurchasing,
+        canUploadCycleCounts: uploadCycleCounts && _canUploadCycleCounts,
+        includeCostFields: permissions.canViewCosts,
+      );
+    } catch (error, stackTrace) {
+      final userError = syncErrorService.recordError(
+        error,
+        stackTrace: stackTrace,
+        context: 'Manual sync',
+      );
+      _cloudSyncSummary = cloudSyncService.getSyncSummary();
+      await _refreshSyncQueueCounts();
+      notifyListeners();
+      return AppActionResult.failure(userError.message, data: error);
+    }
+    if (result.success) {
+      syncErrorService.clearLatestError();
+    } else {
+      final userError = syncErrorService.recordError(
+        result.error ?? result.message,
+        context: 'Sync result',
+      );
+      _cloudSyncSummary = cloudSyncService.getSyncSummary();
+      await _loadFromDatabase();
+      notifyListeners();
+      return AppActionResult.failure(userError.message, data: result.error);
+    }
     _cloudSyncSummary = cloudSyncService.getSyncSummary();
     await _loadFromDatabase();
     notifyListeners();
@@ -1057,10 +1130,30 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
       notifyListeners();
       return summary;
     }
-    final summary = await syncReconciliationService.buildSummary(
-      workspace.id,
-      workspaceName: workspace.name,
-    );
+    final SyncReconciliationSummary summary;
+    try {
+      summary = await syncReconciliationService.buildSummary(
+        workspace.id,
+        workspaceName: workspace.name,
+      );
+    } catch (error, stackTrace) {
+      final userError = syncErrorService.recordError(
+        error,
+        stackTrace: stackTrace,
+        context: 'Sync reconciliation',
+      );
+      final failedSummary = SyncReconciliationSummary(
+        workspaceId: workspace.id,
+        workspaceName: workspace.name,
+        checkedAt: DateTime.now(),
+        overallStatus: SyncHealthStatus.failed,
+        entities: const [],
+        messages: [userError.message],
+      );
+      _syncReconciliationSummary = failedSummary;
+      notifyListeners();
+      return failedSummary;
+    }
     _syncReconciliationSummary = summary;
     _failedSyncUploadCount = summary.totalFailed;
     notifyListeners();
@@ -6387,10 +6480,11 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     if (_failedSyncUploadCount > 0 ||
         _cloudSyncSummary.status == CloudSyncStatus.error ||
         _cloudSyncSummary.status == CloudSyncStatus.offline) {
+      final userError = syncErrorService.latestError;
       return SyncUserStatusSummary(
         status: SyncUserStatus.offlineOrFailed,
-        label: 'Offline - changes will sync later',
-        detail: _cloudSyncSummary.lastError ?? syncCoordinator.lastSyncError,
+        label: userError?.message ?? 'Offline - changes will sync later',
+        detail: userError?.message,
         pendingCount: _cloudSyncSummary.pendingUploadCount,
         failedCount: _failedSyncUploadCount,
         conflictCount: syncConflictCount,

@@ -153,6 +153,29 @@ or "Offline - changes will sync later". Sync Health, Sync Queue, conflict
 review, manual entity sync buttons, and reconciliation details are diagnostics
 for admin/manager roles or debug builds, not the normal workflow.
 
+## Sync Failure and Recovery Behavior
+
+Sync failures are converted into simple user-facing messages before they reach
+normal UI. Local work remains available when sync fails.
+
+- Offline or timeout: users can keep working; pending changes retry later.
+- Signed out: users are asked to sign in again before syncing.
+- No workspace: users are asked to choose or create a workspace.
+- Workspace setup required: inventory sync waits for the cloud setup decision.
+- Permission denied or RLS denied: the user sees that their role cannot sync the
+  change and should ask an admin.
+- Missing migration/table: diagnostics show that cloud sync setup needs
+  attention.
+- Missing Edge Function: diagnostics show that the invite service needs to be
+  deployed.
+- Conflicts: users are directed to review conflicts rather than overwriting data
+  automatically.
+
+The latest friendly error appears in the sync status chip. Admin/manager/debug
+diagnostics show recent technical details, failed outbox entries, retry failed,
+and clear diagnostics actions. Normal users should not need to manage sync
+manually.
+
 ## Sync Health and Reconciliation
 
 The Sync Health screen is available from Settings under Cloud Account /

@@ -58,6 +58,11 @@ class _SyncHealthScreenState extends State<SyncHealthScreen> {
                 _SummaryCard(summary: summary, store: store),
                 const SizedBox(height: 12),
                 _ActionCard(onRefresh: _refresh),
+                if (store.latestSyncUserError != null ||
+                    store.recentSyncErrors.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  _SyncErrorDiagnosticsCard(onRefresh: _refresh),
+                ],
                 const SizedBox(height: 12),
                 for (final entity in summary.entities) ...[
                   _EntityCard(entity: entity),
@@ -202,6 +207,20 @@ class _ActionCard extends StatelessWidget {
               label: const Text('Retry failed'),
             ),
             OutlinedButton.icon(
+              onPressed: store.recentSyncErrors.isEmpty
+                  ? null
+                  : () {
+                      store.clearSyncDiagnostics();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Sync diagnostics cleared.'),
+                        ),
+                      );
+                    },
+              icon: const Icon(Icons.cleaning_services_outlined),
+              label: const Text('Clear diagnostics'),
+            ),
+            OutlinedButton.icon(
               onPressed: () {
                 Navigator.of(context).push(
                   MaterialPageRoute<void>(
@@ -288,6 +307,99 @@ class _EntityCard extends StatelessWidget {
   }
 }
 
+class _SyncErrorDiagnosticsCard extends StatelessWidget {
+  const _SyncErrorDiagnosticsCard({required this.onRefresh});
+
+  final Future<void> Function() onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    final store = AppStoreScope.of(context);
+    final latest = store.latestSyncUserError;
+    final recent = store.recentSyncErrors.take(5).toList();
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.manage_search_outlined),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Diagnostics',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (latest != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                latest.title,
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+              Text(latest.message),
+              if (latest.recoveryActionLabel != null)
+                Text('Recovery: ${latest.recoveryActionLabel}'),
+            ],
+            if (recent.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              for (final error in recent) ...[
+                ExpansionTile(
+                  tilePadding: EdgeInsets.zero,
+                  title: Text(error.title),
+                  subtitle: Text(_formatDate(error.createdAt)),
+                  children: [
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: SelectableText(
+                        error.technicalDetails ?? error.message,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: latest?.canRetry == true
+                      ? () => _runAction(
+                          context,
+                          () => store.syncNow(),
+                          after: onRefresh,
+                        )
+                      : null,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Try again'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: store.failedSyncUploadCount > 0
+                      ? () => _runAction(
+                          context,
+                          () => store.retryFailedUploadsNow(),
+                          after: onRefresh,
+                        )
+                      : null,
+                  icon: const Icon(Icons.replay_outlined),
+                  label: const Text('Retry failed'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _MetricLine extends StatelessWidget {
   const _MetricLine({required this.label, required this.value});
 
@@ -319,7 +431,16 @@ Future<void> _runAction(
   Future<AppActionResult> Function() action, {
   Future<void> Function()? after,
 }) async {
-  final result = await action();
+  AppActionResult result;
+  try {
+    result = await action();
+  } catch (error, stackTrace) {
+    result = AppStoreScope.of(context).friendlySyncFailure(
+      error,
+      stackTrace: stackTrace,
+      context: 'Sync diagnostics action',
+    );
+  }
   if (!context.mounted) {
     return;
   }
