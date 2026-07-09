@@ -325,3 +325,31 @@ policies to owner/admin/manager roles, restricts sync-client rows to the signed
 in user, protects the last active workspace owner, and documents the remaining
 cost privacy limitation: cost columns are still row-readable to active members
 until column-level views/RPCs or separate cost tables are added.
+
+## Multi-device QA checklist
+
+Admins and diagnostics users can open the in-app checklist at:
+
+```text
+Settings -> Sync QA Checklist
+```
+
+The checklist is intentionally diagnostic-only. It runs lightweight automated
+checks for sign-in state, workspace selection, loaded role, sync coordinator
+wiring, friendly error state, outbox counts, local item counts, cloud item
+counts, and reconciliation loading.
+
+The multi-device workflow remains manual because those checks require multiple
+accounts, roles, and devices. The checklist covers owner/admin/manager,
+worker, and view-only role behavior; item sync; inventory balance sync;
+checkout and return sync; supplier and purchasing sync; cycle count sync;
+offline retry; conflict review; failed upload retry; invite flow; cost
+visibility; and last-owner protection.
+
+Manual QA should not use real customer data. Use records prefixed with
+`QA TEST -`, verify they sync, then archive or delete them through the normal
+app UI. The checklist does not create or delete test data automatically.
+
+Manual sync screens are admin/diagnostic tools, not the normal workflow.
+Regular users should see automatic sync status and friendly recovery messages,
+not outbox or reconciliation internals.

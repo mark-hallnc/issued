@@ -12,6 +12,9 @@ import 'cloud/cloud_sync_service.dart';
 import 'cloud/sync_coordinator.dart';
 import 'cloud/sync_error_models.dart';
 import 'cloud/sync_error_service.dart';
+import 'cloud/sync_models.dart';
+import 'cloud/sync_qa_models.dart';
+import 'cloud/sync_qa_service.dart';
 import 'cloud/sync_status_models.dart';
 import 'cloud/supabase_config.dart';
 import 'cloud/sync_conflict_resolution_models.dart';
@@ -99,6 +102,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
         applyService: cloudSyncService.applyService,
         outboxService: cloudSyncService.outboxService,
       );
+  final SyncQaService syncQaService = const SyncQaService();
   supabase.User? _currentCloudUser;
   final List<CloudWorkspace> _availableWorkspaces = [];
   final List<CloudWorkspaceMember> _workspaceMembers = [];
@@ -110,6 +114,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   CloudSyncSummary _cloudSyncSummary = CloudSyncSummary.disabled();
   SyncReconciliationSummary? _syncReconciliationSummary;
   CloudAdoptionSummary? _cloudAdoptionSummary;
+  SyncQaSession? _syncQaSession;
   int _failedSyncUploadCount = 0;
   StreamSubscription<dynamic>? _cloudAuthSubscription;
 
@@ -121,6 +126,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   SyncReconciliationSummary? get syncReconciliationSummary =>
       _syncReconciliationSummary;
   CloudAdoptionSummary? get cloudAdoptionSummary => _cloudAdoptionSummary;
+  SyncQaSession? get syncQaSession => _syncQaSession;
   int get failedSyncUploadCount => _failedSyncUploadCount;
   List<SyncMergeConflict> get syncMergeConflicts =>
       cloudSyncService.getMergeConflicts();
@@ -1158,6 +1164,80 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     _failedSyncUploadCount = summary.totalFailed;
     notifyListeners();
     return summary;
+  }
+
+  SyncQaSession buildSyncQaChecklist({bool notify = true}) {
+    final workspace = _activeWorkspace;
+    final session = syncQaService.buildChecklist(
+      workspace?.id ?? '',
+      workspaceName: workspace?.name,
+    );
+    _syncQaSession = session;
+    if (notify) notifyListeners();
+    return session;
+  }
+
+  Future<SyncQaSession> runSyncQaAutomatedChecks() async {
+    final currentSession = _syncQaSession ?? buildSyncQaChecklist();
+    final workspace = _activeWorkspace;
+    final roleLabel = _currentCloudRole == null
+        ? null
+        : cloudWorkspaceRoleLabel(_currentCloudRole!);
+    final session = await syncQaService.runAutomatedChecks(
+      session: currentSession,
+      isSignedIn: isCloudSignedIn,
+      hasWorkspace: workspace != null,
+      hasMembership: _currentCloudRole != null,
+      roleLabel: roleLabel,
+      hasSyncCoordinator: true,
+      latestFriendlyError: latestSyncUserError?.message,
+      readPendingOutboxCount: () =>
+          cloudSyncService.getPendingUploadCount(workspace?.id),
+      readFailedOutboxCount: () =>
+          cloudSyncService.getFailedUploadCount(workspace?.id),
+      readLocalItemCount: () async => _items.length,
+      readCloudItemCount: () {
+        if (workspace == null) {
+          return Future<int?>.value(null);
+        }
+        return syncReconciliationService.getCloudEntityCount(
+          CloudSyncEntity.item,
+          workspace.id,
+        );
+      },
+      loadReconciliation: () async {
+        await refreshSyncReconciliation();
+      },
+    );
+    _syncQaSession = session;
+    notifyListeners();
+    return session;
+  }
+
+  void markSyncQaCheckStatus(
+    String checkId,
+    SyncQaCheckStatus status, {
+    String? details,
+  }) {
+    final currentSession = _syncQaSession ?? buildSyncQaChecklist();
+    _syncQaSession = syncQaService.markCheckStatus(
+      currentSession,
+      checkId,
+      status,
+      details: details,
+    );
+    notifyListeners();
+  }
+
+  void resetSyncQaChecklist() {
+    final currentSession = _syncQaSession ?? buildSyncQaChecklist();
+    _syncQaSession = syncQaService.resetChecklist(currentSession);
+    notifyListeners();
+  }
+
+  String exportSyncQaChecklistText() {
+    final currentSession = _syncQaSession ?? buildSyncQaChecklist();
+    return syncQaService.buildShareText(currentSession);
   }
 
   Future<CloudAdoptionSummary> refreshCloudAdoptionSummary({

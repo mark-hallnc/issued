@@ -15,6 +15,7 @@ import 'reports_screen.dart';
 import 'settings_detail_screens.dart';
 import 'sync_conflicts_screen.dart';
 import 'sync_health_screen.dart';
+import 'sync_qa_checklist_screen.dart';
 import 'sync_queue_screen.dart';
 import 'workspace_members_screen.dart';
 import 'workspace_selection_screen.dart';
@@ -96,6 +97,12 @@ class SettingsScreen extends StatelessWidget {
           title: 'Data Health',
           icon: Icons.health_and_safety_outlined,
           screen: DataHealthScreen(),
+        ),
+      if (store.canOpenSyncDiagnostics)
+        const _SettingsRow(
+          title: 'Sync QA Checklist',
+          icon: Icons.rule_folder_outlined,
+          screen: SyncQaChecklistScreen(),
         ),
       if (permissions.canImportExport)
         const _SettingsRow(
