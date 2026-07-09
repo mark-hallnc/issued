@@ -257,6 +257,14 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
       List.unmodifiable(_suppliers.where((supplier) => supplier.isActive));
   List<ReorderRequest> get reorderRequests =>
       List.unmodifiable(_reorderRequests);
+  List<ReorderRequest> get pendingReorderRequests => _sortedReorders(
+    _reorderRequests
+        .where((request) => request.status == ReorderStatus.needed)
+        .toList(),
+  );
+  List<ReorderRequest> get awaitingReceiptReorders => _sortedReorders(
+    _reorderRequests.where(_isAwaitingReceiptReorder).toList(),
+  );
   List<CycleCountSession> get cycleCountSessions =>
       List.unmodifiable(_cycleCountSessions);
   List<CycleCountLine> get cycleCountLines =>
@@ -302,6 +310,58 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     }
 
     return null;
+  }
+
+  String get currentDisplayUserName {
+    final cloudName = _cloudUserMetadataString([
+      'full_name',
+      'name',
+      'display_name',
+    ]);
+    if (cloudName != null) {
+      return cloudName;
+    }
+    final cloudEmail = _currentCloudUser?.email?.trim();
+    if (cloudEmail != null && cloudEmail.isNotEmpty) {
+      return cloudEmail;
+    }
+    final memberName = _currentWorkspaceMemberDisplayName;
+    if (memberName != null) {
+      return memberName;
+    }
+    final localName = currentPerson?.displayName.trim();
+    if (localName != null && localName.isNotEmpty) {
+      return localName;
+    }
+    return 'User';
+  }
+
+  String get currentDisplayUserSubtitle {
+    if (_currentCloudUser != null) {
+      return currentCloudRole == null
+          ? 'Signed in'
+          : cloudWorkspaceRoleLabel(currentCloudRole!);
+    }
+    return currentEffectiveRoleLabel;
+  }
+
+  String get currentDisplayUserInitials {
+    final source = currentDisplayUserName.trim();
+    if (source.isEmpty) {
+      return 'U';
+    }
+    final namePart = source.contains('@') ? source.split('@').first : source;
+    final parts = namePart
+        .split(RegExp(r'[\s._-]+'))
+        .where((part) => part.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) {
+      return source.substring(0, 1).toUpperCase();
+    }
+    return parts
+        .take(2)
+        .map((part) => part.substring(0, 1).toUpperCase())
+        .join();
   }
 
   UserRole get currentRole {
@@ -1890,6 +1950,37 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
       if (member.userId == userId &&
           member.status == CloudWorkspaceMemberStatus.active) {
         return member.role;
+      }
+    }
+    return null;
+  }
+
+  String? get _currentWorkspaceMemberDisplayName {
+    final userId = _currentCloudUser?.id;
+    if (userId == null) {
+      return null;
+    }
+    for (final member in _workspaceMembers) {
+      if (member.userId == userId &&
+          member.status == CloudWorkspaceMemberStatus.active) {
+        final displayName = member.displayName?.trim();
+        if (displayName != null && displayName.isNotEmpty) {
+          return displayName;
+        }
+      }
+    }
+    return null;
+  }
+
+  String? _cloudUserMetadataString(List<String> keys) {
+    final metadata = _currentCloudUser?.userMetadata;
+    if (metadata == null) {
+      return null;
+    }
+    for (final key in keys) {
+      final value = metadata[key]?.toString().trim();
+      if (value != null && value.isNotEmpty) {
+        return value;
       }
     }
     return null;
@@ -4202,16 +4293,8 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
             !dueAt.isBefore(startOfToday) &&
             dueAt.isBefore(dueSoonCutoff);
       }).length,
-      pendingReorderCount: _reorderRequests
-          .where((request) => request.status == ReorderStatus.needed)
-          .length,
-      orderedReorderCount: _reorderRequests
-          .where(
-            (request) =>
-                request.status == ReorderStatus.ordered ||
-                request.status == ReorderStatus.partiallyReceived,
-          )
-          .length,
+      pendingReorderCount: pendingReorderRequests.length,
+      orderedReorderCount: awaitingReceiptReorders.length,
       lowStockWithoutReorderCount: activeItems.where((item) {
         return isItemLowStock(item) && getActiveReorderForItem(item.id) == null;
       }).length,
@@ -5305,19 +5388,11 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   List<ReorderRequest> getPendingReorderRequests() {
-    return _sortedReorders(
-      _reorderRequests
-          .where((request) => request.status == ReorderStatus.needed)
-          .toList(),
-    );
+    return pendingReorderRequests;
   }
 
   List<ReorderRequest> getOrderedReorderRequests() {
-    return _sortedReorders(
-      _reorderRequests
-          .where((request) => request.status == ReorderStatus.ordered)
-          .toList(),
-    );
+    return awaitingReceiptReorders;
   }
 
   List<ReorderRequest> getPartiallyReceivedReorderRequests() {
@@ -5331,6 +5406,11 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   List<ReorderRequest> _sortedReorders(List<ReorderRequest> requests) {
     requests.sort((left, right) => right.createdAt.compareTo(left.createdAt));
     return requests;
+  }
+
+  bool _isAwaitingReceiptReorder(ReorderRequest request) {
+    return request.status == ReorderStatus.ordered ||
+        request.status == ReorderStatus.partiallyReceived;
   }
 
   ReorderRequest? reorderRequestById(String reorderId) {

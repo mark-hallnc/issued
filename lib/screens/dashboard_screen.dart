@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../core/app_store.dart';
 import '../core/models/models.dart';
-import '../core/permissions/app_permissions.dart';
 import '../widgets/sync_status_chip.dart';
 import 'activity_screen.dart';
 import 'add_item_screen.dart';
@@ -71,8 +70,8 @@ class DashboardScreen extends StatelessWidget {
   }
 
   String _signedInText(AppStore store) {
-    final name = store.currentPerson?.displayName ?? 'Local user';
-    return 'Signed in as $name - ${roleLabel(store.currentRole)}';
+    return 'Signed in as ${store.currentDisplayUserName} - '
+        '${store.currentDisplayUserSubtitle}';
   }
 }
 
@@ -272,13 +271,14 @@ class _ReorderSection extends StatelessWidget {
               title: 'Pending Reorders',
               value: summary.pendingReorderCount,
               icon: Icons.list_alt_outlined,
-              onTap: () => _push(context, const ReorderListScreen()),
+              onTap: () => _push(context, const ReorderListScreen.needed()),
             ),
             _SummaryCard(
               title: 'Awaiting Receipt',
               value: summary.orderedReorderCount,
               icon: Icons.local_shipping_outlined,
-              onTap: () => _push(context, const ReorderListScreen()),
+              onTap: () =>
+                  _push(context, const ReorderListScreen.awaitingReceipt()),
             ),
             _SummaryCard(
               title: 'Low Stock Without Reorder',

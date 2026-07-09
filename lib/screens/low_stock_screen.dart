@@ -14,7 +14,7 @@ enum _LowStockFilter {
 
 enum _ReorderListFilter {
   needed,
-  ordered,
+  awaitingReceipt,
   partiallyReceived,
   received,
   cancelled,
@@ -115,34 +115,50 @@ class _LowStockScreenState extends State<LowStockScreen> {
 }
 
 class ReorderListScreen extends StatefulWidget {
-  const ReorderListScreen({super.key});
+  const ReorderListScreen({super.key})
+    : _initialFilter = _ReorderListFilter.needed;
+
+  const ReorderListScreen.needed({super.key})
+    : _initialFilter = _ReorderListFilter.needed;
+
+  const ReorderListScreen.awaitingReceipt({super.key})
+    : _initialFilter = _ReorderListFilter.awaitingReceipt;
+
+  final _ReorderListFilter _initialFilter;
 
   @override
   State<ReorderListScreen> createState() => _ReorderListScreenState();
 }
 
 class _ReorderListScreenState extends State<ReorderListScreen> {
-  _ReorderListFilter _filter = _ReorderListFilter.needed;
+  late _ReorderListFilter _filter;
+
+  @override
+  void initState() {
+    super.initState();
+    _filter = widget._initialFilter;
+  }
 
   @override
   Widget build(BuildContext context) {
     final store = AppStoreScope.of(context);
-    final requests =
-        store.reorderRequests.where((request) {
-          return switch (_filter) {
-            _ReorderListFilter.needed => request.status == ReorderStatus.needed,
-            _ReorderListFilter.ordered =>
-              request.status == ReorderStatus.ordered,
-            _ReorderListFilter.partiallyReceived =>
-              request.status == ReorderStatus.partiallyReceived,
-            _ReorderListFilter.received =>
-              request.status == ReorderStatus.received,
-            _ReorderListFilter.cancelled => request.isCancelled,
-            _ReorderListFilter.all => true,
-          };
-        }).toList()..sort(
-          (left, right) => right.createdAt.compareTo(left.createdAt),
-        );
+    final requests = switch (_filter) {
+      _ReorderListFilter.needed => store.pendingReorderRequests,
+      _ReorderListFilter.awaitingReceipt => store.awaitingReceiptReorders,
+      _ReorderListFilter.partiallyReceived =>
+        store.reorderRequests
+            .where(
+              (request) => request.status == ReorderStatus.partiallyReceived,
+            )
+            .toList(),
+      _ReorderListFilter.received =>
+        store.reorderRequests
+            .where((request) => request.status == ReorderStatus.received)
+            .toList(),
+      _ReorderListFilter.cancelled =>
+        store.reorderRequests.where((request) => request.isCancelled).toList(),
+      _ReorderListFilter.all => store.reorderRequests.toList(),
+    }..sort((left, right) => right.createdAt.compareTo(left.createdAt));
 
     return Scaffold(
       appBar: AppBar(title: const Text('Reorder List')),
@@ -159,9 +175,10 @@ class _ReorderListScreenState extends State<ReorderListScreen> {
                   onSelected: () => _setFilter(_ReorderListFilter.needed),
                 ),
                 _FilterChip(
-                  label: 'Ordered',
-                  selected: _filter == _ReorderListFilter.ordered,
-                  onSelected: () => _setFilter(_ReorderListFilter.ordered),
+                  label: 'Awaiting Receipt',
+                  selected: _filter == _ReorderListFilter.awaitingReceipt,
+                  onSelected: () =>
+                      _setFilter(_ReorderListFilter.awaitingReceipt),
                 ),
                 _FilterChip(
                   label: 'Partially Received',
@@ -521,154 +538,207 @@ Future<_QuantityNotesResult?> _showQuantityNotesDialog(
   bool allowPurchaseMode = false,
 }) {
   final store = AppStoreScope.of(context);
-  final canUsePurchase =
-      allowPurchaseMode && item != null && store.hasPurchaseConversion(item);
-  final purchaseItem = canUsePurchase ? item : null;
-  var receiveByPurchase = canUsePurchase;
-  final initialText = purchaseItem != null
-      ? _formatQuantity(
-          initialQuantity / purchaseItem.purchaseToStockConversionFactor!,
-        )
-      : _formatQuantity(initialQuantity);
-  final formKey = GlobalKey<FormState>();
-  final quantityController = TextEditingController(text: initialText);
-  final notesController = TextEditingController();
 
   return showDialog<_QuantityNotesResult>(
     context: context,
-    builder: (context) {
-      return StatefulBuilder(
-        builder: (context, setDialogState) {
-          double enteredQuantity() {
-            return double.tryParse(quantityController.text.trim()) ?? 0;
-          }
+    builder: (context) => _QuantityNotesDialog(
+      store: store,
+      title: title,
+      quantityLabel: quantityLabel,
+      initialQuantity: initialQuantity,
+      item: item,
+      allowPurchaseMode: allowPurchaseMode,
+    ),
+  );
+}
 
-          double stockQuantity() {
-            if (receiveByPurchase && purchaseItem != null) {
-              return store.convertPurchaseToStock(
-                purchaseItem,
-                enteredQuantity(),
-              );
-            }
-            return enteredQuantity();
-          }
+class _QuantityNotesDialog extends StatefulWidget {
+  const _QuantityNotesDialog({
+    required this.store,
+    required this.title,
+    required this.quantityLabel,
+    required this.initialQuantity,
+    this.item,
+    this.allowPurchaseMode = false,
+  });
 
-          String? combinedNotes() {
-            final notes = notesController.text.trim();
-            if (!receiveByPurchase || purchaseItem == null) {
-              return notes.isEmpty ? null : notes;
-            }
-            final conversionNote =
-                'Received ${store.formatPurchaseQuantity(purchaseItem, enteredQuantity())} = '
-                '${store.formatStockQuantity(purchaseItem, stockQuantity())}.';
-            return notes.isEmpty ? conversionNote : '$conversionNote $notes';
-          }
+  final AppStore store;
+  final String title;
+  final String quantityLabel;
+  final double initialQuantity;
+  final Item? item;
+  final bool allowPurchaseMode;
 
-          return AlertDialog(
-            title: Text(title),
-            content: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextFormField(
-                    controller: quantityController,
-                    decoration: InputDecoration(
-                      labelText: receiveByPurchase && purchaseItem != null
-                          ? 'Received quantity '
-                                '(${store.getPurchaseUom(purchaseItem)?.abbreviation ?? 'purchase UOM'})'
-                          : quantityLabel,
+  @override
+  State<_QuantityNotesDialog> createState() => _QuantityNotesDialogState();
+}
+
+class _QuantityNotesDialogState extends State<_QuantityNotesDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _quantityController;
+  late final TextEditingController _notesController;
+  late bool _receiveByPurchase;
+
+  Item? get _purchaseItem {
+    final item = widget.item;
+    if (!widget.allowPurchaseMode ||
+        item == null ||
+        !widget.store.hasPurchaseConversion(item)) {
+      return null;
+    }
+    return item;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final purchaseItem = _purchaseItem;
+    _receiveByPurchase = purchaseItem != null;
+    final initialText = purchaseItem != null
+        ? _formatQuantity(
+            widget.initialQuantity /
+                purchaseItem.purchaseToStockConversionFactor!,
+          )
+        : _formatQuantity(widget.initialQuantity);
+    _quantityController = TextEditingController(text: initialText);
+    _notesController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _quantityController.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final store = widget.store;
+    final purchaseItem = _purchaseItem;
+    return AlertDialog(
+      title: Text(widget.title),
+      content: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: _quantityController,
+                decoration: InputDecoration(
+                  labelText: _receiveByPurchase && purchaseItem != null
+                      ? 'Received quantity '
+                            '(${store.getPurchaseUom(purchaseItem)?.abbreviation ?? 'purchase UOM'})'
+                      : widget.quantityLabel,
+                ),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                validator: (value) {
+                  final quantity = double.tryParse(value?.trim() ?? '');
+                  if (quantity == null || quantity <= 0) {
+                    return 'Enter a quantity greater than 0.';
+                  }
+                  if (_receiveByPurchase && purchaseItem != null) {
+                    return store.validatePurchaseReceiveQuantity(
+                      purchaseItem,
+                      quantity,
+                    );
+                  }
+                  return null;
+                },
+                onChanged: (_) => setState(() {}),
+              ),
+              if (purchaseItem != null) ...[
+                const SizedBox(height: 8),
+                SegmentedButton<bool>(
+                  segments: [
+                    ButtonSegment<bool>(
+                      value: false,
+                      label: Text(
+                        'Receive by '
+                        '${store.getStockUom(purchaseItem)?.abbreviation ?? 'stock'}',
+                      ),
                     ),
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    validator: (value) {
-                      final quantity = double.tryParse(value?.trim() ?? '');
-                      if (quantity == null || quantity <= 0) {
-                        return 'Enter a quantity greater than 0.';
-                      }
-                      if (receiveByPurchase && purchaseItem != null) {
-                        return store.validatePurchaseReceiveQuantity(
-                          purchaseItem,
-                          quantity,
-                        );
-                      }
-                      return null;
-                    },
-                    onChanged: (_) => setDialogState(() {}),
-                  ),
-                  if (purchaseItem != null) ...[
-                    const SizedBox(height: 8),
-                    SegmentedButton<bool>(
-                      segments: [
-                        ButtonSegment<bool>(
-                          value: false,
-                          label: Text(
-                            'Receive by '
-                            '${store.getStockUom(purchaseItem)?.abbreviation ?? 'stock'}',
-                          ),
-                        ),
-                        ButtonSegment<bool>(
-                          value: true,
-                          label: Text(
-                            'Receive by '
-                            '${store.getPurchaseUom(purchaseItem)?.abbreviation ?? 'purchase'}',
-                          ),
-                        ),
-                      ],
-                      selected: {receiveByPurchase},
-                      onSelectionChanged: (selection) {
-                        setDialogState(() {
-                          receiveByPurchase = selection.first;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 8),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'This will add ${store.formatStockQuantity(purchaseItem, stockQuantity())}.',
+                    ButtonSegment<bool>(
+                      value: true,
+                      label: Text(
+                        'Receive by '
+                        '${store.getPurchaseUom(purchaseItem)?.abbreviation ?? 'purchase'}',
                       ),
                     ),
                   ],
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: notesController,
-                    decoration: const InputDecoration(labelText: 'Notes'),
-                    maxLines: 2,
+                  selected: {_receiveByPurchase},
+                  onSelectionChanged: (selection) {
+                    setState(() {
+                      _receiveByPurchase = selection.first;
+                    });
+                  },
+                ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'This will add '
+                    '${store.formatStockQuantity(purchaseItem, _stockQuantity())}.',
                   ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () {
-                  if (!formKey.currentState!.validate()) {
-                    return;
-                  }
-
-                  Navigator.of(context).pop(
-                    _QuantityNotesResult(
-                      quantity: stockQuantity(),
-                      notes: combinedNotes(),
-                    ),
-                  );
-                },
-                child: const Text('Save'),
+                ),
+              ],
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _notesController,
+                decoration: const InputDecoration(labelText: 'Notes'),
+                maxLines: 2,
               ),
             ],
-          );
-        },
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(onPressed: _save, child: const Text('Save')),
+      ],
+    );
+  }
+
+  double _enteredQuantity() {
+    return double.tryParse(_quantityController.text.trim()) ?? 0;
+  }
+
+  double _stockQuantity() {
+    final purchaseItem = _purchaseItem;
+    if (_receiveByPurchase && purchaseItem != null) {
+      return widget.store.convertPurchaseToStock(
+        purchaseItem,
+        _enteredQuantity(),
       );
-    },
-  ).whenComplete(() {
-    quantityController.dispose();
-    notesController.dispose();
-  });
+    }
+    return _enteredQuantity();
+  }
+
+  String? _combinedNotes() {
+    final purchaseItem = _purchaseItem;
+    final notes = _notesController.text.trim();
+    if (!_receiveByPurchase || purchaseItem == null) {
+      return notes.isEmpty ? null : notes;
+    }
+    final conversionNote =
+        'Received ${widget.store.formatPurchaseQuantity(purchaseItem, _enteredQuantity())} = '
+        '${widget.store.formatStockQuantity(purchaseItem, _stockQuantity())}.';
+    return notes.isEmpty ? conversionNote : '$conversionNote $notes';
+  }
+
+  void _save() {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+    Navigator.of(context).pop(
+      _QuantityNotesResult(quantity: _stockQuantity(), notes: _combinedNotes()),
+    );
+  }
 }
 
 void _markOrdered(BuildContext context, String reorderId) {

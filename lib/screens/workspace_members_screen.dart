@@ -38,10 +38,18 @@ class _WorkspaceMembersScreenState extends State<WorkspaceMembersScreen> {
         store.currentCloudRole == CloudWorkspaceRole.admin;
     final canManage = store.canManageWorkspaceMembers && isCloudAdmin;
     final canModifyOwners = store.currentCloudRole == CloudWorkspaceRole.owner;
-    if (workspace == null) {
+    if (!store.isCloudSignedIn || workspace == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Members')),
-        body: const Center(child: Text('Select a workspace first.')),
+        body: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Text(
+              'Sign in and select a workspace to manage users.',
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
       );
     }
 

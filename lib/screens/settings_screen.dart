@@ -63,7 +63,7 @@ class SettingsContent extends StatelessWidget {
         const _SettingsRow(
           title: 'Users & Roles',
           icon: Icons.group_outlined,
-          screen: UsersRolesSettingsScreen(),
+          screen: WorkspaceMembersScreen(),
         ),
       const _SettingsRow(
         title: 'Account / Workspace',
@@ -1001,21 +1001,19 @@ class _CurrentUserCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final personName = store.currentPerson?.displayName ?? 'Local User';
-
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            const Icon(Icons.account_circle_outlined),
+            CircleAvatar(child: Text(store.currentDisplayUserInitials)),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(personName),
-                  Text(store.currentEffectiveRoleLabel),
+                  Text(store.currentDisplayUserName),
+                  Text(store.currentDisplayUserSubtitle),
                 ],
               ),
             ),

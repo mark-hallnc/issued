@@ -183,7 +183,7 @@ class _IssuedShellState extends State<IssuedShell> {
   @override
   Widget build(BuildContext context) {
     final store = AppStoreScope.of(context);
-    final userName = store.currentPerson?.displayName ?? 'Local user';
+    final userName = store.currentDisplayUserName;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Issued'),
