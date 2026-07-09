@@ -173,7 +173,7 @@ class _IssuedShellState extends State<IssuedShell> {
     ScanScreen(),
     ItemsScreen(),
     CountsScreen(),
-    SettingsScreen(),
+    SettingsScreen(embeddedInShell: true),
   ];
 
   @override

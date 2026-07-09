@@ -75,7 +75,7 @@ class _SetupScreenState extends State<SetupScreen> {
                     );
                   },
                   icon: const Icon(Icons.cloud_outlined),
-                  label: const Text('Sign in with Cloud Account'),
+                  label: const Text('Sign in with Account'),
                 ),
               ],
             ),

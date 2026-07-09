@@ -21,7 +21,31 @@ import 'workspace_members_screen.dart';
 import 'workspace_selection_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
-  const SettingsScreen({super.key});
+  const SettingsScreen({super.key, this.embeddedInShell = false});
+
+  final bool embeddedInShell;
+
+  @override
+  Widget build(BuildContext context) {
+    final content = SettingsContent(onOpenSettings: (screen) {
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute<void>(builder: (context) => screen));
+    });
+    if (embeddedInShell) {
+      return content;
+    }
+    return Scaffold(
+      appBar: AppBar(title: const Text('Settings')),
+      body: SafeArea(child: content),
+    );
+  }
+}
+
+class SettingsContent extends StatelessWidget {
+  const SettingsContent({super.key, required this.onOpenSettings});
+
+  final ValueChanged<Widget> onOpenSettings;
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +65,7 @@ class SettingsScreen extends StatelessWidget {
           screen: UsersRolesSettingsScreen(),
         ),
       const _SettingsRow(
-        title: 'Cloud Account / Workspace',
+        title: 'Account / Workspace',
         icon: Icons.cloud_outlined,
         screen: CloudAccountSettingsScreen(),
       ),
@@ -137,11 +161,7 @@ class SettingsScreen extends StatelessWidget {
                 leading: Icon(row.icon, color: const Color(0xFF1E3A5F)),
                 title: Text(row.title),
                 trailing: const Icon(Icons.chevron_right),
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(builder: (context) => row.screen),
-                  );
-                },
+                onTap: () => onOpenSettings(row.screen),
               ),
             ),
             const SizedBox(height: 10),

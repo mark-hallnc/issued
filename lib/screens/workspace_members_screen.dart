@@ -17,8 +17,14 @@ class _WorkspaceMembersScreenState extends State<WorkspaceMembersScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) {
+        return;
+      }
       final store = AppStoreScope.of(context);
       await store.loadWorkspaceMembers();
+      if (!mounted) {
+        return;
+      }
       await store.loadWorkspaceInvites();
     });
   }
@@ -76,15 +82,15 @@ class _WorkspaceMembersScreenState extends State<WorkspaceMembersScreen> {
                     store.workspaceMembers,
                   ),
                   onRoleChanged: (role) => _runAction(
-                    store.updateCloudMemberRole(
+                    () => store.updateCloudMemberRole(
                       memberId: member.id,
                       role: role,
                     ),
                   ),
                   onDisable: () =>
-                      _runAction(store.disableCloudMember(member.id)),
+                      _runAction(() => store.disableCloudMember(member.id)),
                   onEnable: () =>
-                      _runAction(store.enableCloudMember(member.id)),
+                      _runAction(() => store.enableCloudMember(member.id)),
                 ),
                 const SizedBox(height: 10),
               ],
@@ -103,10 +109,12 @@ class _WorkspaceMembersScreenState extends State<WorkspaceMembersScreen> {
                   canManage:
                       canManage &&
                       invite.status == CloudWorkspaceInviteStatus.pending,
-                  onResend: () =>
-                      _runAction(store.resendCloudWorkspaceInvite(invite.id)),
-                  onRevoke: () =>
-                      _runAction(store.revokeCloudWorkspaceInvite(invite.id)),
+                  onResend: () => _runAction(
+                    () => store.resendCloudWorkspaceInvite(invite.id),
+                  ),
+                  onRevoke: () => _runAction(
+                    () => store.revokeCloudWorkspaceInvite(invite.id),
+                  ),
                 ),
                 const SizedBox(height: 10),
               ],
@@ -135,19 +143,21 @@ class _WorkspaceMembersScreenState extends State<WorkspaceMembersScreen> {
     return activeOwnerCount <= 1;
   }
 
-  Future<void> _runAction(Future<AppActionResult> action) async {
+  Future<void> _runAction(Future<AppActionResult> Function() action) async {
     setState(() => _isBusy = true);
-    final result = await action;
+    final messenger = ScaffoldMessenger.of(context);
+    final result = await action();
     if (!mounted) {
       return;
     }
     setState(() => _isBusy = false);
-    ScaffoldMessenger.of(context).showSnackBar(
+    messenger.showSnackBar(
       SnackBar(content: Text(result.message ?? 'Workspace updated.')),
     );
   }
 
   Future<void> _showInviteDialog(AppStore store) async {
+    final messenger = ScaffoldMessenger.of(context);
     final result = await showDialog<AppActionResult>(
       context: context,
       builder: (dialogContext) {
@@ -165,9 +175,9 @@ class _WorkspaceMembersScreenState extends State<WorkspaceMembersScreen> {
     if (!mounted || result == null) {
       return;
     }
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(result.message ?? 'Invite sent.')));
+    messenger.showSnackBar(
+      SnackBar(content: Text(result.message ?? 'Invite sent.')),
+    );
   }
 }
 
@@ -272,6 +282,7 @@ class _InviteWorkspaceMemberDialogState
 
   Future<void> _submit() async {
     setState(() => _isSubmitting = true);
+    final navigator = Navigator.of(context);
     final result = await widget.onInvite(
       email: _emailController.text,
       role: _role,
@@ -281,7 +292,7 @@ class _InviteWorkspaceMemberDialogState
       return;
     }
     setState(() => _isSubmitting = false);
-    Navigator.of(context).pop(result);
+    navigator.pop(result);
   }
 }
 

@@ -67,6 +67,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
     _selectedLocation ??= store.locations.first;
 
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(title: const Text('Add Item')),
       bottomNavigationBar: SafeArea(
         child: Padding(
@@ -81,7 +82,8 @@ class _AddItemScreenState extends State<AddItemScreen> {
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
           children: [
             TextFormField(
               controller: _nameController,
@@ -255,58 +257,64 @@ class _AddItemScreenState extends State<AddItemScreen> {
               },
             ),
             const SizedBox(height: 8),
-            ExpansionTile(
-              tilePadding: EdgeInsets.zero,
-              title: const Text('Purchasing / Receiving'),
-              childrenPadding: const EdgeInsets.only(bottom: 12),
-              children: [
-                DropdownButtonFormField<UnitOfMeasure?>(
-                  initialValue: _selectedPurchaseUnit,
-                  decoration: const InputDecoration(
-                    labelText: 'Purchase UOM',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: [
-                    const DropdownMenuItem<UnitOfMeasure?>(
-                      value: null,
-                      child: Text('No purchase UOM'),
+            Card(
+              margin: const EdgeInsets.symmetric(vertical: 4),
+              child: ExpansionTile(
+                tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+                title: const Text(
+                  'Purchasing / Receiving',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                childrenPadding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+                children: [
+                  DropdownButtonFormField<UnitOfMeasure?>(
+                    initialValue: _selectedPurchaseUnit,
+                    decoration: const InputDecoration(
+                      labelText: 'Purchase UOM',
+                      border: OutlineInputBorder(),
                     ),
-                    for (final unit in store.unitsOfMeasure)
-                      DropdownMenuItem<UnitOfMeasure?>(
-                        value: unit,
-                        child: Text('${unit.name} (${unit.abbreviation})'),
+                    items: [
+                      const DropdownMenuItem<UnitOfMeasure?>(
+                        value: null,
+                        child: Text('No purchase UOM'),
                       ),
+                      for (final unit in store.unitsOfMeasure)
+                        DropdownMenuItem<UnitOfMeasure?>(
+                          value: unit,
+                          child: Text('${unit.name} (${unit.abbreviation})'),
+                        ),
+                    ],
+                    onChanged: (unit) {
+                      setState(() {
+                        _selectedPurchaseUnit = unit;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _purchaseConversionController,
+                    decoration: const InputDecoration(
+                      labelText: 'Stocking units per purchase unit',
+                      helperText: 'Example: 1 case = 12 each, enter 12.',
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    validator: _purchaseConversionValidator,
+                    onChanged: (_) => setState(() {}),
+                  ),
+                  if (_purchasePreview().isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(_purchasePreview()),
+                    ),
                   ],
-                  onChanged: (unit) {
-                    setState(() {
-                      _selectedPurchaseUnit = unit;
-                    });
-                  },
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _purchaseConversionController,
-                  decoration: const InputDecoration(
-                    labelText: 'Stocking units per purchase unit',
-                    helperText: 'Example: 1 case = 12 each, enter 12.',
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  validator: _purchaseConversionValidator,
-                  onChanged: (_) => setState(() {}),
-                ),
-                if (_purchasePreview().isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(_purchasePreview()),
-                  ),
                 ],
-              ],
+              ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 12),
             TextFormField(
               controller: _notesController,
               decoration: const InputDecoration(
@@ -324,6 +332,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
               selectValues: _customSelectValues,
               onChanged: () => setState(() {}),
             ),
+            const SizedBox(height: 24),
           ],
         ),
       ),
@@ -656,14 +665,24 @@ class _CustomFieldsSection extends StatelessWidget {
     }
 
     return Card(
+      margin: const EdgeInsets.symmetric(vertical: 4),
       child: ExpansionTile(
         initiallyExpanded: fields.length <= 4,
-        title: const Text('Custom Fields'),
-        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+        title: const Text(
+          'Custom Fields',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
+        subtitle: Text(
+          fields.any((field) => field.isRequired)
+              ? 'Required fields are marked with *'
+              : '${fields.length} fields available',
+        ),
+        childrenPadding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
         children: [
-          for (final field in fields) ...[
-            _fieldControl(context, field),
-            const SizedBox(height: 12),
+          for (var index = 0; index < fields.length; index++) ...[
+            _fieldControl(context, fields[index]),
+            if (index < fields.length - 1) const SizedBox(height: 16),
           ],
         ],
       ),
@@ -711,51 +730,57 @@ class _CustomFieldsSection extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              OutlinedButton.icon(
-                onPressed: () async {
-                  final now = DateTime.now();
-                  final date = await showDatePicker(
-                    context: context,
-                    firstDate: DateTime(now.year - 20),
-                    lastDate: DateTime(now.year + 50),
-                    initialDate: dateValues[field.id] ?? now,
-                  );
-                  if (date == null) {
-                    return;
-                  }
-                  dateValues[field.id] = date;
-                  state.didChange(date);
-                  onChanged();
-                },
-                icon: const Icon(Icons.event),
-                label: Text(
-                  dateValues[field.id] == null
-                      ? _label(field)
-                      : '${field.name}: ${_formatDate(dateValues[field.id]!)}',
+              InputDecorator(
+                decoration: InputDecoration(
+                  labelText: _label(field),
+                  border: const OutlineInputBorder(),
+                  errorText: state.errorText,
                 ),
-              ),
-              if (state.hasError)
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Text(
-                    state.errorText!,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () async {
+                      final now = DateTime.now();
+                      final date = await showDatePicker(
+                        context: context,
+                        firstDate: DateTime(now.year - 20),
+                        lastDate: DateTime(now.year + 50),
+                        initialDate: dateValues[field.id] ?? now,
+                      );
+                      if (date == null) {
+                        return;
+                      }
+                      dateValues[field.id] = date;
+                      state.didChange(date);
+                      onChanged();
+                    },
+                    icon: const Icon(Icons.event),
+                    label: Text(
+                      dateValues[field.id] == null
+                          ? 'Choose date'
+                          : _formatDate(dateValues[field.id]!),
                     ),
                   ),
                 ),
+              ),
             ],
           );
         },
       ),
-      CustomFieldType.boolean => SwitchListTile(
-        contentPadding: EdgeInsets.zero,
-        title: Text(_label(field)),
-        value: boolValues[field.id] ?? false,
-        onChanged: (value) {
-          boolValues[field.id] = value;
-          onChanged();
-        },
+      CustomFieldType.boolean => InputDecorator(
+        decoration: InputDecoration(
+          labelText: _label(field),
+          border: const OutlineInputBorder(),
+        ),
+        child: SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Enabled'),
+          value: boolValues[field.id] ?? false,
+          onChanged: (value) {
+            boolValues[field.id] = value;
+            onChanged();
+          },
+        ),
       ),
       CustomFieldType.select => DropdownButtonFormField<String>(
         initialValue: selectValues[field.id],
