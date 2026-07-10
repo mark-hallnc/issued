@@ -15,7 +15,6 @@ import 'plan_screens.dart';
 import 'quick_issue_screen.dart';
 import 'scanner_screen.dart';
 import 'settings_detail_screens.dart';
-import 'sync_health_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -43,7 +42,7 @@ class DashboardScreen extends StatelessWidget {
           style: textTheme.bodyLarge?.copyWith(color: const Color(0xFF5C6672)),
         ),
         const SizedBox(height: 12),
-        if (store.isCloudConfigured || store.isCloudSignedIn) ...[
+        if (store.shouldShowDashboardSyncStatus) ...[
           _CloudSyncStatusCard(store: store),
           const SizedBox(height: 10),
         ],
@@ -98,16 +97,7 @@ class _CloudSyncStatusCard extends StatelessWidget {
           constraints: const BoxConstraints(maxWidth: 180),
           child: SyncStatusChip(
             status: store.syncUserStatus,
-            onOpenDiagnostics:
-                store.canOpenSyncDiagnostics && store.isCloudWorkspaceActive
-                ? () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (context) => const SyncHealthScreen(),
-                      ),
-                    );
-                  }
-                : null,
+            onOpenDiagnostics: null,
           ),
         ),
       ),

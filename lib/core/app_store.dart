@@ -175,6 +175,14 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   bool get canOpenSyncDiagnostics =>
       kDebugMode || permissions.isAdmin || permissions.isManager;
   SyncUserStatusSummary get syncUserStatus => _buildSyncUserStatus();
+  bool get shouldShowDashboardSyncStatus {
+    final status = syncUserStatus.status;
+    return status == SyncUserStatus.syncing ||
+        status == SyncUserStatus.pendingChanges ||
+        status == SyncUserStatus.offlineOrFailed ||
+        status == SyncUserStatus.conflictsNeedReview;
+  }
+
   SyncUserError? get latestSyncUserError => syncErrorService.latestError;
   List<SyncUserError> get recentSyncErrors => syncErrorService.recentErrors;
   bool get isCloudSyncReady => cloudSyncService.isCloudSyncReady();
@@ -625,9 +633,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
       _clearCloudSyncState();
     }
     notifyListeners();
-    if (!shouldShowCloudAdoptionWizard) {
-      _requestAutomaticSync(trigger: SyncTrigger.workspaceSelected);
-    }
+    await syncCurrentOrganizationAfterLogin();
     return const AppActionResult.success();
   }
 
@@ -791,9 +797,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     await initializeCloudSyncForActiveWorkspace(notify: false);
     await refreshCloudAdoptionSummary(notify: false);
     notifyListeners();
-    if (!shouldShowCloudAdoptionWizard) {
-      _requestAutomaticSync(trigger: SyncTrigger.workspaceSelected);
-    }
+    await syncCurrentOrganizationAfterLogin();
     return AppActionResult.success(message: result.message);
   }
 
@@ -867,9 +871,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     await refreshCloudAdoptionSummary(notify: false);
     _inviteAcceptanceMessage = 'Organization joined.';
     notifyListeners();
-    if (!shouldShowCloudAdoptionWizard) {
-      _requestAutomaticSync(trigger: SyncTrigger.workspaceSelected);
-    }
+    await syncCurrentOrganizationAfterLogin();
     return const AppActionResult.success(message: 'Organization joined.');
   }
 
@@ -962,9 +964,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     await initializeCloudSyncForActiveWorkspace(notify: false);
     await refreshCloudAdoptionSummary(notify: false);
     notifyListeners();
-    if (!shouldShowCloudAdoptionWizard) {
-      _requestAutomaticSync(trigger: SyncTrigger.workspaceSelected);
-    }
+    await syncCurrentOrganizationAfterLogin();
     return AppActionResult.success(message: result.message);
   }
 
@@ -986,9 +986,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     await initializeCloudSyncForActiveWorkspace(notify: false);
     await refreshCloudAdoptionSummary(notify: false);
     notifyListeners();
-    if (!shouldShowCloudAdoptionWizard) {
-      _requestAutomaticSync(trigger: SyncTrigger.workspaceSelected);
-    }
+    await syncCurrentOrganizationAfterLogin();
   }
 
   void disableCloudModeAndUseLocalOnly() {
@@ -1091,6 +1089,25 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     return result.success
         ? AppActionResult.success(message: result.message)
         : AppActionResult.failure(result.message, data: result.error);
+  }
+
+  Future<AppActionResult> syncCurrentOrganizationAfterLogin() async {
+    if (!isCloudWorkspaceActive) {
+      return const AppActionResult.success();
+    }
+    final pullResult = await pullCloudChangesNow();
+    if (!pullResult.success) {
+      return pullResult;
+    }
+    final syncResult = await _runCloudInventorySync(
+      uploadBalances: true,
+      uploadTransactions: true,
+      uploadCheckouts: true,
+      uploadPurchasing: true,
+      uploadCycleCounts: true,
+    );
+    await refreshSyncReconciliation();
+    return syncResult;
   }
 
   Future<AppActionResult> retryFailedUploadsNow() async {
@@ -1209,16 +1226,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     bool bypassAdoptionGate = false,
   }) async {
     final adoptionSummary = await _ensureCloudAdoptionSummary();
-    final adoptionState = adoptionSummary?.state;
-    if (!bypassAdoptionGate &&
-        (adoptionState == CloudAdoptionState.needsDecision ||
-            adoptionState == CloudAdoptionState.blocked ||
-            adoptionState == CloudAdoptionState.localOnlySelected)) {
-      return const AppActionResult.failure(
-        'Choose how this device should use the workspace before syncing.',
-      );
-    }
-    final adoptionCutoff = forceUploadExistingLocalData
+    final adoptionCutoff = forceUploadExistingLocalData || bypassAdoptionGate
         ? null
         : _localUploadCutoffFor(adoptionSummary);
     final localItems = _itemsForCloudUpload(adoptionCutoff);
@@ -1619,13 +1627,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   bool _canRunAutomaticSync() {
-    if (!_isInitialized || !isCloudWorkspaceActive) {
-      return false;
-    }
-    final adoptionState = _cloudAdoptionSummary?.state;
-    return adoptionState != CloudAdoptionState.needsDecision &&
-        adoptionState != CloudAdoptionState.localOnlySelected &&
-        adoptionState != CloudAdoptionState.blocked;
+    return _isInitialized && isCloudWorkspaceActive;
   }
 
   Future<void> _performAutomaticSync(SyncTrigger trigger) async {
@@ -1865,6 +1867,11 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   DateTime? _localUploadCutoffFor(CloudAdoptionSummary? summary) {
     if (summary == null) {
       return null;
+    }
+    if (summary.state == CloudAdoptionState.needsDecision ||
+        summary.state == CloudAdoptionState.blocked ||
+        summary.state == CloudAdoptionState.localOnlySelected) {
+      return summary.completedAt ?? DateTime.now();
     }
     return summary.shouldProtectExistingLocalData ? summary.completedAt : null;
   }
@@ -6769,8 +6776,8 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     if (!isCloudSignedIn) {
       return SyncUserStatusSummary(
         status: SyncUserStatus.signedOut,
-        label: 'Sync not connected',
-        detail: 'Sign in from Account / Workspace to sync this workspace.',
+        label: 'Not signed in',
+        detail: 'Sign in to keep inventory available across devices.',
         pendingCount: _cloudSyncSummary.pendingUploadCount,
         failedCount: _failedSyncUploadCount,
         conflictCount: syncConflictCount,
@@ -6781,24 +6788,8 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     if (_activeWorkspace == null) {
       return SyncUserStatusSummary(
         status: SyncUserStatus.noWorkspace,
-        label: hasLocalWorkspace
-            ? 'Workspace sync not set up'
-            : 'Choose a workspace',
-        detail: hasLocalWorkspace
-            ? 'Set up sync for $localWorkspaceName from Account / Workspace.'
-            : 'Choose or create a workspace before syncing.',
-        pendingCount: _cloudSyncSummary.pendingUploadCount,
-        failedCount: _failedSyncUploadCount,
-        conflictCount: syncConflictCount,
-        lastSyncedAt: _cloudSyncSummary.lastSuccessfulSyncAt,
-        canOpenDiagnostics: canOpenSyncDiagnostics,
-      );
-    }
-    if (shouldShowCloudAdoptionWizard) {
-      return SyncUserStatusSummary(
-        status: SyncUserStatus.setupRequired,
-        label: 'Workspace setup needed',
-        detail: 'Choose how this device should use the workspace.',
+        label: 'Choose organization',
+        detail: 'Choose or create an organization to continue.',
         pendingCount: _cloudSyncSummary.pendingUploadCount,
         failedCount: _failedSyncUploadCount,
         conflictCount: syncConflictCount,

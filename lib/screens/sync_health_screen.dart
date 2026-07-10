@@ -57,7 +57,7 @@ class _SyncHealthScreenState extends State<SyncHealthScreen> {
               children: [
                 _SummaryCard(summary: summary, store: store),
                 const SizedBox(height: 12),
-                _ActionCard(onRefresh: _refresh),
+                _ActionCard(onRefresh: _refresh, onPullLatest: _pullLatest),
                 if (store.latestSyncUserError != null ||
                     store.recentSyncErrors.isNotEmpty) ...[
                   const SizedBox(height: 12),
@@ -97,6 +97,18 @@ class _SyncHealthScreenState extends State<SyncHealthScreen> {
       _summaryFuture = future;
     });
     await future;
+  }
+
+  Future<void> _pullLatest() async {
+    final store = AppStoreScope.of(context);
+    final result = await store.pullCloudChangesNow();
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(result.message ?? 'Account data refreshed.')),
+    );
+    await _refresh();
   }
 }
 
@@ -170,9 +182,10 @@ class _SummaryCard extends StatelessWidget {
 }
 
 class _ActionCard extends StatelessWidget {
-  const _ActionCard({required this.onRefresh});
+  const _ActionCard({required this.onRefresh, required this.onPullLatest});
 
   final Future<void> Function() onRefresh;
+  final Future<void> Function() onPullLatest;
 
   @override
   Widget build(BuildContext context) {
@@ -188,6 +201,11 @@ class _ActionCard extends StatelessWidget {
               onPressed: onRefresh,
               icon: const Icon(Icons.refresh),
               label: const Text('Refresh'),
+            ),
+            OutlinedButton.icon(
+              onPressed: onPullLatest,
+              icon: const Icon(Icons.cloud_download_outlined),
+              label: const Text('Pull latest from account'),
             ),
             OutlinedButton.icon(
               onPressed: () =>
