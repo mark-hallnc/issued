@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/app_store.dart';
 import '../core/models/models.dart';
+import 'roles_permissions_screen.dart';
 
 class WorkspaceMembersScreen extends StatefulWidget {
   const WorkspaceMembersScreen({super.key});
@@ -71,6 +72,18 @@ class _WorkspaceMembersScreenState extends State<WorkspaceMembersScreen> {
           padding: const EdgeInsets.all(16),
           children: [
             Text(workspace.name, style: Theme.of(context).textTheme.titleLarge),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (context) => const RolesPermissionsScreen(),
+                  ),
+                ),
+                icon: const Icon(Icons.admin_panel_settings_outlined),
+                label: const Text('What can each role do?'),
+              ),
+            ),
             const SizedBox(height: 12),
             _SectionTitle(
               title: 'Active Members',

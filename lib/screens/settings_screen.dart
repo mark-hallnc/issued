@@ -11,6 +11,7 @@ import 'data_health_screen.dart';
 import 'import_export_screen.dart';
 import 'label_center_screen.dart';
 import 'reports_screen.dart';
+import 'roles_permissions_screen.dart';
 import 'settings_detail_screens.dart';
 import 'sync_conflicts_screen.dart';
 import 'sync_health_screen.dart';
@@ -65,6 +66,11 @@ class SettingsContent extends StatelessWidget {
           icon: Icons.group_outlined,
           screen: WorkspaceMembersScreen(),
         ),
+      const _SettingsRow(
+        title: 'Roles & Permissions',
+        icon: Icons.admin_panel_settings_outlined,
+        screen: RolesPermissionsScreen(),
+      ),
       const _SettingsRow(
         title: 'Account / Organization',
         icon: Icons.business_outlined,
