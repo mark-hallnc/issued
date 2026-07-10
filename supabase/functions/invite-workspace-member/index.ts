@@ -12,6 +12,7 @@ const allowedRoles = new Set(["admin", "manager", "worker", "viewOnly"]);
 const publicInviteBaseUrl =
   Deno.env.get("PUBLIC_INVITE_BASE_URL") ??
     "https://issuedinventory.com/invite";
+const customInviteSchemeBaseUrl = "issued://invite";
 
 serve(async (request) => {
   if (request.method === "OPTIONS") {
@@ -157,12 +158,17 @@ serve(async (request) => {
     );
   }
 
-  const inviteUrl = `${publicInviteBaseUrl}?token=${encodeURIComponent(inviteToken)}`;
+  // Workspace invites are app-opening links, not Supabase Auth links.
+  // Sign-in remains the separate Supabase OTP/code flow.
+  const encodedInviteToken = encodeURIComponent(inviteToken);
+  const inviteUrl = `${publicInviteBaseUrl}?token=${encodedInviteToken}`;
+  const directAppUrl = `${customInviteSchemeBaseUrl}?token=${encodedInviteToken}`;
   const inviteEmailError = await sendInviteEmail({
     to: email,
     workspaceName: workspace.name?.toString() ?? "Issued workspace",
     role,
     inviteUrl,
+    directAppUrl,
   });
 
   if (inviteEmailError) {
@@ -226,11 +232,13 @@ async function sendInviteEmail({
   workspaceName,
   role,
   inviteUrl,
+  directAppUrl,
 }: {
   to: string;
   workspaceName: string;
   role: string;
   inviteUrl: string;
+  directAppUrl: string;
 }): Promise<Error | null> {
   const resendApiKey = Deno.env.get("RESEND_API_KEY");
   if (!resendApiKey) {
@@ -246,6 +254,7 @@ async function sendInviteEmail({
     roleLabel,
     invitedEmail: to,
     inviteUrl,
+    directAppUrl,
   });
   const text = [
     `You were invited to the ${workspaceName} workspace in Issued.`,
@@ -255,8 +264,12 @@ async function sendInviteEmail({
     "Open Issued:",
     inviteUrl,
     "",
+    "Open directly in the app:",
+    directAppUrl,
+    "",
     "Sign in with this email address to accept the invite.",
     "If you do not have Issued installed yet, this link will show setup instructions.",
+    "If the button does not open the app, open Issued manually and sign in with this email address. The invite will be accepted after sign-in.",
   ].join("\n");
 
   const response = await fetch("https://api.resend.com/emails", {
@@ -286,16 +299,19 @@ function inviteEmailHtml({
   roleLabel,
   invitedEmail,
   inviteUrl,
+  directAppUrl,
 }: {
   workspaceName: string;
   roleLabel: string;
   invitedEmail: string;
   inviteUrl: string;
+  directAppUrl: string;
 }): string {
   const safeWorkspace = escapeHtml(workspaceName);
   const safeRole = escapeHtml(roleLabel);
   const safeEmail = escapeHtml(invitedEmail);
   const safeUrl = escapeHtml(inviteUrl);
+  const safeDirectAppUrl = escapeHtml(directAppUrl);
   return `
     <div style="font-family:Arial,sans-serif;color:#17212f;line-height:1.5;max-width:560px;margin:0 auto;padding:24px;">
       <div style="font-size:24px;font-weight:700;margin-bottom:18px;">Issued</div>
@@ -306,7 +322,11 @@ function inviteEmailHtml({
       <p style="margin:0 0 22px;">
         <a href="${safeUrl}" style="display:inline-block;background:#1e3a5f;color:#ffffff;text-decoration:none;font-weight:700;padding:12px 18px;border-radius:8px;">Open Issued</a>
       </p>
+      <p style="margin:0 0 12px;">
+        <a href="${safeDirectAppUrl}" style="color:#1e3a5f;font-weight:700;">Open directly in the app</a>
+      </p>
       <p style="margin:0 0 8px;">If you do not have Issued installed yet, this link will show setup instructions.</p>
+      <p style="margin:0 0 8px;">If the button does not open the app, open Issued manually and sign in with this email address. The invite will be accepted after sign-in.</p>
       <p style="margin:0;color:#526173;font-size:13px;">If the button does not work, copy and paste this URL into your browser:<br>${safeUrl}</p>
     </div>
   `;

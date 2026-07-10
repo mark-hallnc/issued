@@ -78,7 +78,7 @@ class InviteLinkService {
     final isHttpsInvite =
         uri.scheme == 'https' &&
         uri.host.toLowerCase() == 'issuedinventory.com' &&
-        uri.path == '/invite';
+        (uri.path == '/invite' || uri.path.startsWith('/invite/'));
     final isCustomInvite =
         uri.scheme == 'issued' && uri.host.toLowerCase() == 'invite';
     if (!isHttpsInvite && !isCustomInvite) {

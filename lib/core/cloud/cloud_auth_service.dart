@@ -49,6 +49,9 @@ class CloudAuthService {
       return const CloudAuthResult.failure('Enter a valid email address.');
     }
     try {
+      // Supabase Auth is the login-code flow. Its email template must include
+      // {{ .Token }} so users can type the code shown in CloudLoginScreen.
+      // Workspace invite emails are sent separately by the invite Edge Function.
       await client.auth.signInWithOtp(email: normalizedEmail);
       return const CloudAuthResult.success(message: 'Email code sent.');
     } on AuthException catch (error) {
