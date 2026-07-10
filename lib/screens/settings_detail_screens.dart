@@ -199,13 +199,8 @@ class UsersRolesSettingsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '${store.currentPerson?.displayName ?? 'Local User'} - ${roleLabel(store.currentRole)}',
-                ),
-                const SizedBox(height: 10),
-                OutlinedButton.icon(
-                  onPressed: () => store.lockSession(clearCurrentUser: true),
-                  icon: const Icon(Icons.lock_outline),
-                  label: const Text('Switch User'),
+                  '${store.currentDisplayUserName} - '
+                  '${store.currentDisplayUserSubtitle}',
                 ),
                 const SizedBox(height: 8),
                 FilledButton.icon(

@@ -219,19 +219,6 @@ class DeveloperToolsSettingsScreen extends StatelessWidget {
                     child: const Text('Clear local test data'),
                   ),
                   const SizedBox(height: 10),
-                  OutlinedButton(
-                    onPressed: store.isCloudSignedIn
-                        ? () => _confirmAndRun(
-                            context,
-                            title: 'Sign out cloud account?',
-                            message:
-                                'This signs out of the cloud account on this device. Local app data stays on this device.',
-                            action: store.signOutCloud,
-                          )
-                        : null,
-                    child: const Text('Sign out cloud account'),
-                  ),
-                  const SizedBox(height: 10),
                   FilledButton(
                     onPressed: () => _confirmAndRun(
                       context,
@@ -239,6 +226,7 @@ class DeveloperToolsSettingsScreen extends StatelessWidget {
                       message:
                           'This removes local app data from this device and signs out of the cloud account. It does not delete your Supabase project or workspace.',
                       action: store.clearLocalDataAndSignOutForDevelopment,
+                      resetToLoginOnSuccess: true,
                     ),
                     child: const Text('Clear local data and sign out'),
                   ),
@@ -272,6 +260,7 @@ class DeveloperToolsSettingsScreen extends StatelessWidget {
     required String title,
     required String message,
     required Future<AppActionResult> Function() action,
+    bool resetToLoginOnSuccess = false,
   }) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -302,6 +291,9 @@ class DeveloperToolsSettingsScreen extends StatelessWidget {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(result.message ?? 'Development action complete.')),
     );
+    if (resetToLoginOnSuccess && result.success && context.mounted) {
+      _resetToLogin(context);
+    }
   }
 }
 
@@ -911,38 +903,46 @@ class _AccountWorkspaceActions extends StatelessWidget {
   }
 
   Future<void> _signOut(BuildContext context, AppStore store) async {
-    if (store.cloudSyncSummary.pendingUploadCount > 0 ||
-        store.failedSyncUploadCount > 0) {
-      final shouldSignOut = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Unsynced changes'),
-          content: const Text(
-            'This device has unsynced changes. They will stay on this device, but they cannot upload while signed out.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Sign out'),
-            ),
-          ],
+    final shouldSignOut = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Sign out?'),
+        content: const Text(
+          'This will sign out of this device. Inventory saved on this device will remain available after signing back in.',
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Sign out'),
+          ),
+        ],
+      ),
+    );
+    if (shouldSignOut != true || !context.mounted) {
+      return;
+    }
+    final result = await store.signOutAndResetSession();
+    if (!context.mounted) {
+      return;
+    }
+    if (!result.success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result.message ?? 'Could not sign out.')),
       );
-      if (shouldSignOut != true || !context.mounted) {
-        return;
-      }
     }
-    final result = await store.signOutCloud();
-    if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(result.message ?? 'Signed out.')));
-    }
+    _resetToLogin(context);
   }
+}
+
+void _resetToLogin(BuildContext context) {
+  Navigator.of(context).pushAndRemoveUntil(
+    MaterialPageRoute<void>(builder: (context) => const CloudLoginScreen()),
+    (route) => false,
+  );
 }
 
 String _formatCloudSyncDate(DateTime? value) {
@@ -1004,8 +1004,10 @@ class _CurrentUserCard extends StatelessWidget {
               ),
             ),
             TextButton(
-              onPressed: () => store.lockSession(clearCurrentUser: true),
-              child: const Text('Switch User'),
+              onPressed: store.isCloudSignedIn
+                  ? () => _signOutFromCurrentUserCard(context, store)
+                  : null,
+              child: const Text('Sign out'),
             ),
             IconButton(
               tooltip: 'Lock',
@@ -1017,6 +1019,44 @@ class _CurrentUserCard extends StatelessWidget {
       ),
     );
   }
+}
+
+Future<void> _signOutFromCurrentUserCard(
+  BuildContext context,
+  AppStore store,
+) async {
+  final shouldSignOut = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Sign out?'),
+      content: const Text(
+        'This will sign out of this device. Inventory saved on this device will remain available after signing back in.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          child: const Text('Sign out'),
+        ),
+      ],
+    ),
+  );
+  if (shouldSignOut != true || !context.mounted) {
+    return;
+  }
+  final result = await store.signOutAndResetSession();
+  if (!context.mounted) {
+    return;
+  }
+  if (!result.success) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(result.message ?? 'Could not sign out.')),
+    );
+  }
+  _resetToLogin(context);
 }
 
 class _SettingsRow {

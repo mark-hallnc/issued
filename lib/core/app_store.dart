@@ -555,6 +555,13 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<AppActionResult> signOutCloud() async {
+    return signOutAndResetSession();
+  }
+
+  Future<AppActionResult> signOutAndResetSession() async {
+    // Sign out clears the cloud session and active organization selection.
+    // It intentionally keeps local SQLite inventory data on this device.
+    syncCoordinator.cancelPendingSync();
     final result = await cloudAuthService.signOut();
     _currentCloudUser = null;
     _availableWorkspaces.clear();
@@ -566,6 +573,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     _cloudModeEnabled = false;
     workspaceService.clearActiveWorkspace();
     _clearCloudSyncState();
+    syncErrorService.clearAllErrors();
     notifyListeners();
     return result.success
         ? AppActionResult.success(message: result.message)

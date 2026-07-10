@@ -837,10 +837,7 @@ class _UserStrip extends StatelessWidget {
                 ],
               ),
             ),
-            OutlinedButton(
-              onPressed: onSwitchUser,
-              child: const Text('Switch User'),
-            ),
+            OutlinedButton(onPressed: onSwitchUser, child: const Text('Lock')),
           ],
         ),
       ),

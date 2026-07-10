@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/app_store.dart';
 import '../core/models/models.dart';
+import 'cloud_login_screen.dart';
 
 class WorkspaceSelectionScreen extends StatefulWidget {
   const WorkspaceSelectionScreen({super.key});
@@ -126,18 +127,7 @@ class _WorkspaceSelectionScreenState extends State<WorkspaceSelectionScreen> {
           ),
           const SizedBox(height: 12),
           OutlinedButton(
-            onPressed: _isBusy
-                ? null
-                : () async {
-                    final result = await store.signOutCloud();
-                    if (!context.mounted) {
-                      return;
-                    }
-                    _showMessage(result.message ?? 'Signed out.');
-                    if (Navigator.of(context).canPop()) {
-                      Navigator.of(context).pop();
-                    }
-                  },
+            onPressed: _isBusy ? null : () => _confirmSignOut(store),
             child: const Text('Sign out'),
           ),
         ],
@@ -187,6 +177,42 @@ class _WorkspaceSelectionScreenState extends State<WorkspaceSelectionScreen> {
     if (result.success) {
       _openDashboard();
     }
+  }
+
+  Future<void> _confirmSignOut(AppStore store) async {
+    final shouldSignOut = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Sign out?'),
+        content: const Text(
+          'This will sign out of this device. Inventory saved on this device will remain available after signing back in.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Sign out'),
+          ),
+        ],
+      ),
+    );
+    if (shouldSignOut != true || !mounted) {
+      return;
+    }
+    final result = await store.signOutAndResetSession();
+    if (!mounted) {
+      return;
+    }
+    if (!result.success) {
+      _showMessage(result.message ?? 'Could not sign out.');
+    }
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute<void>(builder: (context) => const CloudLoginScreen()),
+      (route) => false,
+    );
   }
 
   void _openDashboard() {

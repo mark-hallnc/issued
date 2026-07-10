@@ -135,4 +135,9 @@ class SyncCoordinator {
   void dispose() {
     _debounceTimer?.cancel();
   }
+
+  void cancelPendingSync() {
+    _debounceTimer?.cancel();
+    syncRequestedWhileRunning = false;
+  }
 }
