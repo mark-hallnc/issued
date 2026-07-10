@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/app_store.dart';
 import '../core/cloud/supabase_config.dart';
+import 'invite_acceptance_screen.dart';
 import 'workspace_selection_screen.dart';
 
 class CloudLoginScreen extends StatefulWidget {
@@ -32,6 +33,11 @@ class _CloudLoginScreenState extends State<CloudLoginScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          Text(
+            'Sign in to manage your inventory',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+          const SizedBox(height: 16),
           if (!store.isCloudConfigured) ...[
             Card(
               child: Padding(
@@ -39,7 +45,7 @@ class _CloudLoginScreenState extends State<CloudLoginScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: const [
-                    Text('Cloud sign-in is not configured on this build.'),
+                    Text('Account sign-in is not configured on this build.'),
                     SizedBox(height: 8),
                     Text('Expected dart-defines:'),
                     Text('SUPABASE_URL'),
@@ -78,30 +84,22 @@ class _CloudLoginScreenState extends State<CloudLoginScreen> {
             const SizedBox(height: 12),
             FilledButton(
               onPressed: _isBusy ? null : () => _sendCode(store),
-              child: const Text('Send login code'),
+              child: const Text('Send code'),
             ),
             if (_codeSent) ...[
               const SizedBox(height: 16),
               TextField(
                 controller: _codeController,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Email Code'),
+                decoration: const InputDecoration(labelText: 'Email code'),
               ),
               const SizedBox(height: 12),
               FilledButton(
                 onPressed: _isBusy ? null : () => _verifyCode(store),
-                child: const Text('Verify code'),
+                child: const Text('Continue'),
               ),
             ],
           ],
-          const SizedBox(height: 12),
-          OutlinedButton(
-            onPressed: () {
-              store.disableCloudModeAndUseLocalOnly();
-              Navigator.of(context).pop();
-            },
-            child: const Text('Use this device without cloud'),
-          ),
           if (!store.isCloudConfigured &&
               SupabaseConfig.missingConfigMessage != null)
             Padding(
@@ -140,27 +138,38 @@ class _CloudLoginScreenState extends State<CloudLoginScreen> {
       result.message ?? (result.success ? 'Signed in.' : 'Sign in failed.'),
     );
     if (result.success) {
-      if (store.shouldShowInviteAcceptance) {
-        Navigator.of(context).pop();
-        return;
-      }
-      final decision = await store.getWorkspaceNavigationDecision(
-        refresh: false,
-      );
+      final destination = await store.completeSignInAndResolveDestination();
       if (!mounted) {
         return;
       }
-      if (decision == WorkspaceNavigationDecision.hasActiveCloudWorkspace) {
+      _openDestination(destination);
+    }
+  }
+
+  void _openDestination(PostLoginDestination destination) {
+    switch (destination) {
+      case PostLoginDestination.dashboard:
         if (Navigator.of(context).canPop()) {
           Navigator.of(context).pop();
         }
         return;
-      }
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute<void>(
-          builder: (context) => const WorkspaceSelectionScreen(),
-        ),
-      );
+      case PostLoginDestination.chooseOrganization:
+      case PostLoginDestination.createOrganization:
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute<void>(
+            builder: (context) => const WorkspaceSelectionScreen(),
+          ),
+        );
+        return;
+      case PostLoginDestination.inviteAcceptance:
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute<void>(
+            builder: (context) => const InviteAcceptanceScreen(),
+          ),
+        );
+        return;
+      case PostLoginDestination.signIn:
+        return;
     }
   }
 

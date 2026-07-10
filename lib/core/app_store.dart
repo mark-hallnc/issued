@@ -523,6 +523,37 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
         : AppActionResult.failure(result.message);
   }
 
+  Future<PostLoginDestination> completeSignInAndResolveDestination() async {
+    _currentCloudUser = cloudAuthService.currentUser;
+    _cloudModeEnabled = _currentCloudUser != null;
+    if (_currentCloudUser == null) {
+      notifyListeners();
+      return PostLoginDestination.signIn;
+    }
+
+    final pendingToken =
+        _pendingInviteToken ?? await inviteLinkService.getPendingInviteToken();
+    if (pendingToken?.trim().isNotEmpty == true) {
+      final result = await acceptPendingInviteAfterSignIn();
+      if (result.success && _activeWorkspace != null) {
+        return PostLoginDestination.dashboard;
+      }
+      return PostLoginDestination.inviteAcceptance;
+    }
+
+    final refreshResult = await refreshCloudWorkspaceState();
+    if (!refreshResult.success) {
+      return PostLoginDestination.chooseOrganization;
+    }
+    if (_activeWorkspace != null) {
+      return PostLoginDestination.dashboard;
+    }
+    if (_pendingCloudInvites.isNotEmpty || _availableWorkspaces.isNotEmpty) {
+      return PostLoginDestination.chooseOrganization;
+    }
+    return PostLoginDestination.createOrganization;
+  }
+
   Future<AppActionResult> signOutCloud() async {
     final result = await cloudAuthService.signOut();
     _currentCloudUser = null;
@@ -618,17 +649,10 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
       }
     }
     if (_activeWorkspace != null) {
-      await refreshCloudAdoptionSummary(notify: false);
-      if (shouldShowCloudAdoptionWizard) {
-        return WorkspaceNavigationDecision.needsCloudAdoption;
-      }
       return WorkspaceNavigationDecision.hasActiveCloudWorkspace;
     }
     if (_availableWorkspaces.isNotEmpty) {
       return WorkspaceNavigationDecision.chooseCloudWorkspace;
-    }
-    if (hasLocalWorkspace) {
-      return WorkspaceNavigationDecision.needsCloudAdoption;
     }
     return WorkspaceNavigationDecision.createCloudWorkspace;
   }
@@ -780,7 +804,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
     if (_currentCloudUser == null) {
       return const AppActionResult.success(
-        message: 'Sign in with the invited email to join this workspace.',
+        message: 'Sign in with the email that received the invite.',
       );
     }
     return acceptPendingInviteAfterSignIn();
@@ -799,7 +823,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
       _pendingInviteToken = token;
       notifyListeners();
       return const AppActionResult.failure(
-        'Sign in with the invited email to join this workspace.',
+        'Sign in with the email that received the invite.',
       );
     }
 
@@ -811,7 +835,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     final result = await workspaceService.acceptInviteByToken(token);
     _isAcceptingPendingInvite = false;
     if (!result.success || result.data == null) {
-      _inviteAcceptanceError = result.message ?? 'Could not accept invite.';
+      _inviteAcceptanceError = result.message ?? 'Could not accept invitation.';
       notifyListeners();
       return AppActionResult.failure(_inviteAcceptanceError);
     }
@@ -833,12 +857,12 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     await loadWorkspaceInvites(notify: false);
     await initializeCloudSyncForActiveWorkspace(notify: false);
     await refreshCloudAdoptionSummary(notify: false);
-    _inviteAcceptanceMessage = 'Workspace joined.';
+    _inviteAcceptanceMessage = 'Organization joined.';
     notifyListeners();
     if (!shouldShowCloudAdoptionWizard) {
       _requestAutomaticSync(trigger: SyncTrigger.workspaceSelected);
     }
-    return const AppActionResult.success(message: 'Workspace joined.');
+    return const AppActionResult.success(message: 'Organization joined.');
   }
 
   Future<void> clearPendingInvite() async {
@@ -7014,6 +7038,14 @@ enum WorkspaceNavigationDecision {
   chooseCloudWorkspace,
   createCloudWorkspace,
   error,
+}
+
+enum PostLoginDestination {
+  signIn,
+  inviteAcceptance,
+  dashboard,
+  chooseOrganization,
+  createOrganization,
 }
 
 class LostDamagedReportRow {

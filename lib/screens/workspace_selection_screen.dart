@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../core/app_store.dart';
 import '../core/models/models.dart';
-import 'cloud_adoption_wizard_screen.dart';
 
 class WorkspaceSelectionScreen extends StatefulWidget {
   const WorkspaceSelectionScreen({super.key});
@@ -16,22 +15,26 @@ class _WorkspaceSelectionScreenState extends State<WorkspaceSelectionScreen> {
   final _nameController = TextEditingController();
   bool _isBusy = false;
   bool _hasRefreshed = false;
-  WorkspaceNavigationDecision? _decision;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final store = AppStoreScope.of(context);
-      final decision = await store.getWorkspaceNavigationDecision();
+      await store.completeSignInAndResolveDestination();
       if (!mounted) {
         return;
       }
-      setState(() {
-        _decision = decision;
-        _hasRefreshed = true;
-      });
-      await _showAdoptionWizardIfNeeded(store);
+      if (store.activeWorkspace != null) {
+        _openDashboard();
+        return;
+      }
+      if (store.hasLocalWorkspace &&
+          store.availableWorkspaces.isEmpty &&
+          store.localWorkspaceName.isNotEmpty) {
+        _nameController.text = store.localWorkspaceName;
+      }
+      setState(() => _hasRefreshed = true);
     });
   }
 
@@ -44,41 +47,24 @@ class _WorkspaceSelectionScreenState extends State<WorkspaceSelectionScreen> {
   @override
   Widget build(BuildContext context) {
     final store = AppStoreScope.of(context);
-    final email = store.currentCloudUser?.email ?? 'Not signed in';
-    final decision = _decision;
     return Scaffold(
-      appBar: AppBar(title: const Text('Workspace')),
+      appBar: AppBar(title: const Text('Choose organization')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(email),
-                  if (store.activeWorkspace != null)
-                    Text('Active workspace: ${store.activeWorkspace!.name}'),
-                ],
-              ),
-            ),
-          ),
+          _AccountCard(store: store),
           const SizedBox(height: 12),
           if (store.pendingCloudInvites.isNotEmpty) ...[
-            Text(
-              'Pending Invites',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
+            Text('Invitations', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             for (final invite in store.pendingCloudInvites) ...[
               Card(
                 child: ListTile(
                   leading: const Icon(Icons.mark_email_unread_outlined),
-                  title: Text(invite.workspaceName ?? 'Workspace invitation'),
-                  subtitle: Text(
-                    '${invite.email} - ${cloudWorkspaceRoleLabel(invite.role)}',
+                  title: Text(
+                    invite.workspaceName ?? 'Organization invitation',
                   ),
+                  subtitle: Text(cloudWorkspaceRoleLabel(invite.role)),
                   trailing: FilledButton(
                     onPressed: _isBusy
                         ? null
@@ -103,86 +89,41 @@ class _WorkspaceSelectionScreenState extends State<WorkspaceSelectionScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     ),
                     SizedBox(width: 12),
-                    Text('Checking workspaces...'),
+                    Text('Checking organizations...'),
                   ],
                 ),
               ),
             )
-          else if (store.activeWorkspace == null && store.hasLocalWorkspace)
-            _SetupSyncCard(
-              workspaceName: store.localWorkspaceName,
-              isBusy: _isBusy,
-              onConnect: () => _connectLocalWorkspace(store),
-              onNotNow: () => Navigator.of(context).pop(),
-            )
           else if (store.availableWorkspaces.isEmpty)
-            const Card(
-              child: Padding(
-                padding: EdgeInsets.all(16),
-                child: Text('No workspaces yet. Create one to continue.'),
-              ),
+            const _EmptyOrganizationCard()
+          else ...[
+            Text(
+              'Your organizations',
+              style: Theme.of(context).textTheme.titleMedium,
             ),
-          if (_hasRefreshed && store.availableWorkspaces.isNotEmpty) ...[
-            if (store.activeWorkspace == null) ...[
-              const SizedBox(height: 12),
-              Text(
-                'Choose existing workspace',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
-            ],
+            const SizedBox(height: 8),
             for (final workspace in store.availableWorkspaces) ...[
               Card(
                 child: ListTile(
                   leading: const Icon(Icons.business_outlined),
                   title: Text(workspace.name),
-                  subtitle: workspace.slug == null
-                      ? null
-                      : Text(workspace.slug!),
-                  trailing: store.activeWorkspace?.id == workspace.id
-                      ? const Icon(Icons.check_circle)
-                      : null,
-                  onTap: () async {
-                    store.setActiveCloudWorkspace(workspace);
-                    _showMessage('Workspace selected.');
-                    await _showAdoptionWizardIfNeeded(store);
-                  },
+                  trailing: FilledButton(
+                    onPressed: _isBusy
+                        ? null
+                        : () => _openOrganization(store, workspace),
+                    child: const Text('Open'),
+                  ),
                 ),
               ),
               const SizedBox(height: 10),
             ],
           ],
           const SizedBox(height: 12),
-          if (decision == WorkspaceNavigationDecision.createCloudWorkspace ||
-              !store.hasLocalWorkspace)
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Create Workspace',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _nameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Workspace name',
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    FilledButton(
-                      onPressed: _isBusy ? null : () => _createWorkspace(store),
-                      child: const Text('Create Workspace'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          if (decision == WorkspaceNavigationDecision.chooseCloudWorkspace)
-            const Text('Choose a workspace above to continue syncing.'),
+          _CreateOrganizationCard(
+            controller: _nameController,
+            isBusy: _isBusy,
+            onCreate: () => _createOrganization(store),
+          ),
           const SizedBox(height: 12),
           OutlinedButton(
             onPressed: _isBusy
@@ -193,63 +134,45 @@ class _WorkspaceSelectionScreenState extends State<WorkspaceSelectionScreen> {
                       return;
                     }
                     _showMessage(result.message ?? 'Signed out.');
-                    Navigator.of(context).pop();
+                    if (Navigator.of(context).canPop()) {
+                      Navigator.of(context).pop();
+                    }
                   },
-            child: const Text('Sign Out'),
+            child: const Text('Sign out'),
           ),
         ],
       ),
     );
   }
 
-  Future<void> _createWorkspace(AppStore store) async {
-    final workspaceName = _nameController.text.trim();
-    if (store.hasLocalWorkspace &&
-        (workspaceName.isEmpty ||
-            workspaceName.toLowerCase() !=
-                store.localWorkspaceName.toLowerCase())) {
-      final confirmed = await _confirmCreateAnotherWorkspace(store);
-      if (confirmed != true) {
-        return;
-      }
-    }
+  Future<void> _openOrganization(
+    AppStore store,
+    CloudWorkspace workspace,
+  ) async {
     setState(() => _isBusy = true);
-    final result = await store.createCloudWorkspace(workspaceName);
+    store.setActiveCloudWorkspace(workspace);
+    await store.completeSignInAndResolveDestination();
     if (!mounted) {
       return;
     }
     setState(() => _isBusy = false);
-    _showMessage(result.message ?? 'Workspace request complete.');
-    if (result.success) {
-      _nameController.clear();
-      final decision = await store.getWorkspaceNavigationDecision(
-        refresh: false,
-      );
-      if (!mounted) {
-        return;
-      }
-      setState(() => _decision = decision);
-      await _showAdoptionWizardIfNeeded(store);
-    }
+    _openDashboard();
   }
 
-  Future<void> _connectLocalWorkspace(AppStore store) async {
+  Future<void> _createOrganization(AppStore store) async {
+    if (_nameController.text.trim().isEmpty && !store.hasLocalWorkspace) {
+      _showMessage('Enter an organization name.');
+      return;
+    }
     setState(() => _isBusy = true);
-    final result = await store.connectLocalWorkspaceToCloud();
+    final result = await store.createCloudWorkspace(_nameController.text);
     if (!mounted) {
       return;
     }
     setState(() => _isBusy = false);
-    _showMessage(result.message ?? 'Workspace connected.');
+    _showMessage(result.message ?? 'Organization created.');
     if (result.success) {
-      final decision = await store.getWorkspaceNavigationDecision(
-        refresh: false,
-      );
-      if (!mounted) {
-        return;
-      }
-      setState(() => _decision = decision);
-      await _showAdoptionWizardIfNeeded(store);
+      _openDashboard();
     }
   }
 
@@ -260,22 +183,16 @@ class _WorkspaceSelectionScreenState extends State<WorkspaceSelectionScreen> {
       return;
     }
     setState(() => _isBusy = false);
-    _showMessage(result.message ?? 'Invite request complete.');
+    _showMessage(result.message ?? 'Invitation accepted.');
     if (result.success) {
-      await _showAdoptionWizardIfNeeded(store);
+      _openDashboard();
     }
   }
 
-  Future<void> _showAdoptionWizardIfNeeded(AppStore store) async {
-    await store.refreshCloudAdoptionSummary();
-    if (!mounted || !store.shouldShowCloudAdoptionWizard) {
-      return;
+  void _openDashboard() {
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
     }
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (context) => const CloudAdoptionWizardScreen(),
-      ),
-    );
   }
 
   void _showMessage(String message) {
@@ -283,42 +200,55 @@ class _WorkspaceSelectionScreenState extends State<WorkspaceSelectionScreen> {
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
   }
+}
 
-  Future<bool?> _confirmCreateAnotherWorkspace(AppStore store) {
-    return showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Create another workspace?'),
-        content: Text(
-          'You already created ${store.localWorkspaceName} on this device. Creating another workspace may duplicate your setup.',
+class _AccountCard extends StatelessWidget {
+  const _AccountCard({required this.store});
+
+  final AppStore store;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(store.currentDisplayUserName),
+            if (store.activeWorkspace != null)
+              Text('Current organization: ${store.activeWorkspace!.name}'),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Create'),
-          ),
-        ],
       ),
     );
   }
 }
 
-class _SetupSyncCard extends StatelessWidget {
-  const _SetupSyncCard({
-    required this.workspaceName,
+class _EmptyOrganizationCard extends StatelessWidget {
+  const _EmptyOrganizationCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Card(
+      child: Padding(
+        padding: EdgeInsets.all(16),
+        child: Text('You do not have an organization yet.'),
+      ),
+    );
+  }
+}
+
+class _CreateOrganizationCard extends StatelessWidget {
+  const _CreateOrganizationCard({
+    required this.controller,
     required this.isBusy,
-    required this.onConnect,
-    required this.onNotNow,
+    required this.onCreate,
   });
 
-  final String workspaceName;
+  final TextEditingController controller;
   final bool isBusy;
-  final VoidCallback onConnect;
-  final VoidCallback onNotNow;
+  final VoidCallback onCreate;
 
   @override
   Widget build(BuildContext context) {
@@ -329,31 +259,20 @@ class _SetupSyncCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Set up sync for this workspace',
+              'Create your organization',
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
-            Text(
-              'You already created $workspaceName on this device. You can connect it to your account so it syncs across devices.',
+            const Text('This is usually your company, shop, or tool room.'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(labelText: 'Organization name'),
             ),
             const SizedBox(height: 12),
-            Wrap(
-              spacing: 10,
-              runSpacing: 8,
-              children: [
-                FilledButton(
-                  onPressed: isBusy ? null : onConnect,
-                  child: const Text('Connect this workspace'),
-                ),
-                OutlinedButton(
-                  onPressed: isBusy ? null : onNotNow,
-                  child: const Text('Not now'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'If you already belong to a workspace, choose it from the list.',
+            FilledButton(
+              onPressed: isBusy ? null : onCreate,
+              child: const Text('Create organization'),
             ),
           ],
         ),

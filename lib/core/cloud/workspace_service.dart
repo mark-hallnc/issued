@@ -276,7 +276,7 @@ class WorkspaceService {
     } on PostgrestException catch (error) {
       return WorkspaceResult.failure(_friendlyDatabaseError(error.message));
     } catch (_) {
-      return const WorkspaceResult.failure('Could not accept invite.');
+      return const WorkspaceResult.failure('Could not accept invitation.');
     }
   }
 
@@ -315,11 +315,14 @@ class WorkspaceService {
           .single();
       final workspace = CloudWorkspace.fromJson(workspaceRow);
       setActiveWorkspace(workspace);
-      return WorkspaceResult.success(workspace, message: 'Workspace joined.');
+      return WorkspaceResult.success(
+        workspace,
+        message: 'Organization joined.',
+      );
     } on PostgrestException catch (error) {
       return WorkspaceResult.failure(_friendlyDatabaseError(error.message));
     } catch (_) {
-      return const WorkspaceResult.failure('Could not accept invite.');
+      return const WorkspaceResult.failure('Could not accept invitation.');
     }
   }
 

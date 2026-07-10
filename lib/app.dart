@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'core/app_store.dart';
+import 'screens/cloud_login_screen.dart';
 import 'screens/counts_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/invite_acceptance_screen.dart';
@@ -111,9 +112,11 @@ class _IssuedAppState extends State<IssuedApp> {
                 if (_store.shouldShowInviteAcceptance) {
                   return const InviteAcceptanceScreen();
                 }
-                if (_store.shouldShowCloudWorkspaceStartup) {
-                  if (_store.activeWorkspace == null ||
-                      _store.pendingCloudInvites.isNotEmpty) {
+                if (_store.isCloudConfigured && !_store.isCloudSignedIn) {
+                  return const CloudLoginScreen();
+                }
+                if (_store.isCloudSignedIn) {
+                  if (_store.activeWorkspace == null) {
                     return const WorkspaceSelectionScreen();
                   }
                   return const IssuedShell();

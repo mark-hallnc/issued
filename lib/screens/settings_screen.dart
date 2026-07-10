@@ -66,8 +66,8 @@ class SettingsContent extends StatelessWidget {
           screen: WorkspaceMembersScreen(),
         ),
       const _SettingsRow(
-        title: 'Account / Workspace',
-        icon: Icons.cloud_outlined,
+        title: 'Account / Organization',
+        icon: Icons.business_outlined,
         screen: CloudAccountSettingsScreen(),
       ),
       if (permissions.canManageSettings)
@@ -314,7 +314,7 @@ class CloudAccountSettingsScreen extends StatelessWidget {
     final cloudEmail = store.currentCloudUser?.email;
     final canOpenSyncDiagnostics = kDebugMode || store.canOpenSyncDiagnostics;
     return Scaffold(
-      appBar: AppBar(title: const Text('Cloud Account')),
+      appBar: AppBar(title: const Text('Account / Organization')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -325,28 +325,18 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _CloudStatusLine(
-                    label: 'Cloud configured',
-                    value: store.isCloudConfigured ? 'Yes' : 'No',
-                  ),
-                  _CloudStatusLine(
                     label: 'Signed in',
                     value: cloudEmail ?? 'No',
                   ),
                   _CloudStatusLine(
-                    label: 'Active workspace',
+                    label: 'Organization',
                     value: store.activeWorkspace?.name ?? 'None',
                   ),
                   _CloudStatusLine(
-                    label: 'Cloud role',
+                    label: 'Role',
                     value: store.currentCloudRole == null
                         ? 'None'
                         : cloudWorkspaceRoleLabel(store.currentCloudRole!),
-                  ),
-                  _CloudStatusLine(
-                    label: 'Mode',
-                    value: store.cloudModeEnabled
-                        ? 'Cloud workspace'
-                        : 'Local-Only Mode',
                   ),
                 ],
               ),
@@ -365,7 +355,7 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Cloud Sync',
+                    'Sync Diagnostics',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
@@ -393,7 +383,7 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                     value: store.cloudSyncStatusLabel,
                   ),
                   _CloudStatusLine(
-                    label: 'Active workspace',
+                    label: 'Organization',
                     value:
                         store.cloudSyncSummary.activeWorkspaceName ??
                         store.activeWorkspace?.name ??
@@ -812,7 +802,7 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                     )
                   else
                     const Text(
-                      'Sync runs automatically after sign-in, workspace selection, app resume, and local edits.',
+                      'Sync runs automatically after sign-in, organization selection, app resume, and local edits.',
                     ),
                 ],
               ),
@@ -860,7 +850,7 @@ class _AccountWorkspaceActions extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Account / Workspace',
+              'Account / Organization',
               style: Theme.of(
                 context,
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
@@ -880,7 +870,7 @@ class _AccountWorkspaceActions extends StatelessWidget {
                 else
                   FilledButton(
                     onPressed: onOpenWorkspace,
-                    child: const Text('Manage workspace'),
+                    child: const Text('Manage organization'),
                   ),
                 if (store.activeWorkspace != null)
                   OutlinedButton(
@@ -898,10 +888,6 @@ class _AccountWorkspaceActions extends StatelessWidget {
                     onPressed: () => _signOut(context, store),
                     child: const Text('Sign out'),
                   ),
-                OutlinedButton(
-                  onPressed: store.disableCloudModeAndUseLocalOnly,
-                  child: const Text('Use this device without sync'),
-                ),
               ],
             ),
           ],
@@ -915,13 +901,13 @@ class _AccountWorkspaceActions extends StatelessWidget {
       return 'Account sign-in is not configured for this build.';
     }
     if (!store.isCloudSignedIn) {
-      return 'Sign in from here to sync ${store.localWorkspaceName} across devices.';
+      return 'Sign in to manage your inventory.';
     }
-    final workspace = store.activeWorkspace?.name;
-    if (workspace == null) {
-      return 'Set up sync for ${store.localWorkspaceName} or choose a workspace from your account.';
+    final organization = store.activeWorkspace?.name;
+    if (organization == null) {
+      return 'Choose or create an organization to continue.';
     }
-    return '$workspace is selected. ${store.cloudSyncStatusLabel}.';
+    return '$organization is selected.';
   }
 
   Future<void> _signOut(BuildContext context, AppStore store) async {

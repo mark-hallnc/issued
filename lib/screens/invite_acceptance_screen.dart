@@ -37,7 +37,7 @@ class _InviteAcceptanceScreenState extends State<InviteAcceptanceScreen> {
     final error = store.inviteAcceptanceError;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Workspace Invite')),
+      appBar: AppBar(title: const Text('Invitation')),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 520),
@@ -79,13 +79,13 @@ class _InviteAcceptanceScreenState extends State<InviteAcceptanceScreen> {
 
   String _titleFor(AppStore store, String? message, String? error) {
     if (message != null) {
-      return 'Workspace joined';
+      return 'Organization joined';
     }
     if (error != null) {
-      return 'Invite could not be accepted';
+      return 'Invitation could not be accepted';
     }
     if (store.isCloudSignedIn) {
-      return 'Accepting invite...';
+      return 'Accepting invitation...';
     }
     return "You've been invited to Issued";
   }
@@ -94,16 +94,16 @@ class _InviteAcceptanceScreenState extends State<InviteAcceptanceScreen> {
     if (message != null) {
       final workspaceName = store.pendingInviteWorkspaceName;
       return workspaceName == null
-          ? 'Workspace joined.'
+          ? 'Organization joined.'
           : 'You joined $workspaceName.';
     }
     if (error != null) {
       return error;
     }
     if (store.isCloudSignedIn) {
-      return 'Issued is accepting your workspace invite.';
+      return 'Issued is accepting your invitation.';
     }
-    return 'Sign in with the invited email address to join the workspace.';
+    return 'Sign in with the email address that received the invite.';
   }
 }
 
@@ -117,7 +117,7 @@ class _InviteAction extends StatelessWidget {
     if (store.inviteAcceptanceMessage != null) {
       return FilledButton(
         onPressed: () => store.clearPendingInvite(),
-        child: const Text('Open workspace'),
+        child: const Text('Open organization'),
       );
     }
     if (store.inviteAcceptanceError != null) {
@@ -157,7 +157,7 @@ class _InviteAction extends StatelessWidget {
           child: CircularProgressIndicator(strokeWidth: 2),
         ),
         SizedBox(width: 12),
-        Text('Accepting invite...'),
+        Text('Accepting invitation...'),
       ],
     );
   }

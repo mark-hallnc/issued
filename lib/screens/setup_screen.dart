@@ -74,13 +74,13 @@ class _SetupScreenState extends State<SetupScreen> {
                       ),
                     );
                   },
-                  icon: const Icon(Icons.cloud_outlined),
-                  label: const Text('Sign in with Account'),
+                  icon: const Icon(Icons.account_circle_outlined),
+                  label: const Text('Sign in'),
                 ),
               ],
             ),
             _SetupStep(
-              title: 'Workspace',
+              title: 'Organization',
               children: [
                 Form(
                   key: _companyFormKey,
@@ -89,7 +89,7 @@ class _SetupScreenState extends State<SetupScreen> {
                       TextFormField(
                         controller: _companyController,
                         decoration: const InputDecoration(
-                          labelText: 'Company or workspace name',
+                          labelText: 'Organization name',
                         ),
                         validator: _required,
                       ),
