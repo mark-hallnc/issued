@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../core/app_store.dart';
@@ -35,11 +37,25 @@ class _AddItemScreenState extends State<AddItemScreen> {
   UnitOfMeasure? _selectedPurchaseUnit;
   Location? _selectedLocation;
   bool _allowFractionalQuantity = false;
+  bool _requestedEntryDefaults = false;
 
   @override
   void initState() {
     super.initState();
     _barcodeController.text = widget.initialBarcode ?? '';
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_requestedEntryDefaults) {
+      return;
+    }
+    _requestedEntryDefaults = true;
+    final store = AppStoreScope.of(context);
+    if (store.unitsOfMeasure.isEmpty || store.activeLocations.isEmpty) {
+      unawaited(store.ensureInventoryEntryDefaults());
+    }
   }
 
   @override
@@ -63,8 +79,21 @@ class _AddItemScreenState extends State<AddItemScreen> {
   @override
   Widget build(BuildContext context) {
     final store = AppStoreScope.of(context);
-    _selectedUnit ??= store.unitsOfMeasure.first;
-    _selectedLocation ??= store.locations.first;
+    final units = store.unitsOfMeasure.where((unit) => unit.isActive).toList();
+    final locations = store.activeLocations;
+    if (_selectedUnit == null ||
+        !units.any((unit) => unit.id == _selectedUnit!.id)) {
+      _selectedUnit = units.isEmpty ? null : units.first;
+    }
+    if (_selectedPurchaseUnit != null &&
+        !units.any((unit) => unit.id == _selectedPurchaseUnit!.id)) {
+      _selectedPurchaseUnit = null;
+    }
+    if (_selectedLocation == null ||
+        !locations.any((location) => location.id == _selectedLocation!.id)) {
+      _selectedLocation = locations.isEmpty ? null : locations.first;
+    }
+    final canSaveItem = _selectedUnit != null && _selectedLocation != null;
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
@@ -73,7 +102,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: FilledButton.icon(
-            onPressed: _saveItem,
+            onPressed: canSaveItem ? _saveItem : null,
             icon: const Icon(Icons.save),
             label: const Text('Save Item'),
           ),
@@ -85,6 +114,19 @@ class _AddItemScreenState extends State<AddItemScreen> {
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
           children: [
+            if (!canSaveItem) ...[
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    units.isEmpty
+                        ? 'Set up a unit of measure before adding items.'
+                        : 'Create a location before adding items.',
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
             TextFormField(
               controller: _nameController,
               decoration: const InputDecoration(
@@ -163,6 +205,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
                 border: OutlineInputBorder(),
               ),
               items: store.unitsOfMeasure
+                  .where((unit) => unit.isActive)
                   .map(
                     (unit) => DropdownMenuItem(
                       value: unit,
@@ -188,6 +231,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
                 border: OutlineInputBorder(),
               ),
               items: store.locations
+                  .where((location) => location.isActive)
                   .map(
                     (location) => DropdownMenuItem(
                       value: location,
@@ -426,8 +470,18 @@ class _AddItemScreenState extends State<AddItemScreen> {
 
   void _saveItem() {
     final store = AppStoreScope.of(context);
+    final selectedUnit = _selectedUnit;
+    final selectedLocation = _selectedLocation;
     if (!store.permissions.canManageItems) {
       _showPermissionDenied();
+      return;
+    }
+    if (selectedUnit == null || selectedLocation == null) {
+      _showMessage(
+        selectedUnit == null
+            ? 'Set up a unit of measure before adding items.'
+            : 'Create a location before adding items.',
+      );
       return;
     }
 
@@ -447,10 +501,10 @@ class _AddItemScreenState extends State<AddItemScreen> {
       description: _notesController.text.trim(),
       itemType: _itemType,
       category: _categoryController.text.trim(),
-      locationId: _selectedLocation!.id,
+      locationId: selectedLocation.id,
       quantityOnHand: double.parse(_quantityController.text.trim()),
       minimumQuantity: double.parse(_minimumQuantityController.text.trim()),
-      unitOfMeasureId: _selectedUnit!.id,
+      unitOfMeasureId: selectedUnit.id,
       purchaseUnitOfMeasureId: _normalizedPurchaseUnitId(),
       purchaseToStockConversionFactor: _normalizedPurchaseFactor(),
       purchaseUnitLabel: null,
@@ -468,7 +522,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
       updatedAt: now,
     );
 
-    final result = store.addItemWithInitialBalance(item, _selectedLocation!.id);
+    final result = store.addItemWithInitialBalance(item, selectedLocation.id);
     if (!result.success) {
       _showMessage(result.message ?? 'Could not add item.');
       return;
@@ -484,16 +538,26 @@ class _AddItemScreenState extends State<AddItemScreen> {
 
   Item _draftItem(AppStore store) {
     final now = DateTime.now();
+    final locationId =
+        _selectedLocation?.id ??
+        (store.activeLocations.isEmpty
+            ? 'draft-location'
+            : store.activeLocations.first.id);
+    final unitId =
+        _selectedUnit?.id ??
+        (store.unitsOfMeasure.isEmpty
+            ? 'draft-uom'
+            : store.unitsOfMeasure.first.id);
     return Item(
       id: 'draft',
       name: _nameController.text,
       description: _notesController.text,
       itemType: _itemType,
       category: _categoryController.text.trim(),
-      locationId: _selectedLocation?.id ?? store.locations.first.id,
+      locationId: locationId,
       quantityOnHand: 0,
       minimumQuantity: 0,
-      unitOfMeasureId: _selectedUnit?.id ?? store.unitsOfMeasure.first.id,
+      unitOfMeasureId: unitId,
       purchaseUnitOfMeasureId: _normalizedPurchaseUnitId(),
       purchaseToStockConversionFactor: _normalizedPurchaseFactor(),
       purchaseUnitLabel: null,

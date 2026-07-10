@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 
 import 'backup/backup_service.dart';
@@ -35,6 +36,8 @@ import 'security/pin_hash_service.dart';
 
 class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   AppStore({AppDatabase? database}) : _database = database ?? AppDatabase();
+
+  static const _organizationPlanPreferencePrefix = 'issued.plan.';
 
   final AppDatabase _database;
 
@@ -285,6 +288,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   bool get isSetupComplete => _company?.setupCompleted ?? false;
   Plan get plan => _plan;
   CompanyUsage get companyUsage => _companyUsage;
+  Plan get activeOrganizationPlan => _plan;
   Plan get currentPlan => _plan;
   bool get isLocked =>
       !isCloudWorkspaceActive && (_isLocked || currentUser == null);
@@ -430,6 +434,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     );
     await _loadFromDatabase();
     await _ensureBasePlanData();
+    await _applyPlanForActiveOrganization();
     await _ensureCompanyForExistingData();
     await _backfillItemLocationBalances();
     if (isSetupComplete) {
@@ -624,6 +629,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
       await loadWorkspaceMembers(notify: false);
       await loadWorkspaceInvites(notify: false);
       await initializeCloudSyncForActiveWorkspace(notify: false);
+      await _applyPlanForActiveOrganization();
       await _refreshSyncQueueCounts();
       await refreshCloudAdoptionSummary(notify: false);
     } else {
@@ -795,6 +801,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     await loadWorkspaceMembers(notify: false);
     await loadWorkspaceInvites(notify: false);
     await initializeCloudSyncForActiveWorkspace(notify: false);
+    await _applyPlanForActiveOrganization();
     await refreshCloudAdoptionSummary(notify: false);
     notifyListeners();
     await syncCurrentOrganizationAfterLogin();
@@ -868,6 +875,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     await loadWorkspaceMembers(notify: false);
     await loadWorkspaceInvites(notify: false);
     await initializeCloudSyncForActiveWorkspace(notify: false);
+    await _applyPlanForActiveOrganization();
     await refreshCloudAdoptionSummary(notify: false);
     _inviteAcceptanceMessage = 'Organization joined.';
     notifyListeners();
@@ -959,9 +967,11 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
       _availableWorkspaces.add(result.data!);
     }
     _cloudModeEnabled = true;
+    workspaceService.setActiveWorkspace(result.data!);
     await loadWorkspaceMembers(notify: false);
     await loadWorkspaceInvites(notify: false);
     await initializeCloudSyncForActiveWorkspace(notify: false);
+    await _applyPlanForActiveOrganization();
     await refreshCloudAdoptionSummary(notify: false);
     notifyListeners();
     await syncCurrentOrganizationAfterLogin();
@@ -984,6 +994,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     await loadWorkspaceMembers(notify: false);
     await loadWorkspaceInvites(notify: false);
     await initializeCloudSyncForActiveWorkspace(notify: false);
+    await _applyPlanForActiveOrganization();
     await refreshCloudAdoptionSummary(notify: false);
     notifyListeners();
     await syncCurrentOrganizationAfterLogin();
@@ -1982,12 +1993,17 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
 
   CloudWorkspaceRole? _roleForCurrentCloudUser() {
     final userId = _currentCloudUser?.id;
-    if (userId == null) {
+    final email = _currentCloudUser?.email?.trim().toLowerCase();
+    if (userId == null && (email == null || email.isEmpty)) {
       return null;
     }
     for (final member in _workspaceMembers) {
-      if (member.userId == userId &&
-          member.status == CloudWorkspaceMemberStatus.active) {
+      if (member.status != CloudWorkspaceMemberStatus.active) {
+        continue;
+      }
+      final memberEmail = member.email.trim().toLowerCase();
+      if ((userId != null && member.userId == userId) ||
+          (email != null && email.isNotEmpty && memberEmail == email)) {
         return member.role;
       }
     }
@@ -1996,16 +2012,24 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
 
   String? get _currentWorkspaceMemberDisplayName {
     final userId = _currentCloudUser?.id;
-    if (userId == null) {
+    final email = _currentCloudUser?.email?.trim().toLowerCase();
+    if (userId == null && (email == null || email.isEmpty)) {
       return null;
     }
     for (final member in _workspaceMembers) {
-      if (member.userId == userId &&
-          member.status == CloudWorkspaceMemberStatus.active) {
-        final displayName = member.displayName?.trim();
-        if (displayName != null && displayName.isNotEmpty) {
-          return displayName;
-        }
+      if (member.status != CloudWorkspaceMemberStatus.active) {
+        continue;
+      }
+      final memberEmail = member.email.trim().toLowerCase();
+      final matchesUserId = userId != null && member.userId == userId;
+      final matchesEmail =
+          email != null && email.isNotEmpty && memberEmail == email;
+      if (!matchesUserId && !matchesEmail) {
+        continue;
+      }
+      final displayName = member.displayName?.trim();
+      if (displayName != null && displayName.isNotEmpty) {
+        return displayName;
       }
     }
     return null;
@@ -2035,6 +2059,56 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
       await _database.upsertCompanyUsage(sampleCompanyUsage.toCompanion());
       _companyUsage = sampleCompanyUsage;
     }
+  }
+
+  String? _activeOrganizationPlanScopeId() {
+    final workspaceId = _activeWorkspace?.id.trim();
+    if (workspaceId != null && workspaceId.isNotEmpty) {
+      return workspaceId;
+    }
+    final companyId = _company?.id.trim();
+    if (companyId != null && companyId.isNotEmpty) {
+      return companyId;
+    }
+    return null;
+  }
+
+  Plan _planForCode(String? code) {
+    return samplePlans.firstWhere(
+      (plan) => plan.code == code,
+      orElse: () => samplePlan,
+    );
+  }
+
+  Future<void> _applyPlanForActiveOrganization() async {
+    final scopeId = _activeOrganizationPlanScopeId();
+    if (scopeId == null) {
+      return;
+    }
+    final preferences = await SharedPreferences.getInstance();
+    final key = '$_organizationPlanPreferencePrefix$scopeId';
+    final savedCode = preferences.getString(key);
+    if (savedCode == null || savedCode.trim().isEmpty) {
+      // Plan selection is organization-scoped. This migrates the existing
+      // local testing plan into the active organization without a schema change.
+      await preferences.setString(key, _plan.code);
+      return;
+    }
+    _plan = _planForCode(savedCode);
+    await _database.upsertPlan(_plan.toCompanion());
+  }
+
+  Future<void> _persistPlanForActiveOrganization(Plan plan) async {
+    await _database.upsertPlan(plan.toCompanion());
+    final scopeId = _activeOrganizationPlanScopeId();
+    if (scopeId == null) {
+      return;
+    }
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(
+      '$_organizationPlanPreferencePrefix$scopeId',
+      plan.code,
+    );
   }
 
   Future<void> _ensureCompanyForExistingData() async {
@@ -2782,12 +2856,9 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void setCurrentPlanForTesting(String planCode) {
-    final plan = samplePlans.firstWhere(
-      (plan) => plan.code == planCode,
-      orElse: () => samplePlan,
-    );
+    final plan = _planForCode(planCode);
     _plan = plan;
-    unawaited(_database.upsertPlan(plan.toCompanion()));
+    unawaited(_persistPlanForActiveOrganization(plan));
     notifyListeners();
   }
 
@@ -3464,6 +3535,19 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     await _loadFromDatabase();
     notifyListeners();
     return true;
+  }
+
+  Future<AppActionResult> ensureInventoryEntryDefaults() async {
+    if (!permissions.canManageItems && !permissions.canManageSettings) {
+      return AppActionResult.denied();
+    }
+    await _ensureDefaultUnitsOfMeasure();
+    if (!_locations.any((location) => location.isActive)) {
+      await _ensureLocation('Main Stockroom', 'Stockroom', id: 'loc-main');
+    }
+    await _loadFromDatabase();
+    notifyListeners();
+    return const AppActionResult.success();
   }
 
   String? _firstActiveLocationId() {

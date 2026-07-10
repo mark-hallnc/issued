@@ -3,7 +3,6 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../core/app_store.dart';
 import '../core/models/models.dart';
-import '../core/permissions/app_permissions.dart';
 import '../core/scanner/scan_parser.dart';
 import 'item_detail_screen.dart';
 
@@ -816,8 +815,8 @@ class _UserStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final userName = store.currentPerson?.displayName ?? 'No current user';
-    final role = roleLabel(store.currentRole);
+    final userName = store.currentDisplayUserName;
+    final role = store.currentDisplayUserSubtitle;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -837,7 +836,11 @@ class _UserStrip extends StatelessWidget {
                 ],
               ),
             ),
-            OutlinedButton(onPressed: onSwitchUser, child: const Text('Lock')),
+            if (!store.isCloudWorkspaceActive)
+              OutlinedButton(
+                onPressed: onSwitchUser,
+                child: const Text('Lock'),
+              ),
           ],
         ),
       ),

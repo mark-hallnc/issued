@@ -974,7 +974,7 @@ class PlanUsageSettingsScreen extends StatelessWidget {
                 Text(
                   plan.code == 'free'
                       ? 'Free forever for solo and small-shop use.'
-                      : 'Billing is not connected yet. This plan is selected locally for testing.',
+                      : 'Billing is not connected yet. This plan is selected for the organization.',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: const Color(0xFF5C6672),
                   ),
@@ -1254,11 +1254,15 @@ class _LocationDialogState extends State<_LocationDialog> {
               ),
               DropdownButtonFormField<String?>(
                 initialValue: _parentLocationId,
-                decoration: const InputDecoration(labelText: 'Parent Location'),
+                decoration: const InputDecoration(
+                  labelText: 'Parent Location',
+                  helperText:
+                      'Top-level locations belong directly to this organization.',
+                ),
                 items: [
                   const DropdownMenuItem(
                     value: null,
-                    child: Text('No parent location'),
+                    child: Text('Organization / top level'),
                   ),
                   for (final parent in parentOptions)
                     DropdownMenuItem(

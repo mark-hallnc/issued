@@ -97,7 +97,7 @@ class ComparePlansScreen extends StatelessWidget {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text(
-          'Billing is not connected yet. Plan changed locally for testing.',
+          'Billing is not connected yet. Plan changed for this organization.',
         ),
       ),
     );
