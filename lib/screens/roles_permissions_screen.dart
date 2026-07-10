@@ -45,9 +45,9 @@ class _RoleCard extends StatelessWidget {
           children: [
             Text(
               role.roleLabel,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 6),
             Text(role.summary),

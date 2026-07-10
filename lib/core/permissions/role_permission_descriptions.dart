@@ -162,20 +162,21 @@ List<RolePermissionActionDescription> _actionsForPermissions(
       category: RolePermissionCategory.stockMovement,
       title: 'Transfer and adjust quantities',
       description: 'Can transfer stock and make quantity adjustments.',
-      allowed:
-          permissions.canTransferStock && permissions.canAdjustQuantity,
+      allowed: permissions.canTransferStock && permissions.canAdjustQuantity,
     ),
     _action(
       category: RolePermissionCategory.purchasing,
       title: 'Manage suppliers and purchasing',
-      description: 'Can manage suppliers, reorder requests, and purchasing records.',
+      description:
+          'Can manage suppliers, reorder requests, and purchasing records.',
       allowed:
           permissions.canManageSuppliers && permissions.canManagePurchasing,
     ),
     _action(
       category: RolePermissionCategory.checkouts,
       title: 'Manage checkouts',
-      description: 'Can check items out, return them, and manage checkout records.',
+      description:
+          'Can check items out, return them, and manage checkout records.',
       allowed: permissions.canManageCheckouts,
     ),
     _action(
@@ -200,9 +201,9 @@ List<RolePermissionActionDescription> _actionsForPermissions(
     _action(
       category: RolePermissionCategory.settingsTools,
       title: 'Use backup and data tools',
-      description: 'Can use backup, restore, import, export, and data health tools.',
-      allowed:
-          permissions.canImportExport && permissions.canManageSettings,
+      description:
+          'Can use backup, restore, import, export, and data health tools.',
+      allowed: permissions.canImportExport && permissions.canManageSettings,
     ),
     _action(
       category: RolePermissionCategory.settingsTools,
@@ -213,7 +214,8 @@ List<RolePermissionActionDescription> _actionsForPermissions(
     _action(
       category: RolePermissionCategory.costs,
       title: 'View costs and inventory value',
-      description: 'Can see item costs, inventory value, and cost-sensitive reports.',
+      description:
+          'Can see item costs, inventory value, and cost-sensitive reports.',
       allowed: permissions.canViewCosts,
     ),
   ];

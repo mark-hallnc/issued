@@ -12,6 +12,7 @@ import 'screens/settings_screen.dart';
 import 'screens/setup_screen.dart';
 import 'screens/session_lock_screen.dart';
 import 'screens/workspace_selection_screen.dart';
+import 'widgets/issued_brand_loading.dart';
 
 class IssuedApp extends StatefulWidget {
   const IssuedApp({super.key, this.store});
@@ -99,7 +100,7 @@ class _IssuedAppState extends State<IssuedApp> {
           future: _initializeStore,
           builder: (context, snapshot) {
             if (snapshot.connectionState != ConnectionState.done) {
-              return const _LoadingScreen();
+              return const Scaffold(body: IssuedBrandLoading());
             }
 
             if (snapshot.hasError) {
@@ -134,15 +135,6 @@ class _IssuedAppState extends State<IssuedApp> {
         ),
       ),
     );
-  }
-}
-
-class _LoadingScreen extends StatelessWidget {
-  const _LoadingScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(body: Center(child: CircularProgressIndicator()));
   }
 }
 
