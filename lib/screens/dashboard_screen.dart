@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../core/app_store.dart';
 import '../core/models/models.dart';
-import '../widgets/sync_status_chip.dart';
 import 'activity_screen.dart';
 import 'add_item_screen.dart';
 import 'backup_restore_screen.dart';
@@ -15,6 +14,7 @@ import 'plan_screens.dart';
 import 'quick_issue_screen.dart';
 import 'scanner_screen.dart';
 import 'settings_detail_screens.dart';
+import 'settings_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -42,8 +42,8 @@ class DashboardScreen extends StatelessWidget {
           style: textTheme.bodyLarge?.copyWith(color: const Color(0xFF5C6672)),
         ),
         const SizedBox(height: 12),
-        if (store.shouldShowDashboardSyncStatus) ...[
-          _CloudSyncStatusCard(store: store),
+        if (store.shouldShowDashboardSyncWarning) ...[
+          _SyncWarningCard(store: store),
           const SizedBox(height: 10),
         ],
         if (limitWarnings.isNotEmpty)
@@ -74,31 +74,27 @@ class DashboardScreen extends StatelessWidget {
   }
 }
 
-class _CloudSyncStatusCard extends StatelessWidget {
-  const _CloudSyncStatusCard({required this.store});
+class _SyncWarningCard extends StatelessWidget {
+  const _SyncWarningCard({required this.store});
 
   final AppStore store;
 
   @override
   Widget build(BuildContext context) {
-    final summary = store.cloudSyncSummary;
-    final workspace =
-        summary.activeWorkspaceName ?? store.activeWorkspace?.name;
+    final status = store.syncUserStatus.status;
+    final changesNeedAttention =
+        status == SyncUserStatus.conflictsNeedReview ||
+        store.failedSyncUploadCount > 0;
     return Card(
       child: ListTile(
-        leading: const Icon(Icons.cloud_sync_outlined),
-        title: const Text('Sync'),
-        subtitle: Text(
-          workspace == null
-              ? 'No active workspace selected.'
-              : '$workspace - changes sync automatically when the app is open.',
+        leading: const Icon(Icons.sync_problem_outlined),
+        title: Text(
+          changesNeedAttention ? 'Some changes need attention' : 'Sync problem',
         ),
-        trailing: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 180),
-          child: SyncStatusChip(
-            status: store.syncUserStatus,
-            onOpenDiagnostics: null,
-          ),
+        subtitle: const Text('Open Settings to review and fix the problem.'),
+        trailing: TextButton(
+          onPressed: () => _push(context, const SettingsScreen()),
+          child: const Text('Open Settings'),
         ),
       ),
     );

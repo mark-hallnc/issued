@@ -178,12 +178,17 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   bool get canOpenSyncDiagnostics =>
       kDebugMode || permissions.isAdmin || permissions.isManager;
   SyncUserStatusSummary get syncUserStatus => _buildSyncUserStatus();
-  bool get shouldShowDashboardSyncStatus {
+  bool get shouldShowDashboardSyncWarning {
     final status = syncUserStatus.status;
-    return status == SyncUserStatus.syncing ||
-        status == SyncUserStatus.pendingChanges ||
-        status == SyncUserStatus.offlineOrFailed ||
-        status == SyncUserStatus.conflictsNeedReview;
+    if (status == SyncUserStatus.conflictsNeedReview ||
+        _failedSyncUploadCount > 0 ||
+        _cloudSyncSummary.status == CloudSyncStatus.error) {
+      return true;
+    }
+    if (_cloudModeEnabled && status == SyncUserStatus.signedOut) {
+      return true;
+    }
+    return status == SyncUserStatus.noWorkspace;
   }
 
   SyncUserError? get latestSyncUserError => syncErrorService.latestError;
