@@ -39,6 +39,32 @@ class WorkspaceService {
     return Supabase.instance.client;
   }
 
+  Future<WorkspaceResult<String?>> fetchCurrentUserDisplayName() async {
+    final client = _client;
+    final user = _authService.currentUser;
+    if (client == null) {
+      return WorkspaceResult.failure(SupabaseConfig.missingConfigMessage);
+    }
+    if (user == null) {
+      return const WorkspaceResult.failure('Sign in to load your profile.');
+    }
+    try {
+      final row = await client
+          .from('profiles')
+          .select('display_name')
+          .eq('id', user.id)
+          .maybeSingle();
+      final displayName = row?['display_name']?.toString().trim();
+      return WorkspaceResult.success(
+        displayName == null || displayName.isEmpty ? null : displayName,
+      );
+    } on PostgrestException catch (error) {
+      return WorkspaceResult.failure(_friendlyDatabaseError(error.message));
+    } catch (_) {
+      return const WorkspaceResult.failure('Could not load your profile.');
+    }
+  }
+
   Future<WorkspaceResult<List<CloudWorkspace>>> fetchMyWorkspaces() async {
     final client = _client;
     final user = _authService.currentUser;
@@ -392,7 +418,10 @@ class WorkspaceService {
     }
   }
 
-  Future<WorkspaceResult<CloudWorkspace>> createWorkspace(String name) async {
+  Future<WorkspaceResult<CloudWorkspace>> createWorkspace(
+    String name, {
+    String? ownerDisplayName,
+  }) async {
     final client = _client;
     final user = _authService.currentUser;
     final workspaceName = name.trim();
@@ -417,7 +446,16 @@ class WorkspaceService {
           .single();
       final workspace = CloudWorkspace.fromJson(row);
       setActiveWorkspace(workspace);
-      return WorkspaceResult.success(workspace, message: 'Workspace created.');
+      final profileResult = await updateCurrentUserDisplayName(
+        ownerDisplayName,
+        workspaceId: workspace.id,
+      );
+      return WorkspaceResult.success(
+        workspace,
+        message: profileResult.success
+            ? 'Organization created.'
+            : 'Organization created, but your display name could not be synced.',
+      );
     } on PostgrestException catch (rpcError) {
       try {
         final row = await client
@@ -430,13 +468,20 @@ class WorkspaceService {
           'workspace_id': workspace.id,
           'user_id': user.id,
           'email': user.email ?? '',
+          'display_name': ownerDisplayName?.trim(),
           'role': 'owner',
           'status': 'active',
         });
         setActiveWorkspace(workspace);
+        final profileResult = await updateCurrentUserDisplayName(
+          ownerDisplayName,
+          workspaceId: workspace.id,
+        );
         return WorkspaceResult.success(
           workspace,
-          message: 'Workspace created.',
+          message: profileResult.success
+              ? 'Organization created.'
+              : 'Organization created, but your display name could not be synced.',
         );
       } on PostgrestException catch (fallbackError) {
         return WorkspaceResult.failure(
@@ -449,6 +494,50 @@ class WorkspaceService {
       }
     } catch (_) {
       return const WorkspaceResult.failure('Could not create workspace.');
+    }
+  }
+
+  Future<WorkspaceResult<void>> updateCurrentUserDisplayName(
+    String? displayName, {
+    String? workspaceId,
+  }) async {
+    final client = _client;
+    final user = _authService.currentUser;
+    final cleanName = displayName?.trim();
+    if (cleanName == null || cleanName.isEmpty) {
+      return const WorkspaceResult.success(null);
+    }
+    if (client == null) {
+      return WorkspaceResult.failure(SupabaseConfig.missingConfigMessage);
+    }
+    if (user == null) {
+      return const WorkspaceResult.failure('Sign in to update your name.');
+    }
+    try {
+      await client.auth.updateUser(
+        UserAttributes(
+          data: {'full_name': cleanName, 'display_name': cleanName},
+        ),
+      );
+      await client.from('profiles').upsert({
+        'id': user.id,
+        'email': user.email ?? '',
+        'display_name': cleanName,
+      }, onConflict: 'id');
+      if (workspaceId != null && workspaceId.isNotEmpty) {
+        await client
+            .from('workspace_members')
+            .update({'display_name': cleanName})
+            .eq('workspace_id', workspaceId)
+            .eq('user_id', user.id);
+      }
+      return const WorkspaceResult.success(null);
+    } on AuthException catch (error) {
+      return WorkspaceResult.failure(error.message);
+    } on PostgrestException catch (error) {
+      return WorkspaceResult.failure(_friendlyDatabaseError(error.message));
+    } catch (_) {
+      return const WorkspaceResult.failure('Could not update your name.');
     }
   }
 

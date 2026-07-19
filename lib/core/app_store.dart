@@ -109,6 +109,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
       );
   final SyncQaService syncQaService = const SyncQaService();
   supabase.User? _currentCloudUser;
+  String? _currentCloudProfileDisplayName;
   final List<CloudWorkspace> _availableWorkspaces = [];
   final List<CloudWorkspaceMember> _workspaceMembers = [];
   final List<CloudWorkspaceInvite> _workspaceInvites = [];
@@ -330,6 +331,14 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   String get currentDisplayUserName {
+    final profileName = _currentCloudProfileDisplayName?.trim();
+    if (profileName != null && profileName.isNotEmpty) {
+      return profileName;
+    }
+    final memberName = _currentWorkspaceMemberDisplayName;
+    if (memberName != null) {
+      return memberName;
+    }
     final cloudName = _cloudUserMetadataString([
       'full_name',
       'name',
@@ -338,20 +347,22 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     if (cloudName != null) {
       return cloudName;
     }
-    final cloudEmail = _currentCloudUser?.email?.trim();
-    if (cloudEmail != null && cloudEmail.isNotEmpty) {
-      return cloudEmail;
+    if (_currentCloudUser == null) {
+      final localName = currentPerson?.displayName.trim();
+      if (localName != null && localName.isNotEmpty) {
+        return localName;
+      }
     }
-    final memberName = _currentWorkspaceMemberDisplayName;
-    if (memberName != null) {
-      return memberName;
-    }
-    final localName = currentPerson?.displayName.trim();
-    if (localName != null && localName.isNotEmpty) {
-      return localName;
+    final cloudEmail = currentUserDisplayEmail;
+    if (cloudEmail.isNotEmpty && cloudEmail.contains('@')) {
+      return cloudEmail.split('@').first;
     }
     return 'User';
   }
+
+  String get currentUserDisplayName => currentDisplayUserName;
+
+  String get currentUserDisplayEmail => _currentCloudUser?.email?.trim() ?? '';
 
   String get currentDisplayUserSubtitle {
     if (_currentCloudUser != null) {
@@ -467,6 +478,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   void initializeCloud() {
     if (!isCloudConfigured) {
       _currentCloudUser = null;
+      _currentCloudProfileDisplayName = null;
       _availableWorkspaces.clear();
       _workspaceMembers.clear();
       _workspaceInvites.clear();
@@ -484,6 +496,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     ) {
       _currentCloudUser = authState.session?.user;
       if (_currentCloudUser == null) {
+        _currentCloudProfileDisplayName = null;
         _availableWorkspaces.clear();
         _workspaceMembers.clear();
         _workspaceInvites.clear();
@@ -596,6 +609,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     syncCoordinator.cancelPendingSync();
     final result = await cloudAuthService.signOut();
     _currentCloudUser = null;
+    _currentCloudProfileDisplayName = null;
     _availableWorkspaces.clear();
     _workspaceMembers.clear();
     _workspaceInvites.clear();
@@ -613,6 +627,10 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<AppActionResult> loadMyWorkspaces() async {
+    final profileResult = await workspaceService.fetchCurrentUserDisplayName();
+    if (profileResult.success) {
+      _currentCloudProfileDisplayName = profileResult.data;
+    }
     final result = await workspaceService.fetchMyWorkspaces();
     if (!result.success) {
       return AppActionResult.failure(result.message);
@@ -973,9 +991,15 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     );
   }
 
-  Future<AppActionResult> createCloudWorkspace(String name) async {
+  Future<AppActionResult> createCloudWorkspace(
+    String name, {
+    String? ownerDisplayName,
+  }) async {
     final workspaceName = name.trim().isEmpty ? localWorkspaceName : name;
-    final result = await workspaceService.createWorkspace(workspaceName);
+    final result = await workspaceService.createWorkspace(
+      workspaceName,
+      ownerDisplayName: ownerDisplayName,
+    );
     if (!result.success || result.data == null) {
       return AppActionResult.failure(result.message);
     }
@@ -986,6 +1010,8 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
       _availableWorkspaces.add(result.data!);
     }
     _cloudModeEnabled = true;
+    _currentCloudUser = cloudAuthService.currentUser;
+    _currentCloudProfileDisplayName = ownerDisplayName?.trim();
     workspaceService.setActiveWorkspace(result.data!);
     await loadWorkspaceMembers(notify: false);
     await loadWorkspaceInvites(notify: false);

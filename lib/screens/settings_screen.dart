@@ -309,7 +309,6 @@ class CloudAccountSettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final store = AppStoreScope.of(context);
-    final cloudEmail = store.currentCloudUser?.email;
     final canOpenSyncDiagnostics = kDebugMode || store.canOpenSyncDiagnostics;
     return Scaffold(
       appBar: AppBar(title: const Text('Account / Organization')),
@@ -323,8 +322,14 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _CloudStatusLine(
-                    label: 'Signed in',
-                    value: cloudEmail ?? 'No',
+                    label: 'Name',
+                    value: store.currentUserDisplayName,
+                  ),
+                  _CloudStatusLine(
+                    label: 'Email',
+                    value: store.currentUserDisplayEmail.isEmpty
+                        ? 'No'
+                        : store.currentUserDisplayEmail,
                   ),
                   _CloudStatusLine(
                     label: 'Organization',
@@ -1004,7 +1009,9 @@ class _CurrentUserCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(store.currentDisplayUserName),
+                  Text(store.currentUserDisplayName),
+                  if (store.currentUserDisplayEmail.isNotEmpty)
+                    Text(store.currentUserDisplayEmail),
                   Text(store.currentDisplayUserSubtitle),
                 ],
               ),

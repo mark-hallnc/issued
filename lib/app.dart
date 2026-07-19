@@ -178,7 +178,8 @@ class _IssuedShellState extends State<IssuedShell> {
   @override
   Widget build(BuildContext context) {
     final store = AppStoreScope.of(context);
-    final userName = store.currentDisplayUserName;
+    final userName = store.currentUserDisplayName;
+    final userEmail = store.currentUserDisplayEmail;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Issued'),
@@ -186,10 +187,28 @@ class _IssuedShellState extends State<IssuedShell> {
           Center(
             child: Padding(
               padding: const EdgeInsets.only(right: 8),
-              child: Text(
-                userName,
-                style: const TextStyle(fontSize: 12),
-                overflow: TextOverflow.ellipsis,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 180),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      userName,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (userEmail.isNotEmpty)
+                      Text(
+                        userEmail,
+                        style: const TextStyle(fontSize: 10),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
