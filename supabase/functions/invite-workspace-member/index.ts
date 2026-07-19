@@ -257,7 +257,8 @@ async function sendInviteEmail({
     directAppUrl,
   });
   const text = [
-    `You were invited to the ${workspaceName} workspace in Issued.`,
+    "You've been invited to Issued.",
+    `Organization: ${workspaceName}`,
     `Role: ${roleLabel}`,
     `Invited email: ${to}`,
     "",
@@ -267,9 +268,7 @@ async function sendInviteEmail({
     "Open directly in the app:",
     directAppUrl,
     "",
-    "Sign in with this email address to accept the invite.",
-    "If you do not have Issued installed yet, this link will show setup instructions.",
-    "If the button does not open the app, open Issued manually and sign in with this email address. The invite will be accepted after sign-in.",
+    "If the app does not open, open Issued manually and sign in with this email address.",
   ].join("\n");
 
   const response = await fetch("https://api.resend.com/emails", {
@@ -315,18 +314,16 @@ function inviteEmailHtml({
   return `
     <div style="font-family:Arial,sans-serif;color:#17212f;line-height:1.5;max-width:560px;margin:0 auto;padding:24px;">
       <div style="font-size:24px;font-weight:700;margin-bottom:18px;">Issued</div>
-      <h1 style="font-size:22px;margin:0 0 12px;">You've been invited to a workspace</h1>
-      <p style="margin:0 0 16px;">You were invited to <strong>${safeWorkspace}</strong> in Issued.</p>
+      <h1 style="font-size:22px;margin:0 0 12px;">You've been invited to Issued</h1>
+      <p style="margin:0 0 16px;"><strong>Organization:</strong> ${safeWorkspace}</p>
       <p style="margin:0 0 16px;"><strong>Role:</strong> ${safeRole}<br><strong>Invited email:</strong> ${safeEmail}</p>
-      <p style="margin:0 0 22px;">Sign in with this email address to accept the invite.</p>
       <p style="margin:0 0 22px;">
         <a href="${safeUrl}" style="display:inline-block;background:#1e3a5f;color:#ffffff;text-decoration:none;font-weight:700;padding:12px 18px;border-radius:8px;">Open Issued</a>
       </p>
       <p style="margin:0 0 12px;">
         <a href="${safeDirectAppUrl}" style="color:#1e3a5f;font-weight:700;">Open directly in the app</a>
       </p>
-      <p style="margin:0 0 8px;">If you do not have Issued installed yet, this link will show setup instructions.</p>
-      <p style="margin:0 0 8px;">If the button does not open the app, open Issued manually and sign in with this email address. The invite will be accepted after sign-in.</p>
+      <p style="margin:0 0 8px;">If the app does not open, open Issued manually and sign in with this email address.</p>
       <p style="margin:0;color:#526173;font-size:13px;">If the button does not work, copy and paste this URL into your browser:<br>${safeUrl}</p>
     </div>
   `;

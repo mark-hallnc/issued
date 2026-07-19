@@ -56,7 +56,12 @@ class _WorkspaceSelectionScreenState extends State<WorkspaceSelectionScreen> {
           _AccountCard(store: store),
           const SizedBox(height: 12),
           if (store.pendingCloudInvites.isNotEmpty) ...[
-            Text('Invitations', style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              store.pendingCloudInvites.length == 1
+                  ? "You've been invited to ${store.pendingCloudInvites.single.workspaceName ?? 'an organization'}. Join now?"
+                  : 'Choose invitation to accept.',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: 8),
             for (final invite in store.pendingCloudInvites) ...[
               Card(
@@ -120,11 +125,12 @@ class _WorkspaceSelectionScreenState extends State<WorkspaceSelectionScreen> {
             ],
           ],
           const SizedBox(height: 12),
-          _CreateOrganizationCard(
-            controller: _nameController,
-            isBusy: _isBusy,
-            onCreate: () => _createOrganization(store),
-          ),
+          if (store.pendingCloudInvites.isEmpty)
+            _CreateOrganizationCard(
+              controller: _nameController,
+              isBusy: _isBusy,
+              onCreate: () => _createOrganization(store),
+            ),
           const SizedBox(height: 12),
           OutlinedButton(
             onPressed: _isBusy ? null : () => _confirmSignOut(store),

@@ -520,7 +520,7 @@ String _friendlyDatabaseError(String message) {
     return 'This invite is no longer available.';
   }
   if (lower.contains('does not match')) {
-    return 'This invite belongs to a different email address. Sign in with the email that received the invite.';
+    return 'This invite was sent to a different email. Sign out and sign in with the invited email.';
   }
   if (lower.contains('missing or invalid')) {
     return 'Invite link is missing or invalid.';

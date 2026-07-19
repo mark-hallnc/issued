@@ -209,7 +209,7 @@ class _EmailEntryState extends StatelessWidget {
                   SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'You have an invitation waiting. Sign in with the invited email to continue.',
+                      "You've been invited. Sign in with the email that received the invite.",
                     ),
                   ),
                 ],

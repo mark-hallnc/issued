@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import '../core/cloud/sync_status_models.dart';
 import '../core/app_store.dart';
 import '../core/models/models.dart';
 import 'activity_screen.dart';

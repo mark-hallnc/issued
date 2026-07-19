@@ -563,10 +563,24 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     if (!refreshResult.success) {
       return PostLoginDestination.chooseOrganization;
     }
+    // A user who signs in without opening the invite link can still join from
+    // the pending invite that is scoped to their authenticated email address.
+    if (_pendingCloudInvites.length == 1 && _availableWorkspaces.isEmpty) {
+      final result = await acceptCloudWorkspaceInvite(
+        _pendingCloudInvites.single.id,
+      );
+      if (result.success && _activeWorkspace != null) {
+        return PostLoginDestination.dashboard;
+      }
+      return PostLoginDestination.chooseOrganization;
+    }
+    if (_pendingCloudInvites.isNotEmpty) {
+      return PostLoginDestination.chooseOrganization;
+    }
     if (_activeWorkspace != null) {
       return PostLoginDestination.dashboard;
     }
-    if (_pendingCloudInvites.isNotEmpty || _availableWorkspaces.isNotEmpty) {
+    if (_availableWorkspaces.isNotEmpty) {
       return PostLoginDestination.chooseOrganization;
     }
     return PostLoginDestination.createOrganization;
