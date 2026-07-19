@@ -16,6 +16,8 @@ class AddItemScreen extends StatefulWidget {
 }
 
 class _AddItemScreenState extends State<AddItemScreen> {
+  static const _noPurchaseUnitValue = '__no_purchase_uom__';
+
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _categoryController = TextEditingController();
@@ -33,9 +35,9 @@ class _AddItemScreenState extends State<AddItemScreen> {
   final Map<String, String?> _customSelectValues = {};
 
   ItemType _itemType = ItemType.consumable;
-  UnitOfMeasure? _selectedUnit;
-  UnitOfMeasure? _selectedPurchaseUnit;
-  Location? _selectedLocation;
+  String? _selectedUnitId;
+  String? _selectedPurchaseUnitId;
+  String? _selectedLocationId;
   bool _allowFractionalQuantity = false;
   bool _requestedEntryDefaults = false;
 
@@ -79,21 +81,38 @@ class _AddItemScreenState extends State<AddItemScreen> {
   @override
   Widget build(BuildContext context) {
     final store = AppStoreScope.of(context);
-    final units = store.unitsOfMeasure.where((unit) => unit.isActive).toList();
-    final locations = store.activeLocations;
-    if (_selectedUnit == null ||
-        !units.any((unit) => unit.id == _selectedUnit!.id)) {
-      _selectedUnit = units.isEmpty ? null : units.first;
+    final unitsById = <String, UnitOfMeasure>{};
+    for (final unit in store.unitsOfMeasure.where((unit) => unit.isActive)) {
+      unitsById.putIfAbsent(unit.id, () => unit);
     }
-    if (_selectedPurchaseUnit != null &&
-        !units.any((unit) => unit.id == _selectedPurchaseUnit!.id)) {
-      _selectedPurchaseUnit = null;
+    final units = unitsById.values.toList();
+    final locationsById = <String, Location>{};
+    for (final location in store.activeLocations) {
+      locationsById.putIfAbsent(location.id, () => location);
     }
-    if (_selectedLocation == null ||
-        !locations.any((location) => location.id == _selectedLocation!.id)) {
-      _selectedLocation = locations.isEmpty ? null : locations.first;
+    final locations = locationsById.values.toList();
+    String? defaultUnitId;
+    for (final unit in units) {
+      if (unit.name.trim().toLowerCase() == 'each' ||
+          unit.abbreviation.trim().toLowerCase() == 'ea') {
+        defaultUnitId = unit.id;
+        break;
+      }
     }
-    final canSaveItem = _selectedUnit != null && _selectedLocation != null;
+    final itemTypes = ItemType.values.toSet().toList();
+    final selectedUnitId = unitsById.containsKey(_selectedUnitId)
+        ? _selectedUnitId
+        : defaultUnitId;
+    final selectedPurchaseUnitId =
+        unitsById.containsKey(_selectedPurchaseUnitId)
+        ? _selectedPurchaseUnitId
+        : null;
+    final selectedLocationId = locationsById.containsKey(_selectedLocationId)
+        ? _selectedLocationId
+        : locations.length == 1
+        ? locations.single.id
+        : null;
+    final canSaveItem = selectedUnitId != null && selectedLocationId != null;
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
@@ -102,7 +121,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: FilledButton.icon(
-            onPressed: canSaveItem ? _saveItem : null,
+            onPressed: _saveItem,
             icon: const Icon(Icons.save),
             label: const Text('Save Item'),
           ),
@@ -119,9 +138,11 @@ class _AddItemScreenState extends State<AddItemScreen> {
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Text(
-                    units.isEmpty
-                        ? 'Set up a unit of measure before adding items.'
-                        : 'Create a location before adding items.',
+                    selectedUnitId == null
+                        ? 'A unit of measure is required. Add one in Settings first.'
+                        : locations.isEmpty
+                        ? 'Create a location before receiving stock.'
+                        : 'Choose a location for the initial stock.',
                   ),
                 ),
               ),
@@ -134,16 +155,21 @@ class _AddItemScreenState extends State<AddItemScreen> {
                 border: OutlineInputBorder(),
               ),
               textInputAction: TextInputAction.next,
-              validator: _requiredValidator,
+              validator: (value) => value == null || value.trim().isEmpty
+                  ? 'Enter an item name.'
+                  : null,
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<ItemType>(
-              initialValue: _itemType,
+              initialValue:
+                  itemTypes.where((type) => type == _itemType).length == 1
+                  ? _itemType
+                  : null,
               decoration: const InputDecoration(
                 labelText: 'Item type',
                 border: OutlineInputBorder(),
               ),
-              items: ItemType.values
+              items: itemTypes
                   .map(
                     (type) => DropdownMenuItem(
                       value: type,
@@ -198,56 +224,64 @@ class _AddItemScreenState extends State<AddItemScreen> {
               validator: _numberValidator,
             ),
             const SizedBox(height: 12),
-            DropdownButtonFormField<UnitOfMeasure>(
-              initialValue: _selectedUnit,
-              decoration: const InputDecoration(
-                labelText: 'Unit of measure',
-                border: OutlineInputBorder(),
+            DropdownButtonFormField<String>(
+              key: ValueKey(
+                'stock-uom:${unitsById.keys.join(',')}:$selectedUnitId',
               ),
-              items: store.unitsOfMeasure
-                  .where((unit) => unit.isActive)
+              initialValue: selectedUnitId,
+              decoration: InputDecoration(
+                labelText: 'Unit of measure',
+                hintText: units.isEmpty ? 'Add a unit in Settings first' : null,
+                helperText: units.isEmpty
+                    ? 'A unit of measure is required. Add one in Settings first.'
+                    : null,
+                border: const OutlineInputBorder(),
+              ),
+              items: units
                   .map(
                     (unit) => DropdownMenuItem(
-                      value: unit,
+                      value: unit.id,
                       child: Text('${unit.name} (${unit.abbreviation})'),
                     ),
                   )
                   .toList(),
-              onChanged: (unit) {
-                if (unit == null) {
-                  return;
-                }
-
-                setState(() {
-                  _selectedUnit = unit;
-                });
-              },
+              onChanged: units.isEmpty
+                  ? null
+                  : (unitId) {
+                      setState(() {
+                        _selectedUnitId = unitId;
+                      });
+                    },
             ),
             const SizedBox(height: 12),
-            DropdownButtonFormField<Location>(
-              initialValue: _selectedLocation,
-              decoration: const InputDecoration(
-                labelText: 'Location',
-                border: OutlineInputBorder(),
+            DropdownButtonFormField<String>(
+              key: ValueKey(
+                'location:${locationsById.keys.join(',')}:$selectedLocationId',
               ),
-              items: store.locations
-                  .where((location) => location.isActive)
+              initialValue: selectedLocationId,
+              decoration: InputDecoration(
+                labelText: 'Location',
+                hintText: locations.isEmpty ? 'Create a location first' : null,
+                helperText: locations.isEmpty
+                    ? 'Create a location before receiving stock.'
+                    : null,
+                border: const OutlineInputBorder(),
+              ),
+              items: locations
                   .map(
                     (location) => DropdownMenuItem(
-                      value: location,
+                      value: location.id,
                       child: Text(location.name),
                     ),
                   )
                   .toList(),
-              onChanged: (location) {
-                if (location == null) {
-                  return;
-                }
-
-                setState(() {
-                  _selectedLocation = location;
-                });
-              },
+              onChanged: locations.isEmpty
+                  ? null
+                  : (locationId) {
+                      setState(() {
+                        _selectedLocationId = locationId;
+                      });
+                    },
             ),
             const SizedBox(height: 12),
             TextFormField(
@@ -272,6 +306,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
               controller: _supplierController,
               decoration: const InputDecoration(
                 labelText: 'Supplier',
+                helperText: 'Optional',
                 border: OutlineInputBorder(),
               ),
               textInputAction: TextInputAction.next,
@@ -311,28 +346,37 @@ class _AddItemScreenState extends State<AddItemScreen> {
                 ),
                 childrenPadding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
                 children: [
-                  DropdownButtonFormField<UnitOfMeasure?>(
-                    initialValue: _selectedPurchaseUnit,
+                  DropdownButtonFormField<String>(
+                    key: ValueKey(
+                      'purchase-uom:${unitsById.keys.join(',')}:$selectedPurchaseUnitId',
+                    ),
+                    initialValue: selectedPurchaseUnitId,
                     decoration: const InputDecoration(
                       labelText: 'Purchase UOM',
                       border: OutlineInputBorder(),
                     ),
                     items: [
-                      const DropdownMenuItem<UnitOfMeasure?>(
-                        value: null,
+                      const DropdownMenuItem<String>(
+                        value: _noPurchaseUnitValue,
                         child: Text('No purchase UOM'),
                       ),
-                      for (final unit in store.unitsOfMeasure)
-                        DropdownMenuItem<UnitOfMeasure?>(
-                          value: unit,
+                      for (final unit in units)
+                        DropdownMenuItem<String>(
+                          value: unit.id,
                           child: Text('${unit.name} (${unit.abbreviation})'),
                         ),
                     ],
-                    onChanged: (unit) {
-                      setState(() {
-                        _selectedPurchaseUnit = unit;
-                      });
-                    },
+                    hint: const Text('No purchase UOM'),
+                    onChanged: units.isEmpty
+                        ? null
+                        : (unitId) {
+                            setState(() {
+                              _selectedPurchaseUnitId =
+                                  unitId == _noPurchaseUnitValue
+                                  ? null
+                                  : unitId;
+                            });
+                          },
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
@@ -383,14 +427,6 @@ class _AddItemScreenState extends State<AddItemScreen> {
     );
   }
 
-  String? _requiredValidator(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Required';
-    }
-
-    return null;
-  }
-
   String? _numberValidator(String? value) {
     if (value == null || value.trim().isEmpty) {
       return 'Required';
@@ -416,14 +452,16 @@ class _AddItemScreenState extends State<AddItemScreen> {
   }
 
   String? _purchaseConversionValidator(String? value) {
-    final purchaseUnit = _selectedPurchaseUnit;
-    if (purchaseUnit == null || purchaseUnit.id == _selectedUnit?.id) {
+    final store = AppStoreScope.of(context);
+    final selectedUnitId = _effectiveUnitId(store);
+    final purchaseUnitId = _effectivePurchaseUnitId(store);
+    if (purchaseUnitId == null || purchaseUnitId == selectedUnitId) {
       if (value == null || value.trim().isEmpty) {
         return null;
       }
     }
 
-    if (purchaseUnit != null && purchaseUnit.id != _selectedUnit?.id) {
+    if (purchaseUnitId != null && purchaseUnitId != selectedUnitId) {
       if (value == null || value.trim().isEmpty) {
         return 'Enter a conversion factor.';
       }
@@ -440,11 +478,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
   }
 
   String? _normalizedPurchaseUnitId() {
-    if (_selectedPurchaseUnit == null ||
-        _selectedPurchaseUnit!.id == _selectedUnit?.id) {
-      return null;
-    }
-    return _selectedPurchaseUnit!.id;
+    return _effectivePurchaseUnitId(AppStoreScope.of(context));
   }
 
   double? _normalizedPurchaseFactor() {
@@ -455,8 +489,10 @@ class _AddItemScreenState extends State<AddItemScreen> {
   }
 
   String _purchasePreview() {
-    final purchaseUnit = _selectedPurchaseUnit;
-    final stockUnit = _selectedUnit;
+    final store = AppStoreScope.of(context);
+    final unitsById = _activeUnitsById(store);
+    final purchaseUnit = unitsById[_selectedPurchaseUnitId];
+    final stockUnit = unitsById[_effectiveUnitId(store)];
     final factor = double.tryParse(_purchaseConversionController.text.trim());
     if (purchaseUnit == null ||
         stockUnit == null ||
@@ -468,19 +504,71 @@ class _AddItemScreenState extends State<AddItemScreen> {
     return '1 ${purchaseUnit.abbreviation} = ${_formatQuantity(factor)} ${stockUnit.abbreviation}';
   }
 
+  Map<String, UnitOfMeasure> _activeUnitsById(AppStore store) {
+    final result = <String, UnitOfMeasure>{};
+    for (final unit in store.unitsOfMeasure.where((unit) => unit.isActive)) {
+      result.putIfAbsent(unit.id, () => unit);
+    }
+    return result;
+  }
+
+  Map<String, Location> _activeLocationsById(AppStore store) {
+    final result = <String, Location>{};
+    for (final location in store.activeLocations) {
+      result.putIfAbsent(location.id, () => location);
+    }
+    return result;
+  }
+
+  String? _effectiveUnitId(AppStore store) {
+    final unitsById = _activeUnitsById(store);
+    if (unitsById.containsKey(_selectedUnitId)) {
+      return _selectedUnitId;
+    }
+    for (final unit in unitsById.values) {
+      if (unit.name.trim().toLowerCase() == 'each' ||
+          unit.abbreviation.trim().toLowerCase() == 'ea') {
+        return unit.id;
+      }
+    }
+    return null;
+  }
+
+  String? _effectiveLocationId(AppStore store) {
+    final locationsById = _activeLocationsById(store);
+    if (locationsById.containsKey(_selectedLocationId)) {
+      return _selectedLocationId;
+    }
+    return locationsById.length == 1 ? locationsById.keys.single : null;
+  }
+
+  String? _effectivePurchaseUnitId(AppStore store) {
+    final unitsById = _activeUnitsById(store);
+    if (!unitsById.containsKey(_selectedPurchaseUnitId) ||
+        _selectedPurchaseUnitId == _effectiveUnitId(store)) {
+      return null;
+    }
+    return _selectedPurchaseUnitId;
+  }
+
   void _saveItem() {
     final store = AppStoreScope.of(context);
-    final selectedUnit = _selectedUnit;
-    final selectedLocation = _selectedLocation;
+    final selectedUnit = _activeUnitsById(store)[_effectiveUnitId(store)];
+    final selectedLocation = _activeLocationsById(
+      store,
+    )[_effectiveLocationId(store)];
     if (!store.permissions.canManageItems) {
       _showPermissionDenied();
       return;
     }
     if (selectedUnit == null || selectedLocation == null) {
+      final hasLocations = _activeLocationsById(store).isNotEmpty;
       _showMessage(
         selectedUnit == null
-            ? 'Set up a unit of measure before adding items.'
-            : 'Create a location before adding items.',
+            ? 'Choose a unit of measure.'
+            : hasLocations
+            ? 'Choose a location.'
+            : 'Create a location before receiving stock.',
       );
       return;
     }
@@ -539,12 +627,12 @@ class _AddItemScreenState extends State<AddItemScreen> {
   Item _draftItem(AppStore store) {
     final now = DateTime.now();
     final locationId =
-        _selectedLocation?.id ??
+        _effectiveLocationId(store) ??
         (store.activeLocations.isEmpty
             ? 'draft-location'
             : store.activeLocations.first.id);
     final unitId =
-        _selectedUnit?.id ??
+        _effectiveUnitId(store) ??
         (store.unitsOfMeasure.isEmpty
             ? 'draft-uom'
             : store.unitsOfMeasure.first.id);
@@ -846,33 +934,47 @@ class _CustomFieldsSection extends StatelessWidget {
           },
         ),
       ),
-      CustomFieldType.select => DropdownButtonFormField<String>(
-        initialValue: selectValues[field.id],
-        decoration: InputDecoration(
-          labelText: _label(field),
-          border: const OutlineInputBorder(),
-        ),
-        items: field.options
-            .map(
-              (option) =>
-                  DropdownMenuItem<String>(value: option, child: Text(option)),
-            )
-            .toList(),
-        onChanged: (value) {
-          selectValues[field.id] = value;
-          onChanged();
-        },
-        validator: (value) {
-          if (field.isRequired && (value == null || value.isEmpty)) {
-            return 'Required';
-          }
-          if (value != null && !field.options.contains(value)) {
-            return 'Choose a valid option';
-          }
-          return null;
-        },
-      ),
+      CustomFieldType.select => _selectField(field),
     };
+  }
+
+  Widget _selectField(CustomFieldDefinition field) {
+    final options = field.options.toSet().toList();
+    final storedValue = selectValues[field.id];
+    final selectedValue =
+        options.where((option) => option == storedValue).length == 1
+        ? storedValue
+        : null;
+    return DropdownButtonFormField<String>(
+      key: ValueKey(
+        'custom-select:${field.id}:${options.join(',')}:$selectedValue',
+      ),
+      initialValue: selectedValue,
+      decoration: InputDecoration(
+        labelText: _label(field),
+        hintText: options.isEmpty ? 'No options available' : null,
+        border: const OutlineInputBorder(),
+      ),
+      items: [
+        for (final option in options)
+          DropdownMenuItem<String>(value: option, child: Text(option)),
+      ],
+      onChanged: options.isEmpty
+          ? null
+          : (value) {
+              selectValues[field.id] = value;
+              onChanged();
+            },
+      validator: (value) {
+        if (field.isRequired && (value == null || value.isEmpty)) {
+          return 'Required';
+        }
+        if (value != null && !options.contains(value)) {
+          return 'Choose a valid option';
+        }
+        return null;
+      },
+    );
   }
 
   TextEditingController _controllerFor(CustomFieldDefinition field) {
