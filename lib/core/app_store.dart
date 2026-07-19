@@ -38,6 +38,9 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   AppStore({AppDatabase? database}) : _database = database ?? AppDatabase();
 
   static const _organizationPlanPreferencePrefix = 'issued.plan.';
+  static const _lastCloudUserPreferenceKey = 'issued.last_cloud_user_id';
+  static const _lastWorkspacePreferenceKey =
+      'issued.last_cloud_workspace_id';
 
   final AppDatabase _database;
 
@@ -110,6 +113,9 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   final SyncQaService syncQaService = const SyncQaService();
   supabase.User? _currentCloudUser;
   String? _currentCloudProfileDisplayName;
+  String? _lastLoadedCloudUserId;
+  String? _lastLoadedWorkspaceId;
+  bool _hasLoadedCloudBoundary = false;
   final List<CloudWorkspace> _availableWorkspaces = [];
   final List<CloudWorkspaceMember> _workspaceMembers = [];
   final List<CloudWorkspaceInvite> _workspaceInvites = [];
@@ -427,7 +433,18 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   CompanyUsage get currentUsage {
     return CompanyUsage(
       activeItemCount: _items.where((item) => item.isActive).length,
-      userCount: _users.where((user) => user.isActive).length,
+      userCount: isCloudSignedIn
+          ? _activeWorkspace == null
+                ? 0
+                : _workspaceMembers
+                      .where(
+                        (member) =>
+                            member.workspaceId == _activeWorkspace!.id &&
+                            member.status ==
+                                CloudWorkspaceMemberStatus.active,
+                      )
+                      .length
+          : _users.where((user) => user.isActive).length,
       locationCount: _locations.where((location) => location.isActive).length,
       photoCount: _items.where((item) {
         if (!item.isActive) {
@@ -494,6 +511,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     _cloudAuthSubscription ??= cloudAuthService.authStateChanges.listen((
       authState,
     ) {
+      final previousCloudUserId = _currentCloudUser?.id;
       _currentCloudUser = authState.session?.user;
       if (_currentCloudUser == null) {
         _currentCloudProfileDisplayName = null;
@@ -505,8 +523,15 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
         _currentCloudRole = null;
         _cloudModeEnabled = false;
         workspaceService.clearActiveWorkspace();
-        _clearCloudSyncState();
+        _clearOrganizationOwnedInMemory();
       } else {
+        if (previousCloudUserId != _currentCloudUser!.id) {
+          syncCoordinator.cancelPendingSync();
+          _availableWorkspaces.clear();
+          _activeWorkspace = null;
+          workspaceService.clearActiveWorkspace();
+          _clearOrganizationOwnedInMemory();
+        }
         _cloudModeEnabled = true;
         unawaited(
           loadMyWorkspaces()
@@ -617,6 +642,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     _activeWorkspace = null;
     _currentCloudRole = null;
     _cloudModeEnabled = false;
+    _clearOrganizationOwnedInMemory();
     workspaceService.clearActiveWorkspace();
     _clearCloudSyncState();
     syncErrorService.clearAllErrors();
@@ -661,10 +687,18 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
         workspaceService.clearActiveWorkspace();
       }
     }
+    await _applyCloudOrganizationBoundary(
+      userId: _currentCloudUser!.id,
+      workspaceId: _activeWorkspace?.id,
+    );
     await loadPendingCloudInvites(notify: false);
     if (_activeWorkspace != null) {
       await loadWorkspaceMembers(notify: false);
       await loadWorkspaceInvites(notify: false);
+      await _ensureDefaultUnitsOfMeasure();
+      if (!_locations.any((location) => location.isActive)) {
+        await _ensureLocation('Main Stockroom', 'Stockroom', id: 'loc-main');
+      }
       await initializeCloudSyncForActiveWorkspace(notify: false);
       await _applyPlanForActiveOrganization();
       await _refreshSyncQueueCounts();
@@ -693,11 +727,10 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   Future<WorkspaceNavigationDecision> getWorkspaceNavigationDecision({
     bool refresh = true,
   }) async {
-    if (!isSetupComplete) {
-      return WorkspaceNavigationDecision.needsLocalWorkspace;
-    }
     if (!isCloudConfigured || !isCloudSignedIn) {
-      return WorkspaceNavigationDecision.signedOut;
+      return isSetupComplete
+          ? WorkspaceNavigationDecision.signedOut
+          : WorkspaceNavigationDecision.needsLocalWorkspace;
     }
     if (refresh) {
       final result = await refreshCloudWorkspaceState();
@@ -834,6 +867,14 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     _activeWorkspace = workspace;
     _cloudModeEnabled = true;
     workspaceService.setActiveWorkspace(workspace);
+    await _applyCloudOrganizationBoundary(
+      userId: _currentCloudUser!.id,
+      workspaceId: workspace.id,
+    );
+    await _ensureDefaultUnitsOfMeasure();
+    if (!_locations.any((location) => location.isActive)) {
+      await _ensureLocation('Main Stockroom', 'Stockroom', id: 'loc-main');
+    }
     await loadPendingCloudInvites(notify: false);
     await loadWorkspaceMembers(notify: false);
     await loadWorkspaceInvites(notify: false);
@@ -904,6 +945,14 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     _pendingInviteWorkspaceName = workspace.name;
     _cloudModeEnabled = true;
     workspaceService.setActiveWorkspace(workspace);
+    await _applyCloudOrganizationBoundary(
+      userId: _currentCloudUser!.id,
+      workspaceId: workspace.id,
+    );
+    await _ensureDefaultUnitsOfMeasure();
+    if (!_locations.any((location) => location.isActive)) {
+      await _ensureLocation('Main Stockroom', 'Stockroom', id: 'loc-main');
+    }
     await inviteLinkService.clearPendingInviteToken();
     _pendingInviteToken = null;
     await loadMyWorkspaces();
@@ -1013,6 +1062,14 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     _currentCloudUser = cloudAuthService.currentUser;
     _currentCloudProfileDisplayName = ownerDisplayName?.trim();
     workspaceService.setActiveWorkspace(result.data!);
+    await _applyCloudOrganizationBoundary(
+      userId: _currentCloudUser!.id,
+      workspaceId: result.data!.id,
+    );
+    await _ensureDefaultUnitsOfMeasure();
+    if (!_locations.any((location) => location.isActive)) {
+      await _ensureLocation('Main Stockroom', 'Stockroom', id: 'loc-main');
+    }
     await loadWorkspaceMembers(notify: false);
     await loadWorkspaceInvites(notify: false);
     await initializeCloudSyncForActiveWorkspace(notify: false);
@@ -1028,6 +1085,11 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void setActiveCloudWorkspace(CloudWorkspace workspace) {
+    if (_lastLoadedCloudUserId != _currentCloudUser?.id ||
+        _lastLoadedWorkspaceId != workspace.id) {
+      syncCoordinator.cancelPendingSync();
+      _clearOrganizationOwnedInMemory();
+    }
     _activeWorkspace = workspace;
     _cloudModeEnabled = true;
     workspaceService.setActiveWorkspace(workspace);
@@ -1036,6 +1098,19 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> _finishWorkspaceSelectionSetup() async {
+    final workspace = _activeWorkspace;
+    final user = _currentCloudUser;
+    if (workspace == null || user == null) {
+      return;
+    }
+    await _applyCloudOrganizationBoundary(
+      userId: user.id,
+      workspaceId: workspace.id,
+    );
+    await _ensureDefaultUnitsOfMeasure();
+    if (!_locations.any((location) => location.isActive)) {
+      await _ensureLocation('Main Stockroom', 'Stockroom', id: 'loc-main');
+    }
     await loadWorkspaceMembers(notify: false);
     await loadWorkspaceInvites(notify: false);
     await initializeCloudSyncForActiveWorkspace(notify: false);
@@ -2715,7 +2790,76 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
         : usages.first.toDomain();
   }
 
+  Future<void> _applyCloudOrganizationBoundary({
+    required String userId,
+    required String? workspaceId,
+  }) async {
+    final preferences = await SharedPreferences.getInstance();
+    if (!_hasLoadedCloudBoundary) {
+      _lastLoadedCloudUserId = preferences.getString(
+        _lastCloudUserPreferenceKey,
+      );
+      _lastLoadedWorkspaceId = preferences.getString(
+        _lastWorkspacePreferenceKey,
+      );
+      _hasLoadedCloudBoundary = true;
+    }
+    final boundaryChanged =
+        _lastLoadedCloudUserId != userId ||
+        _lastLoadedWorkspaceId != workspaceId;
+    syncCoordinator.cancelPendingSync();
+    if (boundaryChanged) {
+      cloudSyncService.pauseSync();
+      await _database.clearLocalOrganizationCacheForAccountSwitch();
+      _clearOrganizationOwnedInMemory();
+      _lastLoadedCloudUserId = userId;
+      _lastLoadedWorkspaceId = workspaceId;
+      await preferences.setString(_lastCloudUserPreferenceKey, userId);
+      if (workspaceId == null) {
+        await preferences.remove(_lastWorkspacePreferenceKey);
+      } else {
+        await preferences.setString(_lastWorkspacePreferenceKey, workspaceId);
+      }
+      return;
+    }
+    await _loadFromDatabase();
+  }
+
+  void _clearOrganizationOwnedInMemory() {
+    _items.clear();
+    _unitsOfMeasure.clear();
+    _locations.clear();
+    _people.clear();
+    _users.clear();
+    _transactions.clear();
+    _itemLocationBalances.clear();
+    _checkoutRecords.clear();
+    _assignmentTargets.clear();
+    _suppliers.clear();
+    _reorderRequests.clear();
+    _cycleCountSessions.clear();
+    _cycleCountLines.clear();
+    _customFieldDefinitions.clear();
+    _customFieldValues.clear();
+    _workspaceMembers.clear();
+    _workspaceInvites.clear();
+    _pendingCloudInvites.clear();
+    _company = null;
+    _plan = samplePlan;
+    _companyUsage = sampleCompanyUsage;
+    _currentUserId = null;
+    _isLocked = true;
+    _lastActivityAt = null;
+    _currentCloudRole = null;
+    _clearCloudSyncState();
+  }
+
   AppActionResult addItem(Item item) {
+    if (isCloudSignedIn && _activeWorkspace == null) {
+      return AppActionResult.failure(
+        'Create or choose an organization first.',
+      );
+    }
     if (!permissions.canManageItems) {
       return AppActionResult.denied();
     }
@@ -2736,6 +2880,11 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     String locationId, {
     String? initialTransactionNotes,
   }) {
+    if (isCloudSignedIn && _activeWorkspace == null) {
+      return AppActionResult.failure(
+        'Create or choose an organization first.',
+      );
+    }
     if (!permissions.canManageItems) {
       return AppActionResult.denied();
     }
@@ -3583,6 +3732,11 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<AppActionResult> ensureInventoryEntryDefaults() async {
+    if (isCloudSignedIn && _activeWorkspace == null) {
+      return AppActionResult.failure(
+        'Create or choose an organization first.',
+      );
+    }
     if (!permissions.canManageItems && !permissions.canManageSettings) {
       return AppActionResult.denied();
     }
@@ -6358,6 +6512,11 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   AppActionResult addUnitOfMeasure(UnitOfMeasure unit) {
+    if (isCloudSignedIn && _activeWorkspace == null) {
+      return AppActionResult.failure(
+        'Create or choose an organization first.',
+      );
+    }
     if (!permissions.canManageSettings) {
       return AppActionResult.denied();
     }
@@ -6368,6 +6527,11 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   AppActionResult addLocation(Location location) {
+    if (isCloudSignedIn && _activeWorkspace == null) {
+      return AppActionResult.failure(
+        'Create or choose an organization first.',
+      );
+    }
     if (!permissions.canManageSettings) {
       return AppActionResult.denied();
     }

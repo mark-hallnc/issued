@@ -550,6 +550,30 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
+  /// Clears the unscoped local cache when the signed-in cloud account or
+  /// organization changes. Plans and the workspace-keyed sync outbox remain.
+  Future<void> clearLocalOrganizationCacheForAccountSwitch() {
+    return transaction(() async {
+      await delete(customFieldValues).go();
+      await delete(customFieldDefinitions).go();
+      await delete(cycleCountLines).go();
+      await delete(cycleCountSessions).go();
+      await delete(reorderRequests).go();
+      await delete(checkoutRecords).go();
+      await delete(assignmentTargets).go();
+      await delete(itemLocationBalances).go();
+      await delete(inventoryTransactions).go();
+      await delete(items).go();
+      await delete(suppliers).go();
+      await delete(appUsers).go();
+      await delete(people).go();
+      await delete(locations).go();
+      await delete(unitsOfMeasure).go();
+      await delete(companyUsages).go();
+      await delete(companies).go();
+    });
+  }
+
   Future<void> clearAllLocalData() {
     return transaction(() async {
       await delete(customFieldValues).go();
