@@ -434,20 +434,54 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     isCloudWorkspaceMode: isCloudWorkspaceMode,
   );
   List<Plan> get availablePlans => List.unmodifiable(samplePlans);
+  int get activeOrganizationUserLimit => currentPlan.userLimit;
+  int get activeOrganizationUsedUserSlots {
+    final workspace = _activeWorkspace;
+    if (workspace == null) {
+      return 0;
+    }
+    final activeMembers = _workspaceMembers.where(
+      (member) =>
+          member.workspaceId == workspace.id &&
+          member.status == CloudWorkspaceMemberStatus.active,
+    ).length;
+    final pendingInvites = _workspaceInvites.where(
+      (invite) =>
+          invite.workspaceId == workspace.id &&
+          invite.status == CloudWorkspaceInviteStatus.pending,
+    ).length;
+    return activeMembers + pendingInvites;
+  }
+
+  int get activeOrganizationRemainingUserSlots {
+    final remaining =
+        activeOrganizationUserLimit - activeOrganizationUsedUserSlots;
+    return remaining < 0 ? 0 : remaining;
+  }
+
+  bool get canInviteMoreUsers =>
+      _activeWorkspace != null && activeOrganizationRemainingUserSlots > 0;
+
+  String get userLimitLabel =>
+      '$activeOrganizationUsedUserSlots of $activeOrganizationUserLimit users';
+
+  String? get userInviteLimitMessage {
+    if (canInviteMoreUsers) {
+      return null;
+    }
+    final limit = activeOrganizationUserLimit;
+    final userWord = limit == 1 ? 'user' : 'users';
+    if (activeOrganizationUsedUserSlots > limit) {
+      return 'This organization is over the current plan limit. Remove users or upgrade to invite more people.';
+    }
+    return 'Your current plan includes $limit $userWord. Upgrade to Pro to invite more people.';
+  }
+
   CompanyUsage get currentUsage {
     return CompanyUsage(
       activeItemCount: _items.where((item) => item.isActive).length,
       userCount: isCloudSignedIn
-          ? _activeWorkspace == null
-                ? 0
-                : _workspaceMembers
-                      .where(
-                        (member) =>
-                            member.workspaceId == _activeWorkspace!.id &&
-                            member.status ==
-                                CloudWorkspaceMemberStatus.active,
-                      )
-                      .length
+          ? activeOrganizationUsedUserSlots
           : _users.where((user) => user.isActive).length,
       locationCount: _locations.where((location) => location.isActive).length,
       photoCount: _items.where((item) {
@@ -840,6 +874,18 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     final workspace = _activeWorkspace;
     if (workspace == null) {
       return const AppActionResult.failure('Select a workspace first.');
+    }
+    final membersResult = await loadWorkspaceMembers(notify: false);
+    if (!membersResult.success) {
+      return AppActionResult.failure(membersResult.message);
+    }
+    final invitesResult = await loadWorkspaceInvites(notify: false);
+    if (!invitesResult.success) {
+      return AppActionResult.failure(invitesResult.message);
+    }
+    if (!canInviteMoreUsers) {
+      notifyListeners();
+      return AppActionResult.failure(userInviteLimitMessage);
     }
     final normalizedEmail = email.trim().toLowerCase();
     if (_workspaceMembers.any(
@@ -3074,7 +3120,9 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   bool get canAddItem => currentUsage.activeItemCount < currentPlan.itemLimit;
   bool get canAddLocation =>
       currentUsage.locationCount < currentPlan.locationLimit;
-  bool get canAddUser => currentUsage.userCount < currentPlan.userLimit;
+  bool get canAddUser => isCloudSignedIn
+      ? canInviteMoreUsers
+      : currentUsage.userCount < currentPlan.userLimit;
   bool get canExportLabel =>
       currentUsage.labelExportCount < currentPlan.labelExportLimit;
   bool get canAddPhoto => currentUsage.photoCount < currentPlan.photoLimit;

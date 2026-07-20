@@ -94,6 +94,10 @@ serve(async (request) => {
     );
   }
 
+  // TODO: Server-side plan enforcement is needed before production billing.
+  // Organization plan selection currently lives only in the Flutter client,
+  // so this function has no authoritative server-side user limit to enforce.
+
   const { data: workspace, error: workspaceError } = await adminClient
     .from("workspaces")
     .select("id, name")

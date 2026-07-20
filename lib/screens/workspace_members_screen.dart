@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/app_store.dart';
 import '../core/models/models.dart';
 import 'roles_permissions_screen.dart';
+import 'settings_detail_screens.dart';
 
 class WorkspaceMembersScreen extends StatefulWidget {
   const WorkspaceMembersScreen({super.key});
@@ -46,7 +47,7 @@ class _WorkspaceMembersScreenState extends State<WorkspaceMembersScreen> {
           child: Padding(
             padding: EdgeInsets.all(24),
             child: Text(
-              'Sign in and select a workspace to manage users.',
+              'Sign in and select an organization to manage users.',
               textAlign: TextAlign.center,
             ),
           ),
@@ -56,11 +57,11 @@ class _WorkspaceMembersScreenState extends State<WorkspaceMembersScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Members')),
-      floatingActionButton: canManage
+      floatingActionButton: canManage && store.canInviteMoreUsers
           ? FloatingActionButton.extended(
               onPressed: _isBusy ? null : () => _showInviteDialog(store),
               icon: const Icon(Icons.person_add_alt_1_outlined),
-              label: const Text('Invite Member'),
+              label: const Text('Invite User'),
             )
           : null,
       body: RefreshIndicator(
@@ -85,6 +86,10 @@ class _WorkspaceMembersScreenState extends State<WorkspaceMembersScreen> {
               ),
             ),
             const SizedBox(height: 12),
+            if (canManage && !store.canInviteMoreUsers) ...[
+              _UserLimitCard(store: store),
+              const SizedBox(height: 12),
+            ],
             _SectionTitle(
               title: 'Active Members',
               trailing: '${store.workspaceMembers.length}',
@@ -202,6 +207,47 @@ class _WorkspaceMembersScreenState extends State<WorkspaceMembersScreen> {
   }
 }
 
+class _UserLimitCard extends StatelessWidget {
+  const _UserLimitCard({required this.store});
+
+  final AppStore store;
+
+  @override
+  Widget build(BuildContext context) {
+    final limit = store.activeOrganizationUserLimit;
+    final userWord = limit == 1 ? 'user' : 'users';
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Your current plan includes $limit $userWord.',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'You’re using ${store.activeOrganizationUsedUserSlots} of $limit user slots.',
+            ),
+            const SizedBox(height: 6),
+            Text(store.userInviteLimitMessage ?? ''),
+            const SizedBox(height: 12),
+            OutlinedButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (context) => const PlanUsageSettingsScreen(),
+                ),
+              ),
+              child: const Text('View plan options'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _InviteWorkspaceMemberDialog extends StatefulWidget {
   const _InviteWorkspaceMemberDialog({required this.onInvite});
 
@@ -241,7 +287,7 @@ class _InviteWorkspaceMemberDialogState
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Invite Member'),
+      title: const Text('Invite User'),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
