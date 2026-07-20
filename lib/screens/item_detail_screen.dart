@@ -6,6 +6,7 @@ import 'package:printing/printing.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../core/app_store.dart';
+import '../core/items/item_type_help.dart';
 import '../core/labels/label_service.dart';
 import '../core/models/models.dart';
 import '../core/photos/item_photo_service.dart';
@@ -85,6 +86,12 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                       if (checkedOutPerson != null)
                         _InfoPill(label: 'Checked out to $checkedOutPerson'),
                     ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${itemTypeLabel(_item.itemType)} — '
+                    '${itemTypeDetailDescription(_item.itemType)}',
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
               ),
@@ -613,7 +620,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
       context: context,
       builder: (context) => _LocationQuantityDialog(
         title: _item.itemType == ItemType.consumable
-            ? 'Issue Consumable'
+            ? 'Issue Stock'
             : 'Issue Item',
         quantityLabel: 'Quantity issued',
         store: store,
@@ -1073,11 +1080,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
   }
 
   String _itemTypeLabel(ItemType type) {
-    return switch (type) {
-      ItemType.consumable => 'Consumable',
-      ItemType.returnable => 'Returnable',
-      ItemType.asset => 'Asset',
-    };
+    return itemTypeLabel(type);
   }
 }
 
@@ -1369,13 +1372,23 @@ class _CheckoutDialogState extends State<_CheckoutDialog> {
         : null;
 
     return AlertDialog(
-      title: const Text('Check Out Item'),
+      title: Text(
+        widget.item.itemType == ItemType.asset
+            ? 'Check Out Asset'
+            : 'Check Out Returnable',
+      ),
       content: Form(
         key: _formKey,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              Text(
+                widget.item.itemType == ItemType.asset
+                    ? 'This exact asset will stay assigned until it is returned.'
+                    : 'This item is expected to be returned.',
+              ),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _quantityController,
                 decoration: const InputDecoration(labelText: 'Quantity'),

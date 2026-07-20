@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../core/app_store.dart';
 import '../core/models/models.dart';
+import '../widgets/item_type_picker.dart';
 import 'plan_screens.dart';
 
 class AddItemScreen extends StatefulWidget {
@@ -99,7 +100,6 @@ class _AddItemScreenState extends State<AddItemScreen> {
         break;
       }
     }
-    final itemTypes = ItemType.values.toSet().toList();
     final selectedUnitId = unitsById.containsKey(_selectedUnitId)
         ? _selectedUnitId
         : defaultUnitId;
@@ -160,32 +160,9 @@ class _AddItemScreenState extends State<AddItemScreen> {
                   : null,
             ),
             const SizedBox(height: 12),
-            DropdownButtonFormField<ItemType>(
-              initialValue:
-                  itemTypes.where((type) => type == _itemType).length == 1
-                  ? _itemType
-                  : null,
-              decoration: const InputDecoration(
-                labelText: 'Item type',
-                border: OutlineInputBorder(),
-              ),
-              items: itemTypes
-                  .map(
-                    (type) => DropdownMenuItem(
-                      value: type,
-                      child: Text(_itemTypeLabel(type)),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (type) {
-                if (type == null) {
-                  return;
-                }
-
-                setState(() {
-                  _itemType = type;
-                });
-              },
+            ItemTypePicker(
+              value: _itemType,
+              onChanged: (type) => setState(() => _itemType = type),
             ),
             const SizedBox(height: 12),
             TextFormField(
@@ -784,13 +761,6 @@ class _AddItemScreenState extends State<AddItemScreen> {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  String _itemTypeLabel(ItemType type) {
-    return switch (type) {
-      ItemType.consumable => 'Consumable',
-      ItemType.returnable => 'Returnable',
-      ItemType.asset => 'Asset',
-    };
-  }
 }
 
 class _CustomFieldsSection extends StatelessWidget {

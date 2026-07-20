@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/app_store.dart';
 import '../core/models/models.dart';
+import '../widgets/item_type_picker.dart';
 
 class EditItemScreen extends StatefulWidget {
   const EditItemScreen({super.key, required this.item});
@@ -156,26 +157,12 @@ class _EditItemScreenState extends State<EditItemScreen> {
                     onChanged: (_) => _markDirty(),
                   ),
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<ItemType>(
-                    initialValue: _itemType,
-                    decoration: const InputDecoration(labelText: 'Item type'),
-                    items: ItemType.values
-                        .map(
-                          (type) => DropdownMenuItem(
-                            value: type,
-                            child: Text(_itemTypeLabel(type)),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (value) {
-                      if (value == null) {
-                        return;
-                      }
-                      setState(() {
-                        _itemType = value;
-                        _dirty = true;
-                      });
-                    },
+                  ItemTypePicker(
+                    value: _itemType,
+                    onChanged: (value) => setState(() {
+                      _itemType = value;
+                      _dirty = true;
+                    }),
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
@@ -892,14 +879,6 @@ class _CustomFieldsEditor extends StatelessWidget {
     }
     return null;
   }
-}
-
-String _itemTypeLabel(ItemType type) {
-  return switch (type) {
-    ItemType.consumable => 'Consumable',
-    ItemType.returnable => 'Returnable',
-    ItemType.asset => 'Asset',
-  };
 }
 
 String? _emptyToNull(String value) {
