@@ -117,6 +117,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   String? _lastLoadedWorkspaceId;
   bool _hasLoadedCloudBoundary = false;
   final List<CloudWorkspace> _availableWorkspaces = [];
+  final Map<String, CloudWorkspaceRole> _rolesByWorkspaceId = {};
   final List<CloudWorkspaceMember> _workspaceMembers = [];
   final List<CloudWorkspaceInvite> _workspaceInvites = [];
   final List<CloudWorkspaceInvite> _pendingCloudInvites = [];
@@ -135,6 +136,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   String? _inviteAcceptanceMessage;
   String? _inviteAcceptanceError;
   bool _isAcceptingPendingInvite = false;
+  Future<PostLoginDestination>? _postLoginResolution;
 
   bool get isInitialized => _isInitialized;
   bool get isCloudConfigured => SupabaseConfig.isConfigured;
@@ -248,6 +250,8 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   supabase.User? get currentCloudUser => _currentCloudUser;
   List<CloudWorkspace> get availableWorkspaces =>
       List.unmodifiable(_availableWorkspaces);
+  CloudWorkspaceRole? roleForWorkspace(String workspaceId) =>
+      _rolesByWorkspaceId[workspaceId];
   List<CloudWorkspaceMember> get workspaceMembers =>
       List.unmodifiable(_workspaceMembers);
   List<CloudWorkspaceInvite> get workspaceInvites =>
@@ -477,8 +481,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     await _seedAssignmentTargetsIfNeeded();
     initializeCloud();
     if (_currentCloudUser != null) {
-      await refreshCloudWorkspaceState();
-      await acceptPendingInviteAfterSignIn();
+      await completeSignInAndResolveDestination();
     }
     _isInitialized = true;
     notifyListeners();
@@ -533,11 +536,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
           _clearOrganizationOwnedInMemory();
         }
         _cloudModeEnabled = true;
-        unawaited(
-          loadMyWorkspaces()
-              .then((_) => acceptPendingInviteAfterSignIn())
-              .then((_) => syncCoordinator.onLogin()),
-        );
+        unawaited(completeSignInAndResolveDestination());
       }
       notifyListeners();
     });
@@ -567,19 +566,28 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     final result = await cloudAuthService.verifyOtp(email: email, token: token);
     _currentCloudUser = cloudAuthService.currentUser;
     _cloudModeEnabled = _currentCloudUser != null;
-    if (result.success && _cloudModeEnabled) {
-      await refreshCloudWorkspaceState();
-      await acceptPendingInviteAfterSignIn();
-      unawaited(syncCoordinator.onLogin());
-    } else {
-      notifyListeners();
-    }
+    notifyListeners();
     return result.success
         ? AppActionResult.success(message: result.message)
         : AppActionResult.failure(result.message);
   }
 
   Future<PostLoginDestination> completeSignInAndResolveDestination() async {
+    final inFlight = _postLoginResolution;
+    if (inFlight != null) {
+      return inFlight;
+    }
+    late final Future<PostLoginDestination> resolution;
+    resolution = _resolvePostLoginDestination().whenComplete(() {
+      if (identical(_postLoginResolution, resolution)) {
+        _postLoginResolution = null;
+      }
+    });
+    _postLoginResolution = resolution;
+    return resolution;
+  }
+
+  Future<PostLoginDestination> _resolvePostLoginDestination() async {
     _currentCloudUser = cloudAuthService.currentUser;
     _cloudModeEnabled = _currentCloudUser != null;
     if (_currentCloudUser == null) {
@@ -613,12 +621,17 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
       return PostLoginDestination.chooseOrganization;
     }
     if (_pendingCloudInvites.isNotEmpty) {
+      _clearActiveWorkspaceForChooser();
       return PostLoginDestination.chooseOrganization;
     }
-    if (_activeWorkspace != null) {
-      return PostLoginDestination.dashboard;
+    if (_availableWorkspaces.length == 1) {
+      final result = await selectCloudWorkspace(_availableWorkspaces.single);
+      return result.success
+          ? PostLoginDestination.dashboard
+          : PostLoginDestination.chooseOrganization;
     }
-    if (_availableWorkspaces.isNotEmpty) {
+    if (_availableWorkspaces.length > 1) {
+      _clearActiveWorkspaceForChooser();
       return PostLoginDestination.chooseOrganization;
     }
     return PostLoginDestination.createOrganization;
@@ -636,6 +649,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     _currentCloudUser = null;
     _currentCloudProfileDisplayName = null;
     _availableWorkspaces.clear();
+    _rolesByWorkspaceId.clear();
     _workspaceMembers.clear();
     _workspaceInvites.clear();
     _pendingCloudInvites.clear();
@@ -664,6 +678,18 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     _availableWorkspaces
       ..clear()
       ..addAll(result.data ?? const []);
+    final membershipsResult = await workspaceService
+        .fetchMyActiveMemberships();
+    if (!membershipsResult.success) {
+      return AppActionResult.failure(membershipsResult.message);
+    }
+    _rolesByWorkspaceId
+      ..clear()
+      ..addEntries(
+        (membershipsResult.data ?? const <CloudWorkspaceMember>[]).map(
+          (membership) => MapEntry(membership.workspaceId, membership.role),
+        ),
+      );
     final active = workspaceService.getActiveWorkspace();
     final storedActiveWorkspaceId = await workspaceService
         .getStoredActiveWorkspaceId();
@@ -765,6 +791,11 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
       ..clear()
       ..addAll(result.data ?? const []);
     _currentCloudRole = _roleForCurrentCloudUser();
+    if (_currentCloudRole != null) {
+      _rolesByWorkspaceId[workspace.id] = _currentCloudRole!;
+    } else {
+      _rolesByWorkspaceId.remove(workspace.id);
+    }
     if (notify) notifyListeners();
     return const AppActionResult.success();
   }
@@ -871,12 +902,18 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
       userId: _currentCloudUser!.id,
       workspaceId: workspace.id,
     );
+    final membersResult = await loadWorkspaceMembers(notify: false);
+    if (!membersResult.success || _currentCloudRole == null) {
+      _clearActiveWorkspaceForChooser();
+      return const AppActionResult.failure(
+        'Your invited role could not be loaded. Try choosing the organization again.',
+      );
+    }
     await _ensureDefaultUnitsOfMeasure();
     if (!_locations.any((location) => location.isActive)) {
       await _ensureLocation('Main Stockroom', 'Stockroom', id: 'loc-main');
     }
     await loadPendingCloudInvites(notify: false);
-    await loadWorkspaceMembers(notify: false);
     await loadWorkspaceInvites(notify: false);
     await initializeCloudSyncForActiveWorkspace(notify: false);
     await _applyPlanForActiveOrganization();
@@ -949,6 +986,14 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
       userId: _currentCloudUser!.id,
       workspaceId: workspace.id,
     );
+    final membersResult = await loadWorkspaceMembers(notify: false);
+    if (!membersResult.success || _currentCloudRole == null) {
+      _clearActiveWorkspaceForChooser();
+      _inviteAcceptanceError =
+          'Your invited role could not be loaded. Try choosing the organization again.';
+      notifyListeners();
+      return AppActionResult.failure(_inviteAcceptanceError);
+    }
     await _ensureDefaultUnitsOfMeasure();
     if (!_locations.any((location) => location.isActive)) {
       await _ensureLocation('Main Stockroom', 'Stockroom', id: 'loc-main');
@@ -958,7 +1003,14 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     await loadMyWorkspaces();
     _activeWorkspace = workspace;
     workspaceService.setActiveWorkspace(workspace);
-    await loadWorkspaceMembers(notify: false);
+    final refreshedMembersResult = await loadWorkspaceMembers(notify: false);
+    if (!refreshedMembersResult.success || _currentCloudRole == null) {
+      _clearActiveWorkspaceForChooser();
+      _inviteAcceptanceError =
+          'Your invited role could not be loaded. Try choosing the organization again.';
+      notifyListeners();
+      return AppActionResult.failure(_inviteAcceptanceError);
+    }
     await loadWorkspaceInvites(notify: false);
     await initializeCloudSyncForActiveWorkspace(notify: false);
     await _applyPlanForActiveOrganization();
@@ -1085,6 +1137,12 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void setActiveCloudWorkspace(CloudWorkspace workspace) {
+    unawaited(selectCloudWorkspace(workspace));
+  }
+
+  Future<AppActionResult> selectCloudWorkspace(
+    CloudWorkspace workspace,
+  ) async {
     if (_lastLoadedCloudUserId != _currentCloudUser?.id ||
         _lastLoadedWorkspaceId != workspace.id) {
       syncCoordinator.cancelPendingSync();
@@ -1094,30 +1152,53 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     _cloudModeEnabled = true;
     workspaceService.setActiveWorkspace(workspace);
     notifyListeners();
-    unawaited(_finishWorkspaceSelectionSetup());
+    return _finishWorkspaceSelectionSetup();
   }
 
-  Future<void> _finishWorkspaceSelectionSetup() async {
+  Future<AppActionResult> _finishWorkspaceSelectionSetup() async {
     final workspace = _activeWorkspace;
     final user = _currentCloudUser;
     if (workspace == null || user == null) {
-      return;
+      return const AppActionResult.failure(
+        'Sign in and choose an organization.',
+      );
     }
     await _applyCloudOrganizationBoundary(
       userId: user.id,
       workspaceId: workspace.id,
     );
+    final membersResult = await loadWorkspaceMembers(notify: false);
+    if (!membersResult.success || _currentCloudRole == null) {
+      _activeWorkspace = null;
+      _currentCloudRole = null;
+      workspaceService.clearActiveWorkspace();
+      _clearCloudSyncState();
+      notifyListeners();
+      return const AppActionResult.failure(
+        'Your active membership for this organization could not be found.',
+      );
+    }
     await _ensureDefaultUnitsOfMeasure();
     if (!_locations.any((location) => location.isActive)) {
       await _ensureLocation('Main Stockroom', 'Stockroom', id: 'loc-main');
     }
-    await loadWorkspaceMembers(notify: false);
     await loadWorkspaceInvites(notify: false);
     await initializeCloudSyncForActiveWorkspace(notify: false);
     await _applyPlanForActiveOrganization();
     await refreshCloudAdoptionSummary(notify: false);
     notifyListeners();
     await syncCurrentOrganizationAfterLogin();
+    return const AppActionResult.success(message: 'Organization selected.');
+  }
+
+  void _clearActiveWorkspaceForChooser() {
+    _activeWorkspace = null;
+    _currentCloudRole = null;
+    _workspaceMembers.clear();
+    _workspaceInvites.clear();
+    workspaceService.clearActiveWorkspace();
+    _clearCloudSyncState();
+    notifyListeners();
   }
 
   void disableCloudModeAndUseLocalOnly() {
@@ -2807,10 +2888,22 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     final boundaryChanged =
         _lastLoadedCloudUserId != userId ||
         _lastLoadedWorkspaceId != workspaceId;
-    syncCoordinator.cancelPendingSync();
     if (boundaryChanged) {
+      syncCoordinator.cancelPendingSync();
       cloudSyncService.pauseSync();
-      await _database.clearLocalOrganizationCacheForAccountSwitch();
+      try {
+        await _database.clearLocalOrganizationCacheForAccountSwitch();
+      } catch (error, stackTrace) {
+        // A newly added instance method is not available to an already-running
+        // VM after hot reload. Keep cloud login usable and keep the previous
+        // boundary markers so a cold restart (or later refresh) retries the
+        // database cache clear instead of loading stale organization rows.
+        debugPrint(
+          'Could not clear the local organization cache: $error\n$stackTrace',
+        );
+        _clearOrganizationOwnedInMemory();
+        return;
+      }
       _clearOrganizationOwnedInMemory();
       _lastLoadedCloudUserId = userId;
       _lastLoadedWorkspaceId = workspaceId;

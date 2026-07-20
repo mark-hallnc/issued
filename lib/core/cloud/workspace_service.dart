@@ -96,6 +96,37 @@ class WorkspaceService {
     }
   }
 
+  Future<WorkspaceResult<List<CloudWorkspaceMember>>>
+  fetchMyActiveMemberships() async {
+    final client = _client;
+    final user = _authService.currentUser;
+    if (client == null) {
+      return WorkspaceResult.failure(SupabaseConfig.missingConfigMessage);
+    }
+    if (user == null) {
+      return const WorkspaceResult.failure(
+        'Sign in to view organization memberships.',
+      );
+    }
+    try {
+      final rows = await client
+          .from('workspace_members')
+          .select()
+          .eq('user_id', user.id)
+          .eq('status', 'active');
+      return WorkspaceResult.success([
+        for (final row in rows as List<dynamic>)
+          CloudWorkspaceMember.fromJson(row as Map<String, dynamic>),
+      ]);
+    } on PostgrestException catch (error) {
+      return WorkspaceResult.failure(_friendlyDatabaseError(error.message));
+    } catch (_) {
+      return const WorkspaceResult.failure(
+        'Could not load organization memberships.',
+      );
+    }
+  }
+
   Future<WorkspaceResult<List<CloudWorkspaceMember>>> fetchMembersForWorkspace(
     String workspaceId,
   ) async {

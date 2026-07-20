@@ -23,18 +23,13 @@ class _WorkspaceSelectionScreenState extends State<WorkspaceSelectionScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final store = AppStoreScope.of(context);
-      await store.completeSignInAndResolveDestination();
+      final destination = await store.completeSignInAndResolveDestination();
       if (!mounted) {
         return;
       }
-      if (store.activeWorkspace != null) {
+      if (destination == PostLoginDestination.dashboard) {
         _openDashboard();
         return;
-      }
-      if (store.hasLocalWorkspace &&
-          store.availableWorkspaces.isEmpty &&
-          store.localWorkspaceName.isNotEmpty) {
-        _nameController.text = store.localWorkspaceName;
       }
       setState(() => _hasRefreshed = true);
     });
@@ -99,12 +94,14 @@ class _WorkspaceSelectionScreenState extends State<WorkspaceSelectionScreen> {
                     title: Text(
                       invite.workspaceName ?? 'Organization invitation',
                     ),
-                    subtitle: Text(cloudWorkspaceRoleLabel(invite.role)),
+                      subtitle: Text(
+                        'Invited as ${cloudWorkspaceRoleLabel(invite.role)}',
+                      ),
                     trailing: FilledButton(
                       onPressed: _isBusy
                           ? null
                           : () => _acceptInvite(store, invite.id),
-                      child: const Text('Accept'),
+                      child: const Text('Join'),
                     ),
                   ),
                 ),
@@ -131,7 +128,7 @@ class _WorkspaceSelectionScreenState extends State<WorkspaceSelectionScreen> {
               )
             else if (store.availableWorkspaces.isEmpty && !isFirstOrganization)
               const _EmptyOrganizationCard()
-            else ...[
+            else if (store.availableWorkspaces.isNotEmpty) ...[
               Text(
                 'Your organizations',
                 style: Theme.of(context).textTheme.titleMedium,
@@ -142,6 +139,13 @@ class _WorkspaceSelectionScreenState extends State<WorkspaceSelectionScreen> {
                   child: ListTile(
                     leading: const Icon(Icons.business_outlined),
                     title: Text(workspace.name),
+                    subtitle: Text(
+                      store.roleForWorkspace(workspace.id) == null
+                          ? 'Role unavailable'
+                          : cloudWorkspaceRoleLabel(
+                              store.roleForWorkspace(workspace.id)!,
+                            ),
+                    ),
                     trailing: FilledButton(
                       onPressed: _isBusy
                           ? null
@@ -154,7 +158,7 @@ class _WorkspaceSelectionScreenState extends State<WorkspaceSelectionScreen> {
               ],
             ],
             const SizedBox(height: 12),
-            if (store.pendingCloudInvites.isEmpty)
+            if (isFirstOrganization)
               _CreateOrganizationCard(
                 organizationController: _nameController,
                 ownerNameController: _ownerNameController,
@@ -178,17 +182,20 @@ class _WorkspaceSelectionScreenState extends State<WorkspaceSelectionScreen> {
     CloudWorkspace workspace,
   ) async {
     setState(() => _isBusy = true);
-    store.setActiveCloudWorkspace(workspace);
-    await store.completeSignInAndResolveDestination();
+    final result = await store.selectCloudWorkspace(workspace);
     if (!mounted) {
       return;
     }
     setState(() => _isBusy = false);
+    if (!result.success) {
+      _showMessage(result.message ?? 'Could not open organization.');
+      return;
+    }
     _openDashboard();
   }
 
   Future<void> _createOrganization(AppStore store) async {
-    if (_nameController.text.trim().isEmpty && !store.hasLocalWorkspace) {
+    if (_nameController.text.trim().isEmpty) {
       _showMessage('Enter an organization name.');
       return;
     }
@@ -359,7 +366,7 @@ class _CreateOrganizationCard extends StatelessWidget {
                 textInputAction: TextInputAction.done,
                 decoration: const InputDecoration(
                   labelText: 'Your name',
-                  hintText: 'Example: Mark Hall',
+                  hintText: 'Example: Jane Doe',
                   helperText:
                       'This is how your name will appear to other people in this organization.',
                   border: OutlineInputBorder(),
