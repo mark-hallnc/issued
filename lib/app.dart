@@ -12,6 +12,7 @@ import 'screens/settings_screen.dart';
 import 'screens/setup_screen.dart';
 import 'screens/session_lock_screen.dart';
 import 'screens/workspace_selection_screen.dart';
+import 'theme/issued_theme.dart';
 import 'widgets/issued_brand_loading.dart';
 
 class IssuedApp extends StatefulWidget {
@@ -46,56 +47,12 @@ class _IssuedAppState extends State<IssuedApp> {
 
   @override
   Widget build(BuildContext context) {
-    const seedColor = Color(0xFF1E3A5F);
-
     return AppStoreScope(
       store: _store,
       child: MaterialApp(
         title: 'Issued',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: seedColor,
-            brightness: Brightness.light,
-            surface: const Color(0xFFF4F6F8),
-          ),
-          scaffoldBackgroundColor: const Color(0xFFF4F6F8),
-          appBarTheme: const AppBarTheme(
-            backgroundColor: Color(0xFF17212F),
-            foregroundColor: Colors.white,
-            centerTitle: false,
-            elevation: 0,
-          ),
-          cardTheme: CardThemeData(
-            color: Colors.white,
-            elevation: 0,
-            margin: EdgeInsets.zero,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: const BorderSide(color: Color(0xFFE1E6EC)),
-            ),
-          ),
-          filledButtonTheme: FilledButtonThemeData(
-            style: FilledButton.styleFrom(
-              backgroundColor: seedColor,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-          ),
-          outlinedButtonTheme: OutlinedButtonThemeData(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFF1E3A5F),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-          ),
-        ),
+        theme: issuedTheme(),
         home: FutureBuilder<void>(
           future: _initializeStore,
           builder: (context, snapshot) {

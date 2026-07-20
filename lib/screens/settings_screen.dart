@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../core/app_store.dart';
 import '../core/models/models.dart';
+import '../theme/issued_theme.dart';
 import '../widgets/sync_status_chip.dart';
 import 'assignment_targets_screen.dart';
 import 'backup_restore_screen.dart';
@@ -222,6 +223,7 @@ class DeveloperToolsSettingsScreen extends StatelessWidget {
                           'This removes local test inventory and activity from this device only. It does not delete cloud workspaces.',
                       action: store.clearLocalInventoryTestDataForDevelopment,
                     ),
+                    style: issuedDestructiveOutlinedButtonStyle(context),
                     child: const Text('Clear local test data'),
                   ),
                   const SizedBox(height: 10),
@@ -234,6 +236,7 @@ class DeveloperToolsSettingsScreen extends StatelessWidget {
                       action: store.clearLocalDataAndSignOutForDevelopment,
                       resetToLoginOnSuccess: true,
                     ),
+                    style: issuedDestructiveFilledButtonStyle(context),
                     child: const Text('Clear local data and sign out'),
                   ),
                   const SizedBox(height: 10),

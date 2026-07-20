@@ -10,6 +10,7 @@ import '../core/items/item_type_help.dart';
 import '../core/labels/label_service.dart';
 import '../core/models/models.dart';
 import '../core/photos/item_photo_service.dart';
+import '../theme/issued_theme.dart';
 import 'activity_screen.dart';
 import 'edit_item_screen.dart';
 import 'label_center_screen.dart';
@@ -1161,6 +1162,7 @@ class _ItemPhotoCard extends StatelessWidget {
                   if (hasPhotoPath)
                     OutlinedButton.icon(
                       onPressed: onRemove,
+                      style: issuedDestructiveOutlinedButtonStyle(context),
                       icon: const Icon(Icons.delete_outline),
                       label: const Text('Remove Photo'),
                     ),

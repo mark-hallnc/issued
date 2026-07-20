@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/app_store.dart';
 import '../core/models/models.dart';
+import '../theme/issued_theme.dart';
 import 'roles_permissions_screen.dart';
 import 'settings_detail_screens.dart';
 
@@ -459,6 +460,7 @@ class _MemberCard extends StatelessWidget {
                   else
                     OutlinedButton(
                       onPressed: canChangeStatus ? onDisable : null,
+                      style: issuedDestructiveOutlinedButtonStyle(context),
                       child: const Text('Disable'),
                     ),
                 ],
@@ -509,6 +511,7 @@ class _InviteCard extends StatelessWidget {
                   ),
                   OutlinedButton(
                     onPressed: onRevoke,
+                    style: issuedDestructiveOutlinedButtonStyle(context),
                     child: const Text('Revoke Invite'),
                   ),
                 ],
