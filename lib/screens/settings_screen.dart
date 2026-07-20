@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../core/app_store.dart';
 import '../core/models/models.dart';
 import '../theme/issued_theme.dart';
+import '../widgets/issued_page_header.dart';
 import '../widgets/sync_status_chip.dart';
 import 'assignment_targets_screen.dart';
 import 'backup_restore_screen.dart';
@@ -153,6 +154,11 @@ class SettingsContent extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        const IssuedPageHeader(
+          title: 'Settings',
+          subtitle: 'Account, organization, and app preferences',
+        ),
+        const SizedBox(height: 18),
         _CurrentUserCard(store: store),
         const SizedBox(height: 12),
         if (rows.isEmpty)
@@ -166,7 +172,7 @@ class SettingsContent extends StatelessWidget {
           for (final row in rows) ...[
             Card(
               child: ListTile(
-                leading: Icon(row.icon, color: const Color(0xFF1E3A5F)),
+                leading: Icon(row.icon),
                 title: Text(row.title),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => onOpenSettings(row.screen),

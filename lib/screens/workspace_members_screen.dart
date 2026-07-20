@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../core/app_store.dart';
 import '../core/models/models.dart';
 import '../theme/issued_theme.dart';
+import '../widgets/issued_empty_state.dart';
+import '../widgets/issued_page_header.dart';
 import 'roles_permissions_screen.dart';
 import 'settings_detail_screens.dart';
 
@@ -43,7 +45,7 @@ class _WorkspaceMembersScreenState extends State<WorkspaceMembersScreen> {
     final canModifyOwners = store.currentCloudRole == CloudWorkspaceRole.owner;
     if (!store.isCloudSignedIn || workspace == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Members')),
+        appBar: AppBar(title: const Text('Users & Roles')),
         body: const Center(
           child: Padding(
             padding: EdgeInsets.all(24),
@@ -57,7 +59,7 @@ class _WorkspaceMembersScreenState extends State<WorkspaceMembersScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Members')),
+      appBar: AppBar(title: const Text('Users & Roles')),
       floatingActionButton: canManage && store.canInviteMoreUsers
           ? FloatingActionButton.extended(
               onPressed: _isBusy ? null : () => _showInviteDialog(store),
@@ -73,7 +75,11 @@ class _WorkspaceMembersScreenState extends State<WorkspaceMembersScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            Text(workspace.name, style: Theme.of(context).textTheme.titleLarge),
+            IssuedPageHeader(
+              title: 'Users & Roles',
+              subtitle: 'Manage who can access ${workspace.name}',
+            ),
+            const SizedBox(height: 8),
             Align(
               alignment: Alignment.centerLeft,
               child: TextButton.icon(
@@ -96,7 +102,11 @@ class _WorkspaceMembersScreenState extends State<WorkspaceMembersScreen> {
               trailing: '${store.workspaceMembers.length}',
             ),
             if (store.workspaceMembers.isEmpty)
-              const _EmptyCard(message: 'No members found.')
+              const IssuedEmptyState(
+                icon: Icons.group_outlined,
+                title: 'No users found',
+                message: 'Refresh to check this organization’s users.',
+              )
             else
               for (final member in store.workspaceMembers) ...[
                 _MemberCard(
@@ -128,7 +138,11 @@ class _WorkspaceMembersScreenState extends State<WorkspaceMembersScreen> {
                   '${store.workspaceInvites.where((invite) => invite.status == CloudWorkspaceInviteStatus.pending).length}',
             ),
             if (store.workspaceInvites.isEmpty)
-              const _EmptyCard(message: 'No pending invites.')
+              const IssuedEmptyState(
+                icon: Icons.mark_email_read_outlined,
+                title: 'No pending invites',
+                message: 'New invitations will appear here.',
+              )
             else
               for (final invite in store.workspaceInvites) ...[
                 _InviteCard(
@@ -542,19 +556,6 @@ class _SectionTitle extends StatelessWidget {
           Text(trailing),
         ],
       ),
-    );
-  }
-}
-
-class _EmptyCard extends StatelessWidget {
-  const _EmptyCard({required this.message});
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(padding: const EdgeInsets.all(16), child: Text(message)),
     );
   }
 }

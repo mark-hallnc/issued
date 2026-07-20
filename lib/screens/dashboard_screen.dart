@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../core/cloud/sync_status_models.dart';
 import '../core/app_store.dart';
 import '../core/models/models.dart';
+import '../widgets/issued_page_header.dart';
 import 'activity_screen.dart';
 import 'add_item_screen.dart';
 import 'backup_restore_screen.dart';
@@ -23,25 +24,16 @@ class DashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final store = AppStoreScope.of(context);
     final summary = store.getDashboardSummary();
-    final textTheme = Theme.of(context).textTheme;
     final limitWarnings = store.getLimitWarnings().take(2).toList();
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text(
-          'Needs Attention',
-          style: textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.w800,
-            color: const Color(0xFF17212F),
-          ),
+        IssuedPageHeader(
+          title: 'Dashboard',
+          subtitle: store.activeWorkspace?.name ?? _signedInText(store),
         ),
-        const SizedBox(height: 4),
-        Text(
-          _signedInText(store),
-          style: textTheme.bodyLarge?.copyWith(color: const Color(0xFF5C6672)),
-        ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 18),
         if (store.shouldShowDashboardSyncWarning) ...[
           _SyncWarningCard(store: store),
           const SizedBox(height: 10),

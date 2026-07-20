@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../core/app_store.dart';
 import '../core/models/models.dart';
 import '../core/permissions/app_permissions.dart';
+import '../widgets/issued_empty_state.dart';
+import '../widgets/issued_page_header.dart';
 import 'items_screen.dart';
 import 'label_center_screen.dart';
 import 'location_detail_screen.dart';
@@ -502,12 +504,16 @@ class _LocationsSettingsScreenState extends State<LocationsSettingsScreen> {
             )
           : null,
       children: [
+        const IssuedPageHeader(
+          title: 'Locations',
+          subtitle: 'Bins, shelves, job boxes, warehouses, and vehicles',
+        ),
+        const SizedBox(height: 18),
         TextField(
           controller: _searchController,
           decoration: const InputDecoration(
             labelText: 'Search locations',
             prefixIcon: Icon(Icons.search),
-            border: OutlineInputBorder(),
           ),
           onChanged: (_) => setState(() {}),
         ),
@@ -519,11 +525,17 @@ class _LocationsSettingsScreenState extends State<LocationsSettingsScreen> {
         ),
         const SizedBox(height: 12),
         if (locations.isEmpty)
-          const Card(
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Text('No locations found.'),
-            ),
+          IssuedEmptyState(
+            icon: Icons.location_on_outlined,
+            title: 'No locations yet',
+            message:
+                'Create bins, shelves, job boxes, warehouses, or vehicles.',
+            actionLabel: store.permissions.canManageSettings
+                ? 'Add location'
+                : null,
+            onAction: store.permissions.canManageSettings
+                ? _showAddLocationForm
+                : null,
           ),
         for (final location in locations) ...[
           _LocationCard(

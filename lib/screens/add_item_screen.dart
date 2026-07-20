@@ -152,7 +152,6 @@ class _AddItemScreenState extends State<AddItemScreen> {
               controller: _nameController,
               decoration: const InputDecoration(
                 labelText: 'Item name',
-                border: OutlineInputBorder(),
               ),
               textInputAction: TextInputAction.next,
               validator: (value) => value == null || value.trim().isEmpty
@@ -169,7 +168,6 @@ class _AddItemScreenState extends State<AddItemScreen> {
               controller: _categoryController,
               decoration: const InputDecoration(
                 labelText: 'Category',
-                border: OutlineInputBorder(),
               ),
               textInputAction: TextInputAction.next,
               onChanged: (_) => setState(() {}),
@@ -179,7 +177,6 @@ class _AddItemScreenState extends State<AddItemScreen> {
               controller: _quantityController,
               decoration: const InputDecoration(
                 labelText: 'Quantity on hand',
-                border: OutlineInputBorder(),
               ),
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
@@ -192,7 +189,6 @@ class _AddItemScreenState extends State<AddItemScreen> {
               controller: _minimumQuantityController,
               decoration: const InputDecoration(
                 labelText: 'Minimum quantity',
-                border: OutlineInputBorder(),
               ),
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
@@ -212,7 +208,6 @@ class _AddItemScreenState extends State<AddItemScreen> {
                 helperText: units.isEmpty
                     ? 'A unit of measure is required. Add one in Settings first.'
                     : null,
-                border: const OutlineInputBorder(),
               ),
               items: units
                   .map(
@@ -242,7 +237,6 @@ class _AddItemScreenState extends State<AddItemScreen> {
                 helperText: locations.isEmpty
                     ? 'Create a location before receiving stock.'
                     : null,
-                border: const OutlineInputBorder(),
               ),
               items: locations
                   .map(
@@ -265,7 +259,6 @@ class _AddItemScreenState extends State<AddItemScreen> {
               controller: _skuController,
               decoration: const InputDecoration(
                 labelText: 'SKU/part number',
-                border: OutlineInputBorder(),
               ),
               textInputAction: TextInputAction.next,
             ),
@@ -274,7 +267,6 @@ class _AddItemScreenState extends State<AddItemScreen> {
               controller: _barcodeController,
               decoration: const InputDecoration(
                 labelText: 'Barcode',
-                border: OutlineInputBorder(),
               ),
               textInputAction: TextInputAction.next,
             ),
@@ -284,7 +276,6 @@ class _AddItemScreenState extends State<AddItemScreen> {
               decoration: const InputDecoration(
                 labelText: 'Supplier',
                 helperText: 'Optional',
-                border: OutlineInputBorder(),
               ),
               textInputAction: TextInputAction.next,
             ),
@@ -293,7 +284,6 @@ class _AddItemScreenState extends State<AddItemScreen> {
               controller: _unitCostController,
               decoration: const InputDecoration(
                 labelText: 'Unit cost',
-                border: OutlineInputBorder(),
               ),
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
@@ -330,7 +320,6 @@ class _AddItemScreenState extends State<AddItemScreen> {
                     initialValue: selectedPurchaseUnitId,
                     decoration: const InputDecoration(
                       labelText: 'Purchase UOM',
-                      border: OutlineInputBorder(),
                     ),
                     items: [
                       const DropdownMenuItem<String>(
@@ -361,7 +350,6 @@ class _AddItemScreenState extends State<AddItemScreen> {
                     decoration: const InputDecoration(
                       labelText: 'Stocking units per purchase unit',
                       helperText: 'Example: 1 case = 12 each, enter 12.',
-                      border: OutlineInputBorder(),
                     ),
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
@@ -384,7 +372,6 @@ class _AddItemScreenState extends State<AddItemScreen> {
               controller: _notesController,
               decoration: const InputDecoration(
                 labelText: 'Notes',
-                border: OutlineInputBorder(),
               ),
               maxLines: 3,
             ),

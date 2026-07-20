@@ -355,7 +355,6 @@ class _CreateOrganizationCard extends StatelessWidget {
               decoration: const InputDecoration(
                 labelText: 'Organization name',
                 hintText: 'Example: Acme Tool Room',
-                border: OutlineInputBorder(),
               ),
             ),
             if (showOwnerSetup) ...[
@@ -369,7 +368,6 @@ class _CreateOrganizationCard extends StatelessWidget {
                   hintText: 'Example: Jane Doe',
                   helperText:
                       'This is how your name will appear to other people in this organization.',
-                  border: OutlineInputBorder(),
                 ),
                 onSubmitted: (_) {
                   if (!isBusy) onCreate();

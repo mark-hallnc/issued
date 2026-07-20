@@ -225,7 +225,6 @@ class _EmailEntryState extends StatelessWidget {
           autofillHints: const [AutofillHints.email],
           decoration: const InputDecoration(
             labelText: 'Email',
-            border: OutlineInputBorder(),
           ),
           onSubmitted: (_) {
             if (!isBusy) {
@@ -284,7 +283,6 @@ class _CodeEntryState extends StatelessWidget {
           autofillHints: const [AutofillHints.oneTimeCode],
           decoration: const InputDecoration(
             labelText: 'Code',
-            border: OutlineInputBorder(),
           ),
           onSubmitted: (_) {
             if (!isBusy) {

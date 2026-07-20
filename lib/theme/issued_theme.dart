@@ -39,15 +39,79 @@ ThemeData issuedTheme() {
       foregroundColor: Colors.white,
       centerTitle: false,
       elevation: 0,
+      scrolledUnderElevation: 0,
+      titleTextStyle: TextStyle(
+        color: Colors.white,
+        fontSize: 20,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.2,
+      ),
     ),
     cardTheme: CardThemeData(
       color: Colors.white,
       elevation: 0,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: Color(0xFFE1E6EC)),
+        borderRadius: BorderRadius.circular(18),
+        side: const BorderSide(color: Color(0xFFE7ECF2)),
       ),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: Colors.white,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      labelStyle: const TextStyle(color: issuedSecondary),
+      helperStyle: const TextStyle(color: Color(0xFF64748B), height: 1.35),
+      errorStyle: const TextStyle(color: issuedError, height: 1.25),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: Color(0xFFD8E0E9)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: Color(0xFFD8E0E9)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: issuedPrimary, width: 1.6),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: issuedError),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: issuedError, width: 1.6),
+      ),
+    ),
+    listTileTheme: const ListTileThemeData(
+      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+      iconColor: issuedSecondary,
+      textColor: Color(0xFF17212F),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(14)),
+      ),
+    ),
+    chipTheme: ChipThemeData(
+      backgroundColor: const Color(0xFFEEF2F6),
+      selectedColor: issuedPrimaryContainer,
+      disabledColor: const Color(0xFFF1F5F9),
+      side: BorderSide.none,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      labelStyle: const TextStyle(
+        color: issuedSecondary,
+        fontWeight: FontWeight.w600,
+      ),
+      secondaryLabelStyle: const TextStyle(
+        color: issuedPrimary,
+        fontWeight: FontWeight.w700,
+      ),
+    ),
+    dividerTheme: const DividerThemeData(
+      color: Color(0xFFE7ECF2),
+      thickness: 1,
+      space: 24,
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: ButtonStyle(

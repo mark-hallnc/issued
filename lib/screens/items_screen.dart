@@ -4,6 +4,8 @@ import 'package:printing/printing.dart';
 import '../core/app_store.dart';
 import '../core/labels/label_service.dart';
 import '../core/models/models.dart';
+import '../widgets/issued_empty_state.dart';
+import '../widgets/issued_page_header.dart';
 import 'add_item_screen.dart';
 import 'item_detail_screen.dart';
 import 'plan_screens.dart';
@@ -84,6 +86,11 @@ class _ItemsScreenState extends State<ItemsScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        const IssuedPageHeader(
+          title: 'Items',
+          subtitle: 'Manage inventory and stock levels',
+        ),
+        const SizedBox(height: 18),
         TextField(
           controller: _searchController,
           decoration: InputDecoration(
@@ -99,12 +106,6 @@ class _ItemsScreenState extends State<ItemsScreen> {
                     },
                     icon: const Icon(Icons.close),
                   ),
-            filled: true,
-            fillColor: Colors.white,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFFE1E6EC)),
-            ),
           ),
           onChanged: (_) => setState(() {}),
         ),
@@ -208,13 +209,17 @@ class _ItemsScreenState extends State<ItemsScreen> {
         ),
         const SizedBox(height: 12),
         if (allItems.isEmpty)
-          const _EmptyState(
-            title: 'No items yet.',
+          IssuedEmptyState(
+            icon: Icons.inventory_2_outlined,
+            title: 'No items yet',
             message: 'Add your first item to start tracking inventory.',
+            actionLabel: permissions.canManageItems ? 'Add item' : null,
+            onAction: permissions.canManageItems ? _openAddItem : null,
           )
         else if (visibleItems.isEmpty)
-          const _EmptyState(
-            title: 'No matching items.',
+          const IssuedEmptyState(
+            icon: Icons.search_off_outlined,
+            title: 'No matching items',
             message: 'Try clearing search or filters.',
           )
         else
@@ -923,34 +928,6 @@ class _ResultSummary extends StatelessWidget {
       style: Theme.of(context).textTheme.bodySmall?.copyWith(
         color: const Color(0xFF5C6672),
         fontWeight: FontWeight.w700,
-      ),
-    );
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.title, required this.message});
-
-  final String title;
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            Text(
-              title,
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 8),
-            Text(message, textAlign: TextAlign.center),
-          ],
-        ),
       ),
     );
   }
