@@ -5,6 +5,7 @@ import '../core/models/models.dart';
 import '../core/permissions/app_permissions.dart';
 import '../widgets/issued_empty_state.dart';
 import '../widgets/issued_page_header.dart';
+import '../widgets/issued_status_badge.dart';
 import 'items_screen.dart';
 import 'label_center_screen.dart';
 import 'location_detail_screen.dart';
@@ -506,7 +507,7 @@ class _LocationsSettingsScreenState extends State<LocationsSettingsScreen> {
       children: [
         const IssuedPageHeader(
           title: 'Locations',
-          subtitle: 'Bins, shelves, job boxes, warehouses, and vehicles',
+          subtitle: 'Track where inventory is stored, issued, and counted.',
         ),
         const SizedBox(height: 18),
         TextField(
@@ -529,7 +530,7 @@ class _LocationsSettingsScreenState extends State<LocationsSettingsScreen> {
             icon: Icons.location_on_outlined,
             title: 'No locations yet',
             message:
-                'Create bins, shelves, job boxes, warehouses, or vehicles.',
+                'Create places like warehouses, shelves, bins, job boxes, or vehicles so stock can be tracked accurately.',
             actionLabel: store.permissions.canManageSettings
                 ? 'Add location'
                 : null,
@@ -659,63 +660,141 @@ class _LocationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final summary = store.getLocationStockSummary(location.id);
-    return Card(
-      child: ListTile(
-        leading: const Icon(
-          Icons.location_on_outlined,
-          color: Color(0xFF1E3A5F),
-        ),
-        title: Text(store.resolveLocationPath(location.id)),
-        subtitle: Text(
-          [
-            if ((location.code ?? '').trim().isNotEmpty)
-              'Code: ${location.code}',
-            'Type: ${_locationTypeLabel(location.type)}',
-            '${summary.itemCount} items',
-            if (!location.isActive) 'Archived',
-          ].join(' - '),
-        ),
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (context) => LocationDetailScreen(locationId: location.id),
+    final parentName = location.parentLocationId == null
+        ? null
+        : store.resolveLocationName(location.parentLocationId!);
+    return Padding(
+      padding: EdgeInsets.only(left: parentName == null ? 0 : 18),
+      child: Card(
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (context) =>
+                  LocationDetailScreen(locationId: location.id),
+            ),
           ),
-        ),
-        trailing: PopupMenuButton<String>(
-          onSelected: (value) {
-            if (value == 'edit') {
-              onEdit();
-            } else if (value == 'archive') {
-              onArchive();
-            } else if (value == 'restore') {
-              onRestore();
-            } else if (value == 'label') {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (context) => LabelCenterScreen(
-                    initialMode: LabelCenterMode.locations,
-                    initialLocationIds: {location.id},
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: Icon(
+                      _locationTypeIcon(location.type),
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
                   ),
                 ),
-              );
-            } else if (value == 'stock') {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (context) =>
-                      ItemsScreen(initialLocationId: location.id),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        location.name,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w800),
+                      ),
+                      if (parentName != null) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          'Inside $parentName',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: const Color(0xFF64748B)),
+                        ),
+                      ],
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          IssuedStatusBadge(
+                            label: _locationTypeLabel(location.type),
+                            icon: _locationTypeIcon(location.type),
+                          ),
+                          IssuedStatusBadge(
+                            label:
+                                '${summary.itemCount} ${summary.itemCount == 1 ? 'item' : 'items'}',
+                            tone: IssuedStatusTone.info,
+                          ),
+                          IssuedStatusBadge(
+                            label: location.isActive ? 'Active' : 'Archived',
+                            tone: location.isActive
+                                ? IssuedStatusTone.success
+                                : IssuedStatusTone.neutral,
+                          ),
+                        ],
+                      ),
+                      if ((location.code ?? '').trim().isNotEmpty) ...[
+                        const SizedBox(height: 9),
+                        Text(
+                          'Code ${location.code}',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-              );
-            }
-          },
-          itemBuilder: (context) => [
-            const PopupMenuItem(value: 'stock', child: Text('View Stock')),
-            const PopupMenuItem(value: 'label', child: Text('Print Label')),
-            if (canManage)
-              const PopupMenuItem(value: 'edit', child: Text('Edit')),
-            if (canManage && location.isActive)
-              const PopupMenuItem(value: 'archive', child: Text('Archive')),
-            if (canManage && !location.isActive)
-              const PopupMenuItem(value: 'restore', child: Text('Restore')),
-          ],
+                PopupMenuButton<String>(
+                  onSelected: (value) {
+                    if (value == 'edit') {
+                      onEdit();
+                    } else if (value == 'archive') {
+                      onArchive();
+                    } else if (value == 'restore') {
+                      onRestore();
+                    } else if (value == 'label') {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (context) => LabelCenterScreen(
+                            initialMode: LabelCenterMode.locations,
+                            initialLocationIds: {location.id},
+                          ),
+                        ),
+                      );
+                    } else if (value == 'stock') {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (context) =>
+                              ItemsScreen(initialLocationId: location.id),
+                        ),
+                      );
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: 'stock',
+                      child: Text('View Stock'),
+                    ),
+                    const PopupMenuItem(
+                      value: 'label',
+                      child: Text('Print Label'),
+                    ),
+                    if (canManage)
+                      const PopupMenuItem(value: 'edit', child: Text('Edit')),
+                    if (canManage && location.isActive)
+                      const PopupMenuItem(
+                        value: 'archive',
+                        child: Text('Archive'),
+                      ),
+                    if (canManage && !location.isActive)
+                      const PopupMenuItem(
+                        value: 'restore',
+                        child: Text('Restore'),
+                      ),
+                  ],
+                ),
+                const Icon(Icons.chevron_right, color: Color(0xFF94A3B8)),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -1236,25 +1315,40 @@ class _LocationDialogState extends State<_LocationDialog> {
         );
 
     return AlertDialog(
-      title: Text(location == null ? 'Add Location' : 'Edit Location'),
+      title: Text(location == null ? 'Add location' : 'Edit location'),
       content: Form(
         key: _formKey,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              Text(
+                'Define where inventory is physically stored.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: const Color(0xFF64748B),
+                ),
+              ),
+              const SizedBox(height: 16),
               TextFormField(
                 controller: _nameController,
-                decoration: const InputDecoration(labelText: 'Name'),
+                decoration: const InputDecoration(
+                  labelText: 'Location name',
+                  prefixIcon: Icon(Icons.location_on_outlined),
+                ),
                 validator: _required,
               ),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _codeController,
-                decoration: const InputDecoration(labelText: 'Code'),
+                decoration: const InputDecoration(labelText: 'Code (optional)'),
               ),
+              const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 initialValue: _type,
-                decoration: const InputDecoration(labelText: 'Type'),
+                decoration: InputDecoration(
+                  labelText: 'Location type',
+                  helperText: _locationTypeHelp(_type),
+                ),
                 items: [
                   for (final type in _types)
                     DropdownMenuItem(
@@ -1264,17 +1358,18 @@ class _LocationDialogState extends State<_LocationDialog> {
                 ],
                 onChanged: (value) => setState(() => _type = value ?? 'other'),
               ),
+              const SizedBox(height: 12),
               DropdownButtonFormField<String?>(
                 initialValue: _parentLocationId,
                 decoration: const InputDecoration(
-                  labelText: 'Parent Location',
+                  labelText: 'Parent location',
                   helperText:
-                      'Top-level locations belong directly to this organization.',
+                      'Use parent locations to organize places like Warehouse → Aisle 1 → Shelf 3.',
                 ),
                 items: [
                   const DropdownMenuItem(
                     value: null,
-                    child: Text('Organization / top level'),
+                    child: Text('Top-level location'),
                   ),
                   for (final parent in parentOptions)
                     DropdownMenuItem(
@@ -1284,9 +1379,13 @@ class _LocationDialogState extends State<_LocationDialog> {
                 ],
                 onChanged: (value) => setState(() => _parentLocationId = value),
               ),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _descriptionController,
-                decoration: const InputDecoration(labelText: 'Description'),
+                decoration: const InputDecoration(
+                  labelText: 'Notes or details (optional)',
+                  alignLabelWithHint: true,
+                ),
                 minLines: 2,
                 maxLines: 4,
               ),
@@ -1748,6 +1847,31 @@ String _locationTypeLabel(String value) {
     'warehouse' => 'Warehouse',
     'trailer' => 'Trailer',
     _ => value.isEmpty ? 'Other' : value,
+  };
+}
+
+String _locationTypeHelp(String value) {
+  return switch (value) {
+    'warehouse' => 'Main storage area',
+    'stockroom' => 'Dedicated inventory room',
+    'shelf' => 'Fixed storage spot',
+    'bin' => 'Small container or slot',
+    'jobBox' => 'Mobile job storage',
+    'truck' => 'Service truck or vehicle',
+    'trailer' => 'Mobile trailer storage',
+    _ => 'Custom location',
+  };
+}
+
+IconData _locationTypeIcon(String value) {
+  return switch (value) {
+    'warehouse' || 'stockroom' => Icons.warehouse_outlined,
+    'shelf' => Icons.view_stream_outlined,
+    'bin' => Icons.inventory_2_outlined,
+    'jobBox' => Icons.handyman_outlined,
+    'truck' => Icons.local_shipping_outlined,
+    'trailer' => Icons.rv_hookup_outlined,
+    _ => Icons.location_on_outlined,
   };
 }
 

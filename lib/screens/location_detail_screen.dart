@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../core/app_store.dart';
 import '../core/models/models.dart';
+import '../widgets/issued_empty_state.dart';
+import '../widgets/issued_metric_card.dart';
+import '../widgets/issued_page_header.dart';
+import '../widgets/issued_status_badge.dart';
 import 'items_screen.dart';
 import 'label_center_screen.dart';
 import 'quick_issue_screen.dart';
@@ -24,6 +28,9 @@ class LocationDetailScreen extends StatelessWidget {
     final summary = store.getLocationStockSummary(location.id);
     final items = store.getItemsAtLocation(location.id);
     final children = store.getChildLocations(location.id);
+    final parent = location.parentLocationId == null
+        ? null
+        : store.findLocationById(location.parentLocationId!);
     final activity =
         store.transactions.where((transaction) {
             return transaction.fromLocationId == location.id ||
@@ -37,66 +44,146 @@ class LocationDetailScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          IssuedPageHeader(
+            title: location.name,
+            subtitle: parent == null
+                ? 'Top-level location'
+                : 'Inside ${parent.name}',
+          ),
+          const SizedBox(height: 16),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    location.name,
-                    style: Theme.of(context).textTheme.titleLarge,
+                  Row(
+                    children: [
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Icon(
+                            _locationTypeIcon(location.type),
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              store.resolveLocationPath(location.id),
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w800),
+                            ),
+                            if ((location.code ?? '').trim().isNotEmpty)
+                              Text(
+                                'Code ${location.code}',
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                  Text(store.resolveLocationPath(location.id)),
-                  if ((location.code ?? '').trim().isNotEmpty)
-                    Text('Code: ${location.code}'),
-                  Text('Type: ${_locationTypeLabel(location.type)}'),
-                  if ((location.description ?? '').trim().isNotEmpty)
-                    Text(location.description!),
-                  if (!location.isActive) const Chip(label: Text('Archived')),
-                  const SizedBox(height: 12),
-                  Text('${summary.itemCount} items stocked here'),
-                  Text('${summary.positiveBalanceCount} positive balances'),
-                  Text(
-                    'Total quantity count: ${_format(summary.totalQuantity)}',
+                  const SizedBox(height: 14),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      IssuedStatusBadge(
+                        label: _locationTypeLabel(location.type),
+                        icon: _locationTypeIcon(location.type),
+                      ),
+                      IssuedStatusBadge(
+                        label: location.isActive ? 'Active' : 'Archived',
+                        tone: location.isActive
+                            ? IssuedStatusTone.success
+                            : IssuedStatusTone.neutral,
+                      ),
+                    ],
                   ),
+                  if ((location.description ?? '').trim().isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    Text(
+                      location.description!,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodyMedium?.copyWith(height: 1.4),
+                    ),
+                  ],
                 ],
               ),
             ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: IssuedMetricCard(
+                  label: 'Items stored here',
+                  value: '${summary.itemCount}',
+                  icon: Icons.inventory_2_outlined,
+                  tone: IssuedStatusTone.info,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: IssuedMetricCard(
+                  label: 'Total quantity',
+                  value: _format(summary.totalQuantity),
+                  icon: Icons.numbers_outlined,
+                  tone: IssuedStatusTone.success,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
-              FilledButton(
+              FilledButton.icon(
                 onPressed: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (context) =>
                         ItemsScreen(initialLocationId: location.id),
                   ),
                 ),
-                child: const Text('View Stock'),
+                icon: const Icon(Icons.inventory_2_outlined),
+                label: const Text('View stock'),
               ),
-              OutlinedButton(
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (context) =>
-                        QuickIssueScreen(initialSourceLocationId: location.id),
+              if (store.permissions.canReceiveStock)
+                OutlinedButton.icon(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (context) => QuickIssueScreen(
+                        initialSourceLocationId: location.id,
+                      ),
+                    ),
                   ),
+                  icon: const Icon(Icons.add_box_outlined),
+                  label: const Text('Receive stock here'),
                 ),
-                child: const Text('Receive Stock to Location'),
-              ),
-              OutlinedButton(
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (context) =>
-                        QuickIssueScreen(initialSourceLocationId: location.id),
+              if (store.permissions.canTransferStock)
+                OutlinedButton.icon(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (context) => QuickIssueScreen(
+                        initialSourceLocationId: location.id,
+                      ),
+                    ),
                   ),
+                  icon: const Icon(Icons.swap_horiz),
+                  label: const Text('Transfer stock out'),
                 ),
-                child: const Text('Transfer Stock Out'),
-              ),
-              OutlinedButton(
+              OutlinedButton.icon(
                 onPressed: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (context) => LabelCenterScreen(
@@ -105,14 +192,15 @@ class LocationDetailScreen extends StatelessWidget {
                     ),
                   ),
                 ),
-                child: const Text('Print Label'),
+                icon: const Icon(Icons.qr_code_2),
+                label: const Text('Print label'),
               ),
             ],
           ),
           if (children.isNotEmpty) ...[
             const SizedBox(height: 12),
             _SectionCard(
-              title: 'Child Locations',
+              title: 'Child locations',
               children: [
                 for (final child in children)
                   ListTile(
@@ -131,18 +219,36 @@ class LocationDetailScreen extends StatelessWidget {
           ],
           const SizedBox(height: 12),
           _SectionCard(
-            title: 'Stock at this location',
+            title: 'Stock in this location',
             children: items.isEmpty
-                ? const [ListTile(title: Text('No stock here.'))]
+                ? const [
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      child: IssuedEmptyState(
+                        icon: Icons.inventory_2_outlined,
+                        title: 'No stock here yet',
+                        message:
+                            'Receive stock into this location or move items here.',
+                      ),
+                    ),
+                  ]
                 : [
                     for (final item in items.take(30))
                       ListTile(
+                        leading: const Icon(Icons.inventory_2_outlined),
                         title: Text(item.name),
                         subtitle: Text(
-                          store.formatStockQuantity(
-                            item,
-                            _quantityAt(store, item.id, location.id),
-                          ),
+                          [
+                            if ((item.sku ?? '').trim().isNotEmpty)
+                              'SKU ${item.sku}',
+                            if ((item.barcode ?? '').trim().isNotEmpty)
+                              'Barcode ${item.barcode}',
+                          ].join(' · '),
+                        ),
+                        trailing: _StockQuantity(
+                          item: item,
+                          quantity: _quantityAt(store, item.id, location.id),
+                          store: store,
                         ),
                       ),
                   ],
@@ -202,10 +308,51 @@ class _SectionCard extends StatelessWidget {
     return Card(
       child: Column(
         children: [
-          ListTile(title: Text(title)),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                title,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              ),
+            ),
+          ),
           ...children,
         ],
       ),
+    );
+  }
+}
+
+class _StockQuantity extends StatelessWidget {
+  const _StockQuantity({
+    required this.item,
+    required this.quantity,
+    required this.store,
+  });
+
+  final Item item;
+  final double quantity;
+  final AppStore store;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Text(
+          store.formatStockQuantity(item, quantity),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w800),
+        ),
+        if (quantity <= 0)
+          const IssuedStatusBadge(label: 'Out', tone: IssuedStatusTone.error),
+      ],
     );
   }
 }
@@ -220,6 +367,18 @@ String _locationTypeLabel(String value) {
     'warehouse' => 'Warehouse',
     'trailer' => 'Trailer',
     _ => value.isEmpty ? 'Other' : value,
+  };
+}
+
+IconData _locationTypeIcon(String value) {
+  return switch (value) {
+    'warehouse' || 'stockroom' => Icons.warehouse_outlined,
+    'shelf' => Icons.view_stream_outlined,
+    'bin' => Icons.inventory_2_outlined,
+    'jobBox' => Icons.handyman_outlined,
+    'truck' => Icons.local_shipping_outlined,
+    'trailer' => Icons.rv_hookup_outlined,
+    _ => Icons.location_on_outlined,
   };
 }
 

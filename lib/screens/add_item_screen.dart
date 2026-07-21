@@ -141,7 +141,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
                     selectedUnitId == null
                         ? 'A unit of measure is required. Add one in Settings first.'
                         : locations.isEmpty
-                        ? 'Create a location before receiving stock.'
+                        ? 'Add a location before receiving stock.'
                         : 'Choose a location for the initial stock.',
                   ),
                 ),
@@ -225,9 +225,9 @@ class _AddItemScreenState extends State<AddItemScreen> {
               initialValue: selectedLocationId,
               decoration: InputDecoration(
                 labelText: 'Location',
-                hintText: locations.isEmpty ? 'Create a location first' : null,
+                hintText: locations.isEmpty ? 'Add a location first' : null,
                 helperText: locations.isEmpty
-                    ? 'Create a location before receiving stock.'
+                    ? 'Add a location before receiving stock.'
                     : null,
               ),
               items: locations
@@ -516,7 +516,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
             ? 'Choose a unit of measure.'
             : hasLocations
             ? 'Choose a location.'
-            : 'Create a location before receiving stock.',
+            : 'Add a location before receiving stock.',
       );
       return;
     }

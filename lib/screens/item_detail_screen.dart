@@ -1898,7 +1898,7 @@ class _StockByLocationCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    'Stock by Location',
+                    'Stock by location',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w700,
                       color: const Color(0xFF17212F),
@@ -2112,7 +2112,7 @@ class _LocationQuantityDialogState extends State<_LocationQuantityDialog> {
               ),
               const SizedBox(height: 14),
               if (locations.isEmpty)
-                const Text('Create a location before changing stock.')
+                const Text('Add a location before changing stock.')
               else
                 DropdownButtonFormField<String>(
                   initialValue: _locationId,
@@ -2448,7 +2448,7 @@ class _AdjustLocationDialogState extends State<_AdjustLocationDialog> {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (locations.isEmpty)
-                const Text('Create a location before changing stock.')
+                const Text('Add a location before changing stock.')
               else
                 DropdownButtonFormField<String>(
                   initialValue: _locationId,
