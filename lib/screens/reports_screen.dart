@@ -9,6 +9,10 @@ import '../core/app_store.dart';
 import '../core/data_health/data_health_service.dart';
 import '../core/models/models.dart';
 import '../core/reports/report_service.dart' as reports;
+import '../widgets/issued_metric_card.dart';
+import '../widgets/issued_empty_state.dart';
+import '../widgets/issued_page_header.dart';
+import '../widgets/issued_status_badge.dart';
 import 'checked_out_screen.dart';
 import 'low_stock_screen.dart';
 import 'plan_screens.dart';
@@ -62,8 +66,34 @@ class ReportsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Reports')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
+          IssuedPageHeader(
+            title: 'Reports',
+            subtitle: store.activeWorkspace == null
+                ? 'Review inventory, usage, checkouts, purchasing, counts, and data health.'
+                : 'Review inventory, usage, checkouts, purchasing, counts, and data health.\nFor ${store.activeWorkspace!.name}',
+          ),
+          const SizedBox(height: 18),
+          if (summary.activeItemCount == 0) ...[
+            const IssuedEmptyState(
+              icon: Icons.analytics_outlined,
+              title: 'No inventory yet',
+              message: 'Add items and receive stock to start seeing reports.',
+            ),
+            const SizedBox(height: 18),
+          ],
+          _ReportsSummary(
+            items: summary.activeItemCount,
+            lowStock: summary.lowStockCount,
+            openCheckouts: store.openCheckoutRecords.length,
+            overdueCheckouts: store.overdueCheckoutRecords.length,
+            openReorders: snapshot.openReorders.length,
+            healthIssues:
+                snapshot.dataHealthReport.errorCount +
+                snapshot.dataHealthReport.warningCount,
+          ),
+          const SizedBox(height: 22),
           _ReportGroup(
             title: 'Inventory',
             children: [
@@ -215,8 +245,13 @@ class ReportsScreen extends StatelessWidget {
                 onTap: () =>
                     _openReport(context, _ReportKind.cycleCountVariance),
               ),
+            ],
+          ),
+          _ReportGroup(
+            title: 'Data Health',
+            children: [
               _ReportCard(
-                title: 'Data Health Summary',
+                title: 'Data Health',
                 subtitle:
                     '${snapshot.dataHealthReport.errorCount} errors, ${snapshot.dataHealthReport.warningCount} warnings',
                 icon: Icons.health_and_safety_outlined,
@@ -234,6 +269,106 @@ class ReportsScreen extends StatelessWidget {
       MaterialPageRoute<void>(
         builder: (context) => _ReportDetailScreen(kind: kind),
       ),
+    );
+  }
+}
+
+class _ReportsSummary extends StatelessWidget {
+  const _ReportsSummary({
+    required this.items,
+    required this.lowStock,
+    required this.openCheckouts,
+    required this.overdueCheckouts,
+    required this.openReorders,
+    required this.healthIssues,
+  });
+
+  final int items;
+  final int lowStock;
+  final int openCheckouts;
+  final int overdueCheckouts;
+  final int openReorders;
+  final int healthIssues;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'At a glance',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 10),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final width = (constraints.maxWidth - 10) / 2;
+            return Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                SizedBox(
+                  width: width,
+                  child: IssuedMetricCard(
+                    label: 'Items',
+                    value: '$items',
+                    icon: Icons.inventory_2_outlined,
+                    subtitle: 'Active inventory',
+                    tone: IssuedStatusTone.info,
+                  ),
+                ),
+                SizedBox(
+                  width: width,
+                  child: IssuedMetricCard(
+                    label: 'Low stock',
+                    value: '$lowStock',
+                    icon: Icons.warning_amber_outlined,
+                    subtitle: 'Needs attention',
+                    tone: lowStock > 0
+                        ? IssuedStatusTone.warning
+                        : IssuedStatusTone.success,
+                  ),
+                ),
+                SizedBox(
+                  width: width,
+                  child: IssuedMetricCard(
+                    label: 'Open checkouts',
+                    value: '$openCheckouts',
+                    icon: Icons.assignment_return_outlined,
+                    subtitle: '$overdueCheckouts overdue',
+                    tone: overdueCheckouts > 0
+                        ? IssuedStatusTone.warning
+                        : IssuedStatusTone.neutral,
+                  ),
+                ),
+                SizedBox(
+                  width: width,
+                  child: IssuedMetricCard(
+                    label: 'Open reorders',
+                    value: '$openReorders',
+                    icon: Icons.shopping_cart_outlined,
+                    subtitle: 'Purchasing requests',
+                  ),
+                ),
+                SizedBox(
+                  width: width,
+                  child: IssuedMetricCard(
+                    label: 'Data health',
+                    value: '$healthIssues',
+                    icon: Icons.health_and_safety_outlined,
+                    subtitle: healthIssues == 0 ? 'Looks good' : 'Issues found',
+                    tone: healthIssues == 0
+                        ? IssuedStatusTone.success
+                        : IssuedStatusTone.warning,
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ],
     );
   }
 }
@@ -899,7 +1034,9 @@ class _ReportDetailScreenState extends State<_ReportDetailScreen> {
       ),
       const SizedBox(height: 12),
       if (report.issues.isEmpty)
-        const _MessageCard(message: 'No data health issues found.')
+        const _MessageCard(
+          message: 'Looks good. No data health issues found.',
+        )
       else
         for (final issue in report.issues.take(50)) ...[
           _ReportListCard(
@@ -935,7 +1072,7 @@ class _ReportGroup extends StatelessWidget {
               context,
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           ...children,
         ],
       ),
@@ -960,15 +1097,62 @@ class _ReportCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Card(
-        child: ListTile(
-          leading: Icon(icon, color: const Color(0xFF1E3A5F)),
-          title: Text(title),
-          subtitle: Text(subtitle),
-          trailing: Icon(locked ? Icons.lock_outline : Icons.chevron_right),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
           onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: colors.primaryContainer.withAlpha(90),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: Icon(icon, color: colors.primary, size: 22),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: const Color(0xFF64748B),
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                if (locked)
+                  const IssuedStatusBadge(
+                    label: 'Plan',
+                    icon: Icons.lock_outline,
+                    tone: IssuedStatusTone.neutral,
+                  )
+                else
+                  Icon(Icons.chevron_right, color: colors.primary),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -1162,7 +1346,12 @@ class _ExportButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return OutlinedButton.icon(
       onPressed: onPressed,
-      icon: const Icon(Icons.download_outlined),
+      style: OutlinedButton.styleFrom(
+        backgroundColor: Theme.of(
+          context,
+        ).colorScheme.primaryContainer.withAlpha(55),
+      ),
+      icon: const Icon(Icons.file_download_outlined),
       label: Text(label),
     );
   }
