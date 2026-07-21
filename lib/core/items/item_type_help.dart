@@ -29,7 +29,7 @@ String itemTypeBehaviorDescription(ItemType type) => switch (type) {
 String itemTypeDetailDescription(ItemType type) => switch (type) {
   ItemType.consumable => 'Used up when issued',
   ItemType.returnable => 'Expected back after checkout',
-  ItemType.asset => 'Individually tracked item',
+  ItemType.asset => 'Tracked as an individual item',
 };
 
 String itemTypeSimpleRule(ItemType type) => switch (type) {

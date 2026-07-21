@@ -11,6 +11,7 @@ import '../core/labels/label_service.dart';
 import '../core/models/models.dart';
 import '../core/photos/item_photo_service.dart';
 import '../theme/issued_theme.dart';
+import '../widgets/issued_status_badge.dart';
 import 'activity_screen.dart';
 import 'edit_item_screen.dart';
 import 'label_center_screen.dart';
@@ -48,6 +49,17 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     final openCheckouts = store.openCheckoutRecordsForItem(_item.id);
     final checkedOutPerson = _checkedOutPerson(store);
     final recentTransactions = _recentTransactions(store);
+    final checkedOutQuantity = openCheckouts.fold<double>(
+      0,
+      (total, record) => total + record.quantityOpen,
+    );
+    final positiveLocationCount = store
+        .itemBalancesForItem(_item.id)
+        .where((balance) => balance.quantityOnHand > 0)
+        .length;
+    final locationCount = positiveLocationCount == 0 && _item.quantityOnHand > 0
+        ? 1
+        : positiveLocationCount;
 
     return Scaffold(
       appBar: AppBar(
@@ -77,15 +89,35 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                       fontWeight: FontWeight.w800,
                     ),
                   ),
+                  if ((_item.sku ?? '').isNotEmpty ||
+                      (_item.barcode ?? '').isNotEmpty) ...[
+                    const SizedBox(height: 5),
+                    Text(
+                      [
+                        if ((_item.sku ?? '').isNotEmpty) 'SKU ${_item.sku}',
+                        if ((_item.barcode ?? '').isNotEmpty)
+                          'Barcode ${_item.barcode}',
+                      ].join(' · '),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: const Color(0xFF64748B),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 10),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      _InfoPill(label: _itemTypeLabel(_item.itemType)),
-                      _InfoPill(label: _item.isActive ? 'Active' : 'Inactive'),
+                      IssuedStatusBadge(
+                        label: _itemTypeLabel(_item.itemType),
+                        tone: IssuedStatusTone.info,
+                      ),
+                      _stockStatusBadge(store, openCheckouts),
                       if (checkedOutPerson != null)
-                        _InfoPill(label: 'Checked out to $checkedOutPerson'),
+                        IssuedStatusBadge(
+                          label: 'Checked out to $checkedOutPerson',
+                          tone: IssuedStatusTone.warning,
+                        ),
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -99,7 +131,34 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          _StockByLocationCard(item: _item, store: store),
+          _ItemMetrics(
+            item: _item,
+            unit: unit,
+            checkedOutQuantity: checkedOutQuantity,
+            locationCount: locationCount,
+          ),
+          const SizedBox(height: 12),
+          _PrimaryActionsCard(
+            item: _item,
+            showReturnableActions: showReturnableActions,
+            canReceive: permissions.canReceiveStock,
+            canIssue: permissions.canIssueItems,
+            canAdjust: permissions.canAdjustQuantity,
+            canEdit: permissions.canManageItems,
+            onReceive: _receiveStock,
+            onIssue: _issueItem,
+            onCheckout: _checkOutItem,
+            onReturn: _returnItem,
+            onAdjust: _adjustQuantity,
+            onEdit: _openEditItem,
+          ),
+          const SizedBox(height: 12),
+          _StockByLocationCard(
+            item: _item,
+            store: store,
+            canReceive: permissions.canReceiveStock,
+            onReceive: _receiveStock,
+          ),
           const SizedBox(height: 12),
           _ItemPhotoCard(
             item: _item,
@@ -123,6 +182,16 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Item details',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
                   _DetailRow(
                     label: 'On hand',
                     value:
@@ -259,7 +328,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Actions',
+                    'More actions',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w700,
                       color: const Color(0xFF17212F),
@@ -270,43 +339,13 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                     spacing: 10,
                     runSpacing: 10,
                     children: [
-                      if (permissions.canIssueItems)
-                        _ActionButton(
-                          label: 'Issue',
-                          icon: Icons.call_made,
-                          onPressed: _issueItem,
-                        ),
-                      if (permissions.canReceiveStock)
-                        _ActionButton(
-                          label: 'Receive',
-                          icon: Icons.add_box,
-                          onPressed: _receiveStock,
-                        ),
                       if (permissions.canTransferStock)
                         _ActionButton(
                           label: 'Transfer',
                           icon: Icons.swap_horiz,
                           onPressed: _transferItem,
                         ),
-                      if (permissions.canAdjustQuantity)
-                        _ActionButton(
-                          label: 'Adjust',
-                          icon: Icons.tune,
-                          onPressed: _adjustQuantity,
-                        ),
                       if (showReturnableActions) ...[
-                        if (permissions.canIssueItems)
-                          _ActionButton(
-                            label: 'Check Out',
-                            icon: Icons.assignment_ind,
-                            onPressed: _checkOutItem,
-                          ),
-                        if (permissions.canIssueItems)
-                          _ActionButton(
-                            label: 'Return',
-                            icon: Icons.assignment_return,
-                            onPressed: _returnItem,
-                          ),
                         if (permissions.canAdjustQuantity)
                           _ActionButton(
                             label: 'Mark Lost/Damaged',
@@ -344,10 +383,14 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
                   ),
                   const SizedBox(height: 8),
                   if (recentTransactions.isEmpty)
-                    Text(
-                      'No activity yet.',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: const Color(0xFF5C6672),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      child: Row(
+                        children: [
+                          Icon(Icons.history_toggle_off_outlined),
+                          SizedBox(width: 10),
+                          Text('No activity yet.'),
+                        ],
                       ),
                     )
                   else
@@ -367,6 +410,37 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _stockStatusBadge(
+    AppStore store,
+    List<CheckoutRecord> openCheckouts,
+  ) {
+    if (!_item.isActive) {
+      return const IssuedStatusBadge(label: 'Inactive');
+    }
+    if (openCheckouts.isNotEmpty) {
+      return const IssuedStatusBadge(
+        label: 'Checked out',
+        tone: IssuedStatusTone.warning,
+      );
+    }
+    if (_item.quantityOnHand <= 0) {
+      return const IssuedStatusBadge(
+        label: 'Out of stock',
+        tone: IssuedStatusTone.error,
+      );
+    }
+    if (store.isItemLowStock(_item)) {
+      return const IssuedStatusBadge(
+        label: 'Low stock',
+        tone: IssuedStatusTone.warning,
+      );
+    }
+    return const IssuedStatusBadge(
+      label: 'In stock',
+      tone: IssuedStatusTone.success,
     );
   }
 
@@ -1568,11 +1642,226 @@ class _SelectCheckoutDialog extends StatelessWidget {
   }
 }
 
+class _ItemMetrics extends StatelessWidget {
+  const _ItemMetrics({
+    required this.item,
+    required this.unit,
+    required this.checkedOutQuantity,
+    required this.locationCount,
+  });
+
+  final Item item;
+  final UnitOfMeasure? unit;
+  final double checkedOutQuantity;
+  final int locationCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final abbreviation = unit?.abbreviation ?? '';
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = (constraints.maxWidth - 10) / 2;
+        return Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            _MetricTile(
+              width: width,
+              label: 'On hand',
+              value: '${_formatQuantity(item.quantityOnHand)} $abbreviation'.trim(),
+              icon: Icons.inventory_2_outlined,
+            ),
+            _MetricTile(
+              width: width,
+              label: 'Minimum',
+              value: '${_formatQuantity(item.minimumQuantity)} $abbreviation'.trim(),
+              icon: Icons.vertical_align_bottom_outlined,
+            ),
+            if (item.itemType != ItemType.consumable)
+              _MetricTile(
+                width: width,
+                label: 'Checked out',
+                value: '${_formatQuantity(checkedOutQuantity)} $abbreviation'.trim(),
+                icon: Icons.assignment_ind_outlined,
+              ),
+            _MetricTile(
+              width: width,
+              label: 'Stock locations',
+              value: '$locationCount',
+              icon: Icons.location_on_outlined,
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _MetricTile extends StatelessWidget {
+  const _MetricTile({
+    required this.width,
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  final double width;
+  final String label;
+  final String value;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(height: 10),
+              Text(
+                value,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: const Color(0xFF64748B),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PrimaryActionsCard extends StatelessWidget {
+  const _PrimaryActionsCard({
+    required this.item,
+    required this.showReturnableActions,
+    required this.canReceive,
+    required this.canIssue,
+    required this.canAdjust,
+    required this.canEdit,
+    required this.onReceive,
+    required this.onIssue,
+    required this.onCheckout,
+    required this.onReturn,
+    required this.onAdjust,
+    required this.onEdit,
+  });
+
+  final Item item;
+  final bool showReturnableActions;
+  final bool canReceive;
+  final bool canIssue;
+  final bool canAdjust;
+  final bool canEdit;
+  final VoidCallback onReceive;
+  final VoidCallback onIssue;
+  final VoidCallback onCheckout;
+  final VoidCallback onReturn;
+  final VoidCallback onAdjust;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!canReceive && !canIssue && !canAdjust && !canEdit) {
+      return const Card(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Text('Your role can view this item but cannot make changes.'),
+        ),
+      );
+    }
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Stock actions',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                if (canReceive)
+                  FilledButton.icon(
+                    onPressed: onReceive,
+                    icon: const Icon(Icons.add_box_outlined),
+                    label: const Text('Receive stock'),
+                  ),
+                if (canIssue)
+                  OutlinedButton.icon(
+                    onPressed: onIssue,
+                    icon: const Icon(Icons.call_made),
+                    label: Text(
+                      item.itemType == ItemType.consumable
+                          ? 'Issue stock'
+                          : 'Issue item',
+                    ),
+                  ),
+                if (canIssue && showReturnableActions)
+                  OutlinedButton.icon(
+                    onPressed: onCheckout,
+                    icon: const Icon(Icons.assignment_ind_outlined),
+                    label: Text(item.itemType == ItemType.asset
+                        ? 'Check out asset'
+                        : 'Check out'),
+                  ),
+                if (canIssue && showReturnableActions)
+                  OutlinedButton.icon(
+                    onPressed: onReturn,
+                    icon: const Icon(Icons.assignment_return_outlined),
+                    label: const Text('Return item'),
+                  ),
+                if (canAdjust)
+                  OutlinedButton.icon(
+                    onPressed: onAdjust,
+                    icon: const Icon(Icons.tune),
+                    label: const Text('Adjust'),
+                  ),
+                if (canEdit)
+                  TextButton.icon(
+                    onPressed: onEdit,
+                    icon: const Icon(Icons.edit_outlined),
+                    label: const Text('Edit item'),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _StockByLocationCard extends StatelessWidget {
-  const _StockByLocationCard({required this.item, required this.store});
+  const _StockByLocationCard({
+    required this.item,
+    required this.store,
+    required this.canReceive,
+    required this.onReceive,
+  });
 
   final Item item;
   final AppStore store;
+  final bool canReceive;
+  final VoidCallback onReceive;
 
   @override
   Widget build(BuildContext context) {
@@ -1621,7 +1910,33 @@ class _StockByLocationCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 10),
-            for (final balance in rows)
+            if (totalQuantity <= 0)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'No stock received yet',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text('Receive stock to make this item available.'),
+                    if (canReceive) ...[
+                      const SizedBox(height: 12),
+                      FilledButton.icon(
+                        onPressed: onReceive,
+                        icon: const Icon(Icons.add_box_outlined),
+                        label: const Text('Receive stock'),
+                      ),
+                    ],
+                  ],
+                ),
+              )
+            else
+              for (final balance in rows)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Row(
@@ -1639,6 +1954,19 @@ class _StockByLocationCard extends StatelessWidget {
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
+                    ),
+                    const SizedBox(width: 8),
+                    IssuedStatusBadge(
+                      label: balance.quantityOnHand <= 0
+                          ? 'Out'
+                          : balance.quantityOnHand <= balance.minimumQuantity
+                          ? 'Low'
+                          : 'Available',
+                      tone: balance.quantityOnHand <= 0
+                          ? IssuedStatusTone.error
+                          : balance.quantityOnHand <= balance.minimumQuantity
+                          ? IssuedStatusTone.warning
+                          : IssuedStatusTone.success,
                     ),
                   ],
                 ),
@@ -1750,6 +2078,32 @@ class _LocationQuantityDialogState extends State<_LocationQuantityDialog> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primaryContainer
+                      .withAlpha(70),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.item.name,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      _actionHelperText(),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
               if (locations.isEmpty)
                 const Text('Create a location before changing stock.')
               else
@@ -1861,7 +2215,7 @@ class _LocationQuantityDialogState extends State<_LocationQuantityDialog> {
         ),
         FilledButton(
           onPressed: locations.isEmpty ? null : _submit,
-          child: const Text('Save'),
+          child: Text(_actionButtonLabel()),
         ),
       ],
     );
@@ -1882,6 +2236,34 @@ class _LocationQuantityDialogState extends State<_LocationQuantityDialog> {
     return widget.store.locations
         .where((location) => location.isActive && ids.contains(location.id))
         .toList();
+  }
+
+  String _actionHelperText() {
+    final title = widget.title.toLowerCase();
+    if (title.contains('receive')) {
+      return 'Adds quantity to the selected location.';
+    }
+    if (title.contains('issue')) {
+      return widget.item.itemType == ItemType.consumable
+          ? 'Reduces stock. Consumables are not expected back.'
+          : 'Reduces stock at the selected location.';
+    }
+    if (title.contains('adjust')) {
+      return 'Use adjustments to correct counts.';
+    }
+    if (title.contains('return')) {
+      return 'Adds the checked-out quantity back to available stock.';
+    }
+    return 'Update stock at the selected location.';
+  }
+
+  String _actionButtonLabel() {
+    final title = widget.title.toLowerCase();
+    if (title.contains('receive')) return 'Receive stock';
+    if (title.contains('issue')) return 'Issue stock';
+    if (title.contains('adjust')) return 'Save adjustment';
+    if (title.contains('return')) return 'Return item';
+    return 'Save';
   }
 
   String _locationLabel(String locationId) {
@@ -2735,25 +3117,43 @@ class _TransactionRow extends StatelessWidget {
     final quantityText = _formatQuantity(transaction.quantityDelta);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Column(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '${_transactionLabel(transaction.transactionType)} ($quantityText)',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: const Color(0xFF17212F),
-              fontWeight: FontWeight.w700,
+          DecoratedBox(
+            decoration: const BoxDecoration(
+              color: Color(0xFFEEF2F6),
+              shape: BoxShape.circle,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: Icon(_transactionIcon(transaction.transactionType), size: 18),
             ),
           ),
-          const SizedBox(height: 2),
-          Text(
-            transaction.notes?.isEmpty ?? true
-                ? _formatDate(transaction.createdAt)
-                : '${_formatDate(transaction.createdAt)} - ${transaction.notes}',
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: const Color(0xFF5C6672)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${_transactionLabel(transaction.transactionType)} · $quantityText',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: const Color(0xFF17212F),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  transaction.notes?.isEmpty ?? true
+                      ? _formatDate(transaction.createdAt)
+                      : '${_formatDate(transaction.createdAt)} · ${transaction.notes}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: const Color(0xFF5C6672),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -2762,16 +3162,31 @@ class _TransactionRow extends StatelessWidget {
 
   String _transactionLabel(InventoryTransactionType type) {
     return switch (type) {
-      InventoryTransactionType.receive => 'Receive',
-      InventoryTransactionType.issue => 'Issue',
-      InventoryTransactionType.checkout => 'Check Out',
-      InventoryTransactionType.returnItem => 'Return',
-      InventoryTransactionType.transfer => 'Transfer',
-      InventoryTransactionType.adjustment => 'Adjust',
+      InventoryTransactionType.receive => 'Received',
+      InventoryTransactionType.issue => 'Issued',
+      InventoryTransactionType.checkout => 'Checked out',
+      InventoryTransactionType.returnItem => 'Returned',
+      InventoryTransactionType.transfer => 'Transferred',
+      InventoryTransactionType.adjustment => 'Adjusted',
       InventoryTransactionType.markLost => 'Lost',
       InventoryTransactionType.markDamaged => 'Lost/Damaged',
       InventoryTransactionType.cycleCountAdjustment => 'Cycle Count',
       InventoryTransactionType.correction => 'Correction',
+    };
+  }
+
+  IconData _transactionIcon(InventoryTransactionType type) {
+    return switch (type) {
+      InventoryTransactionType.receive => Icons.add_box_outlined,
+      InventoryTransactionType.issue => Icons.call_made,
+      InventoryTransactionType.checkout => Icons.assignment_ind_outlined,
+      InventoryTransactionType.returnItem => Icons.assignment_return_outlined,
+      InventoryTransactionType.transfer => Icons.swap_horiz,
+      InventoryTransactionType.adjustment ||
+      InventoryTransactionType.cycleCountAdjustment ||
+      InventoryTransactionType.correction => Icons.tune,
+      InventoryTransactionType.markLost ||
+      InventoryTransactionType.markDamaged => Icons.report_problem_outlined,
     };
   }
 }
@@ -2793,32 +3208,6 @@ class _ActionButton extends StatelessWidget {
       onPressed: onPressed,
       icon: Icon(icon),
       label: Text(label),
-    );
-  }
-}
-
-class _InfoPill extends StatelessWidget {
-  const _InfoPill({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: const Color(0xFFF4F6F8),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0xFFE1E6EC)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        child: Text(
-          label,
-          style: Theme.of(
-            context,
-          ).textTheme.labelMedium?.copyWith(color: const Color(0xFF394554)),
-        ),
-      ),
     );
   }
 }
