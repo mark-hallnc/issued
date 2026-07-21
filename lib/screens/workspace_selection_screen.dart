@@ -94,9 +94,9 @@ class _WorkspaceSelectionScreenState extends State<WorkspaceSelectionScreen> {
                     title: Text(
                       invite.workspaceName ?? 'Organization invitation',
                     ),
-                      subtitle: Text(
-                        'Invited as ${cloudWorkspaceRoleLabel(invite.role)}',
-                      ),
+                    subtitle: Text(
+                      'Invited as ${cloudWorkspaceRoleLabel(invite.role)}',
+                    ),
                     trailing: FilledButton(
                       onPressed: _isBusy
                           ? null

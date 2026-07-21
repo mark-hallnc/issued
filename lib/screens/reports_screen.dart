@@ -297,9 +297,9 @@ class _ReportsSummary extends StatelessWidget {
       children: [
         Text(
           'At a glance',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w800,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 10),
         LayoutBuilder(
@@ -1034,9 +1034,7 @@ class _ReportDetailScreenState extends State<_ReportDetailScreen> {
       ),
       const SizedBox(height: 12),
       if (report.issues.isEmpty)
-        const _MessageCard(
-          message: 'Looks good. No data health issues found.',
-        )
+        const _MessageCard(message: 'Looks good. No data health issues found.')
       else
         for (final issue in report.issues.take(50)) ...[
           _ReportListCard(

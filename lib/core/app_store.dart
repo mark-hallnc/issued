@@ -39,8 +39,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
 
   static const _organizationPlanPreferencePrefix = 'issued.plan.';
   static const _lastCloudUserPreferenceKey = 'issued.last_cloud_user_id';
-  static const _lastWorkspacePreferenceKey =
-      'issued.last_cloud_workspace_id';
+  static const _lastWorkspacePreferenceKey = 'issued.last_cloud_workspace_id';
 
   final AppDatabase _database;
 
@@ -440,16 +439,20 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     if (workspace == null) {
       return 0;
     }
-    final activeMembers = _workspaceMembers.where(
-      (member) =>
-          member.workspaceId == workspace.id &&
-          member.status == CloudWorkspaceMemberStatus.active,
-    ).length;
-    final pendingInvites = _workspaceInvites.where(
-      (invite) =>
-          invite.workspaceId == workspace.id &&
-          invite.status == CloudWorkspaceInviteStatus.pending,
-    ).length;
+    final activeMembers = _workspaceMembers
+        .where(
+          (member) =>
+              member.workspaceId == workspace.id &&
+              member.status == CloudWorkspaceMemberStatus.active,
+        )
+        .length;
+    final pendingInvites = _workspaceInvites
+        .where(
+          (invite) =>
+              invite.workspaceId == workspace.id &&
+              invite.status == CloudWorkspaceInviteStatus.pending,
+        )
+        .length;
     return activeMembers + pendingInvites;
   }
 
@@ -712,8 +715,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     _availableWorkspaces
       ..clear()
       ..addAll(result.data ?? const []);
-    final membershipsResult = await workspaceService
-        .fetchMyActiveMemberships();
+    final membershipsResult = await workspaceService.fetchMyActiveMemberships();
     if (!membershipsResult.success) {
       return AppActionResult.failure(membershipsResult.message);
     }
@@ -1186,9 +1188,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     unawaited(selectCloudWorkspace(workspace));
   }
 
-  Future<AppActionResult> selectCloudWorkspace(
-    CloudWorkspace workspace,
-  ) async {
+  Future<AppActionResult> selectCloudWorkspace(CloudWorkspace workspace) async {
     if (_lastLoadedCloudUserId != _currentCloudUser?.id ||
         _lastLoadedWorkspaceId != workspace.id) {
       syncCoordinator.cancelPendingSync();
@@ -2995,9 +2995,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
 
   AppActionResult addItem(Item item) {
     if (isCloudSignedIn && _activeWorkspace == null) {
-      return AppActionResult.failure(
-        'Create or choose an organization first.',
-      );
+      return AppActionResult.failure('Create or choose an organization first.');
     }
     if (!permissions.canManageItems) {
       return AppActionResult.denied();
@@ -3020,9 +3018,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     String? initialTransactionNotes,
   }) {
     if (isCloudSignedIn && _activeWorkspace == null) {
-      return AppActionResult.failure(
-        'Create or choose an organization first.',
-      );
+      return AppActionResult.failure('Create or choose an organization first.');
     }
     if (!permissions.canManageItems) {
       return AppActionResult.denied();
@@ -3874,9 +3870,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<AppActionResult> ensureInventoryEntryDefaults() async {
     if (isCloudSignedIn && _activeWorkspace == null) {
-      return AppActionResult.failure(
-        'Create or choose an organization first.',
-      );
+      return AppActionResult.failure('Create or choose an organization first.');
     }
     if (!permissions.canManageItems && !permissions.canManageSettings) {
       return AppActionResult.denied();
@@ -6654,9 +6648,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
 
   AppActionResult addUnitOfMeasure(UnitOfMeasure unit) {
     if (isCloudSignedIn && _activeWorkspace == null) {
-      return AppActionResult.failure(
-        'Create or choose an organization first.',
-      );
+      return AppActionResult.failure('Create or choose an organization first.');
     }
     if (!permissions.canManageSettings) {
       return AppActionResult.denied();
@@ -6669,9 +6661,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
 
   AppActionResult addLocation(Location location) {
     if (isCloudSignedIn && _activeWorkspace == null) {
-      return AppActionResult.failure(
-        'Create or choose an organization first.',
-      );
+      return AppActionResult.failure('Create or choose an organization first.');
     }
     if (!permissions.canManageSettings) {
       return AppActionResult.denied();

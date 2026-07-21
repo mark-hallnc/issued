@@ -413,10 +413,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen> {
     );
   }
 
-  Widget _stockStatusBadge(
-    AppStore store,
-    List<CheckoutRecord> openCheckouts,
-  ) {
+  Widget _stockStatusBadge(AppStore store, List<CheckoutRecord> openCheckouts) {
     if (!_item.isActive) {
       return const IssuedStatusBadge(label: 'Inactive');
     }
@@ -1668,20 +1665,23 @@ class _ItemMetrics extends StatelessWidget {
             _MetricTile(
               width: width,
               label: 'On hand',
-              value: '${_formatQuantity(item.quantityOnHand)} $abbreviation'.trim(),
+              value: '${_formatQuantity(item.quantityOnHand)} $abbreviation'
+                  .trim(),
               icon: Icons.inventory_2_outlined,
             ),
             _MetricTile(
               width: width,
               label: 'Minimum',
-              value: '${_formatQuantity(item.minimumQuantity)} $abbreviation'.trim(),
+              value: '${_formatQuantity(item.minimumQuantity)} $abbreviation'
+                  .trim(),
               icon: Icons.vertical_align_bottom_outlined,
             ),
             if (item.itemType != ItemType.consumable)
               _MetricTile(
                 width: width,
                 label: 'Checked out',
-                value: '${_formatQuantity(checkedOutQuantity)} $abbreviation'.trim(),
+                value: '${_formatQuantity(checkedOutQuantity)} $abbreviation'
+                    .trim(),
                 icon: Icons.assignment_ind_outlined,
               ),
             _MetricTile(
@@ -1720,20 +1720,24 @@ class _MetricTile extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
+              Icon(
+                icon,
+                size: 20,
+                color: Theme.of(context).colorScheme.primary,
+              ),
               const SizedBox(height: 10),
               Text(
                 value,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 2),
               Text(
                 label,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: const Color(0xFF64748B),
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: const Color(0xFF64748B)),
               ),
             ],
           ),
@@ -1790,9 +1794,9 @@ class _PrimaryActionsCard extends StatelessWidget {
           children: [
             Text(
               'Stock actions',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 12),
             Wrap(
@@ -1819,9 +1823,11 @@ class _PrimaryActionsCard extends StatelessWidget {
                   OutlinedButton.icon(
                     onPressed: onCheckout,
                     icon: const Icon(Icons.assignment_ind_outlined),
-                    label: Text(item.itemType == ItemType.asset
-                        ? 'Check out asset'
-                        : 'Check out'),
+                    label: Text(
+                      item.itemType == ItemType.asset
+                          ? 'Check out asset'
+                          : 'Check out',
+                    ),
                   ),
                 if (canIssue && showReturnableActions)
                   OutlinedButton.icon(
@@ -1937,40 +1943,40 @@ class _StockByLocationCard extends StatelessWidget {
               )
             else
               for (final balance in rows)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        store.resolveLocationName(balance.locationId) ??
-                            'Unknown location',
-                        style: Theme.of(context).textTheme.bodyMedium,
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          store.resolveLocationName(balance.locationId) ??
+                              'Unknown location',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
                       ),
-                    ),
-                    Text(
-                      '${_formatQuantity(balance.quantityOnHand)} ${unit?.abbreviation ?? ''}'
-                          .trim(),
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
+                      Text(
+                        '${_formatQuantity(balance.quantityOnHand)} ${unit?.abbreviation ?? ''}'
+                            .trim(),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    IssuedStatusBadge(
-                      label: balance.quantityOnHand <= 0
-                          ? 'Out'
-                          : balance.quantityOnHand <= balance.minimumQuantity
-                          ? 'Low'
-                          : 'Available',
-                      tone: balance.quantityOnHand <= 0
-                          ? IssuedStatusTone.error
-                          : balance.quantityOnHand <= balance.minimumQuantity
-                          ? IssuedStatusTone.warning
-                          : IssuedStatusTone.success,
-                    ),
-                  ],
+                      const SizedBox(width: 8),
+                      IssuedStatusBadge(
+                        label: balance.quantityOnHand <= 0
+                            ? 'Out'
+                            : balance.quantityOnHand <= balance.minimumQuantity
+                            ? 'Low'
+                            : 'Available',
+                        tone: balance.quantityOnHand <= 0
+                            ? IssuedStatusTone.error
+                            : balance.quantityOnHand <= balance.minimumQuantity
+                            ? IssuedStatusTone.warning
+                            : IssuedStatusTone.success,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
           ],
         ),
       ),
@@ -2082,8 +2088,9 @@ class _LocationQuantityDialogState extends State<_LocationQuantityDialog> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primaryContainer
-                      .withAlpha(70),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.primaryContainer.withAlpha(70),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Column(
@@ -3128,7 +3135,10 @@ class _TransactionRow extends StatelessWidget {
             ),
             child: Padding(
               padding: const EdgeInsets.all(8),
-              child: Icon(_transactionIcon(transaction.transactionType), size: 18),
+              child: Icon(
+                _transactionIcon(transaction.transactionType),
+                size: 18,
+              ),
             ),
           ),
           const SizedBox(width: 12),

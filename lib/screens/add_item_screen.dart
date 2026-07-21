@@ -150,9 +150,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
             ],
             TextFormField(
               controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Item name',
-              ),
+              decoration: const InputDecoration(labelText: 'Item name'),
               textInputAction: TextInputAction.next,
               validator: (value) => value == null || value.trim().isEmpty
                   ? 'Enter an item name.'
@@ -166,18 +164,14 @@ class _AddItemScreenState extends State<AddItemScreen> {
             const SizedBox(height: 12),
             TextFormField(
               controller: _categoryController,
-              decoration: const InputDecoration(
-                labelText: 'Category',
-              ),
+              decoration: const InputDecoration(labelText: 'Category'),
               textInputAction: TextInputAction.next,
               onChanged: (_) => setState(() {}),
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _quantityController,
-              decoration: const InputDecoration(
-                labelText: 'Quantity on hand',
-              ),
+              decoration: const InputDecoration(labelText: 'Quantity on hand'),
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
@@ -187,9 +181,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
             const SizedBox(height: 12),
             TextFormField(
               controller: _minimumQuantityController,
-              decoration: const InputDecoration(
-                labelText: 'Minimum quantity',
-              ),
+              decoration: const InputDecoration(labelText: 'Minimum quantity'),
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
@@ -257,17 +249,13 @@ class _AddItemScreenState extends State<AddItemScreen> {
             const SizedBox(height: 12),
             TextFormField(
               controller: _skuController,
-              decoration: const InputDecoration(
-                labelText: 'SKU/part number',
-              ),
+              decoration: const InputDecoration(labelText: 'SKU/part number'),
               textInputAction: TextInputAction.next,
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _barcodeController,
-              decoration: const InputDecoration(
-                labelText: 'Barcode',
-              ),
+              decoration: const InputDecoration(labelText: 'Barcode'),
               textInputAction: TextInputAction.next,
             ),
             const SizedBox(height: 12),
@@ -282,9 +270,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
             const SizedBox(height: 12),
             TextFormField(
               controller: _unitCostController,
-              decoration: const InputDecoration(
-                labelText: 'Unit cost',
-              ),
+              decoration: const InputDecoration(labelText: 'Unit cost'),
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
@@ -370,9 +356,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
             const SizedBox(height: 12),
             TextFormField(
               controller: _notesController,
-              decoration: const InputDecoration(
-                labelText: 'Notes',
-              ),
+              decoration: const InputDecoration(labelText: 'Notes'),
               maxLines: 3,
             ),
             const SizedBox(height: 12),
@@ -747,7 +731,6 @@ class _AddItemScreenState extends State<AddItemScreen> {
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
   }
-
 }
 
 class _CustomFieldsSection extends StatelessWidget {

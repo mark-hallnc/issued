@@ -43,9 +43,9 @@ class IssuedMetricCard extends StatelessWidget {
                 subtitle!,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: const Color(0xFF64748B),
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: const Color(0xFF64748B)),
               ),
             ],
           ],

@@ -15,17 +15,18 @@ const _buttonTextStyle = TextStyle(
 );
 
 ThemeData issuedTheme() {
-  final colorScheme = ColorScheme.fromSeed(
-    seedColor: issuedPrimary,
-    brightness: Brightness.light,
-  ).copyWith(
-    primary: issuedPrimary,
-    onPrimary: Colors.white,
-    primaryContainer: issuedPrimaryContainer,
-    secondary: issuedSecondary,
-    surface: issuedSurface,
-    error: issuedError,
-  );
+  final colorScheme =
+      ColorScheme.fromSeed(
+        seedColor: issuedPrimary,
+        brightness: Brightness.light,
+      ).copyWith(
+        primary: issuedPrimary,
+        onPrimary: Colors.white,
+        primaryContainer: issuedPrimaryContainer,
+        secondary: issuedSecondary,
+        surface: issuedSurface,
+        error: issuedError,
+      );
   final roundedShape = RoundedRectangleBorder(
     borderRadius: BorderRadius.circular(14),
   );

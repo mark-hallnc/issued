@@ -223,9 +223,7 @@ class _EmailEntryState extends StatelessWidget {
           keyboardType: TextInputType.emailAddress,
           textInputAction: TextInputAction.done,
           autofillHints: const [AutofillHints.email],
-          decoration: const InputDecoration(
-            labelText: 'Email',
-          ),
+          decoration: const InputDecoration(labelText: 'Email'),
           onSubmitted: (_) {
             if (!isBusy) {
               onLogIn();
@@ -281,9 +279,7 @@ class _CodeEntryState extends StatelessWidget {
           keyboardType: TextInputType.number,
           textInputAction: TextInputAction.done,
           autofillHints: const [AutofillHints.oneTimeCode],
-          decoration: const InputDecoration(
-            labelText: 'Code',
-          ),
+          decoration: const InputDecoration(labelText: 'Code'),
           onSubmitted: (_) {
             if (!isBusy) {
               onVerify();

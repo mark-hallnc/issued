@@ -77,7 +77,9 @@ class _ComparePlansScreenState extends State<ComparePlansScreen> {
     if (plans.isEmpty) {
       return Scaffold(
         appBar: AppBar(title: const Text('Compare plans')),
-        body: const Center(child: Text('Plan options are unavailable right now.')),
+        body: const Center(
+          child: Text('Plan options are unavailable right now.'),
+        ),
       );
     }
     final activePlan = store.currentPlan;
@@ -148,10 +150,7 @@ class _ComparePlansScreenState extends State<ComparePlansScreen> {
         plans.indexWhere((plan) => plan.code == active.code);
   }
 
-  Future<void> _confirmSelection(
-    AppStore store,
-    Plan selectedPlan,
-  ) async {
+  Future<void> _confirmSelection(AppStore store, Plan selectedPlan) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -222,78 +221,78 @@ class _PlanCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    plan.name,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: const Color(0xFF17212F),
-                    ),
-                  ),
-                ),
-                Text(
-                  _priceForPlan(plan.code),
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                if (isSelected) ...[
-                  const SizedBox(width: 10),
-                  Icon(Icons.check_circle, color: colors.primary),
-                ],
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              _valueStatement(plan),
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: const Color(0xFF64748B),
-              ),
-            ),
-            if (isCurrent || isRecommended) ...[
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
+              Row(
                 children: [
-                  if (isCurrent) const _PlanBadge(label: 'Current plan'),
-                  if (isRecommended)
-                    _PlanBadge(
-                      label: plan.code == 'pro'
-                          ? 'Most flexible'
-                          : 'Recommended',
-                      muted: true,
+                  Expanded(
+                    child: Text(
+                      plan.name,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF17212F),
+                      ),
                     ),
+                  ),
+                  Text(
+                    _priceForPlan(plan.code),
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  if (isSelected) ...[
+                    const SizedBox(width: 10),
+                    Icon(Icons.check_circle, color: colors.primary),
+                  ],
                 ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                _valueStatement(plan),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: const Color(0xFF64748B),
+                ),
+              ),
+              if (isCurrent || isRecommended) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    if (isCurrent) const _PlanBadge(label: 'Current plan'),
+                    if (isRecommended)
+                      _PlanBadge(
+                        label: plan.code == 'pro'
+                            ? 'Most flexible'
+                            : 'Recommended',
+                        muted: true,
+                      ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 14),
+              _PlanRow(label: 'Items', value: '${plan.itemLimit}'),
+              _PlanRow(label: 'Users', value: '${plan.userLimit}'),
+              _PlanRow(label: 'Locations', value: '${plan.locationLimit}'),
+              _PlanRow(
+                label: 'Label exports',
+                value: '${plan.labelExportLimit}/mo',
+              ),
+              _PlanRow(
+                label: 'CSV import',
+                value: plan.csvImportEnabled ? 'Yes' : 'No',
+              ),
+              _PlanRow(
+                label: 'Advanced reports',
+                value: _advancedReportsLabel(plan),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                isSelected ? 'Selected for comparison' : 'Tap to compare',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: isSelected ? colors.primary : const Color(0xFF64748B),
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ],
-            const SizedBox(height: 14),
-            _PlanRow(label: 'Items', value: '${plan.itemLimit}'),
-            _PlanRow(label: 'Users', value: '${plan.userLimit}'),
-            _PlanRow(label: 'Locations', value: '${plan.locationLimit}'),
-            _PlanRow(
-              label: 'Label exports',
-              value: '${plan.labelExportLimit}/mo',
-            ),
-            _PlanRow(
-              label: 'CSV import',
-              value: plan.csvImportEnabled ? 'Yes' : 'No',
-            ),
-            _PlanRow(
-              label: 'Advanced reports',
-              value: _advancedReportsLabel(plan),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              isSelected ? 'Selected for comparison' : 'Tap to compare',
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: isSelected ? colors.primary : const Color(0xFF64748B),
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
           ),
         ),
       ),
@@ -353,9 +352,9 @@ class _SelectedPlanSummary extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               plan.name,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 12),
             Wrap(
@@ -476,9 +475,7 @@ class _PlanBadge extends StatelessWidget {
         child: Text(
           label,
           style: Theme.of(context).textTheme.labelMedium?.copyWith(
-            color: muted
-                ? Theme.of(context).colorScheme.primary
-                : Colors.white,
+            color: muted ? Theme.of(context).colorScheme.primary : Colors.white,
             fontWeight: FontWeight.w700,
           ),
         ),

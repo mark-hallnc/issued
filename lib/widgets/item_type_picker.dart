@@ -45,9 +45,7 @@ class ItemTypePicker extends StatelessWidget {
               color: value == type ? colors.secondaryContainer : null,
               shape: RoundedRectangleBorder(
                 side: BorderSide(
-                  color: value == type
-                      ? colors.primary
-                      : colors.outlineVariant,
+                  color: value == type ? colors.primary : colors.outlineVariant,
                   width: value == type ? 2 : 1,
                 ),
                 borderRadius: BorderRadius.circular(12),
