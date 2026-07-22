@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/app_store.dart';
 import '../core/models/models.dart';
 import '../widgets/issued_page_header.dart';
+import '../widgets/issued_shell_navigation.dart';
 
 enum PlanLimitDialogAction { archiveItems, upgrade, cancel }
 
@@ -112,9 +113,6 @@ class _ComparePlansScreenState extends State<ComparePlansScreen> {
               plan: plan,
               isCurrent: plan.code == activePlan.code,
               isSelected: plan.code == selectedPlan.code,
-              isRecommended:
-                  plan.code == widget.recommendedPlanCode ||
-                  (widget.recommendedPlanCode == null && plan.code == 'pro'),
               onSelected: () => setState(() => _selectedPlanCode = plan.code),
             ),
             const SizedBox(height: 12),
@@ -137,7 +135,7 @@ class _ComparePlansScreenState extends State<ComparePlansScreen> {
             child: Text(
               selectedPlan.code == activePlan.code
                   ? 'Current plan'
-                  : '${_isHigherPlan(plans, activePlan, selectedPlan) ? 'Select' : 'Switch to'} ${selectedPlan.name} for testing',
+                  : '${_isHigherPlan(plans, activePlan, selectedPlan) ? 'Select' : 'Switch to'} ${selectedPlan.name}',
             ),
           ),
         ],
@@ -174,7 +172,6 @@ class _ComparePlansScreenState extends State<ComparePlansScreen> {
       return;
     }
     store.setCurrentPlanForTesting(selectedPlan.code);
-    setState(() => _selectedPlanCode = selectedPlan.code);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text(
@@ -182,6 +179,8 @@ class _ComparePlansScreenState extends State<ComparePlansScreen> {
         ),
       ),
     );
+    IssuedShellNavigationScope.maybeOf(context)?.showDashboard();
+    Navigator.of(context).popUntil((route) => route.isFirst);
   }
 }
 
@@ -190,14 +189,12 @@ class _PlanCard extends StatelessWidget {
     required this.plan,
     required this.isCurrent,
     required this.isSelected,
-    required this.isRecommended,
     required this.onSelected,
   });
 
   final Plan plan;
   final bool isCurrent;
   final bool isSelected;
-  final bool isRecommended;
   final VoidCallback onSelected;
 
   @override
@@ -251,22 +248,9 @@ class _PlanCard extends StatelessWidget {
                   color: const Color(0xFF64748B),
                 ),
               ),
-              if (isCurrent || isRecommended) ...[
+              if (isCurrent) ...[
                 const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 6,
-                  children: [
-                    if (isCurrent) const _PlanBadge(label: 'Current plan'),
-                    if (isRecommended)
-                      _PlanBadge(
-                        label: plan.code == 'pro'
-                            ? 'Most flexible'
-                            : 'Recommended',
-                        muted: true,
-                      ),
-                  ],
-                ),
+                const _PlanBadge(label: 'Current plan'),
               ],
               const SizedBox(height: 14),
               _PlanRow(label: 'Items', value: '${plan.itemLimit}'),
@@ -456,18 +440,15 @@ class _PlanRow extends StatelessWidget {
 }
 
 class _PlanBadge extends StatelessWidget {
-  const _PlanBadge({required this.label, this.muted = false});
+  const _PlanBadge({required this.label});
 
   final String label;
-  final bool muted;
 
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: muted
-            ? Theme.of(context).colorScheme.primaryContainer
-            : Theme.of(context).colorScheme.primary,
+        color: Theme.of(context).colorScheme.primary,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Padding(
@@ -475,7 +456,7 @@ class _PlanBadge extends StatelessWidget {
         child: Text(
           label,
           style: Theme.of(context).textTheme.labelMedium?.copyWith(
-            color: muted ? Theme.of(context).colorScheme.primary : Colors.white,
+            color: Colors.white,
             fontWeight: FontWeight.w700,
           ),
         ),

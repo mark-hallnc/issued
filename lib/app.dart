@@ -14,6 +14,7 @@ import 'screens/session_lock_screen.dart';
 import 'screens/workspace_selection_screen.dart';
 import 'theme/issued_theme.dart';
 import 'widgets/issued_brand_loading.dart';
+import 'widgets/issued_shell_navigation.dart';
 
 class IssuedApp extends StatefulWidget {
   const IssuedApp({super.key, this.store});
@@ -25,6 +26,7 @@ class IssuedApp extends StatefulWidget {
 }
 
 class _IssuedAppState extends State<IssuedApp> {
+  final _shellNavigationController = IssuedShellNavigationController();
   late final AppStore _store;
   late final Future<void> _initializeStore;
   late final bool _ownsStore;
@@ -39,6 +41,7 @@ class _IssuedAppState extends State<IssuedApp> {
 
   @override
   void dispose() {
+    _shellNavigationController.dispose();
     if (_ownsStore) {
       _store.dispose();
     }
@@ -49,46 +52,49 @@ class _IssuedAppState extends State<IssuedApp> {
   Widget build(BuildContext context) {
     return AppStoreScope(
       store: _store,
-      child: MaterialApp(
-        title: 'Issued',
-        debugShowCheckedModeBanner: false,
-        theme: issuedTheme(),
-        home: FutureBuilder<void>(
-          future: _initializeStore,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState != ConnectionState.done) {
-              return const Scaffold(body: IssuedBrandLoading());
-            }
+      child: IssuedShellNavigationScope(
+        controller: _shellNavigationController,
+        child: MaterialApp(
+          title: 'Issued',
+          debugShowCheckedModeBanner: false,
+          theme: issuedTheme(),
+          home: FutureBuilder<void>(
+            future: _initializeStore,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const Scaffold(body: IssuedBrandLoading());
+              }
 
-            if (snapshot.hasError) {
-              return _StartupErrorScreen(error: snapshot.error);
-            }
+              if (snapshot.hasError) {
+                return _StartupErrorScreen(error: snapshot.error);
+              }
 
-            return AnimatedBuilder(
-              animation: _store,
-              builder: (context, _) {
-                if (_store.shouldShowInviteAcceptance) {
-                  return const InviteAcceptanceScreen();
-                }
-                if (_store.isCloudConfigured && !_store.isCloudSignedIn) {
-                  return const CloudLoginScreen();
-                }
-                if (_store.isCloudSignedIn) {
-                  if (_store.activeWorkspace == null) {
-                    return const WorkspaceSelectionScreen();
+              return AnimatedBuilder(
+                animation: _store,
+                builder: (context, _) {
+                  if (_store.shouldShowInviteAcceptance) {
+                    return const InviteAcceptanceScreen();
+                  }
+                  if (_store.isCloudConfigured && !_store.isCloudSignedIn) {
+                    return const CloudLoginScreen();
+                  }
+                  if (_store.isCloudSignedIn) {
+                    if (_store.activeWorkspace == null) {
+                      return const WorkspaceSelectionScreen();
+                    }
+                    return const IssuedShell();
+                  }
+                  if (!_store.isSetupComplete) {
+                    return const SetupScreen();
+                  }
+                  if (_store.isLocked) {
+                    return const SessionLockScreen();
                   }
                   return const IssuedShell();
-                }
-                if (!_store.isSetupComplete) {
-                  return const SetupScreen();
-                }
-                if (_store.isLocked) {
-                  return const SessionLockScreen();
-                }
-                return const IssuedShell();
-              },
-            );
-          },
+                },
+              );
+            },
+          ),
         ),
       ),
     );
@@ -121,8 +127,6 @@ class IssuedShell extends StatefulWidget {
 }
 
 class _IssuedShellState extends State<IssuedShell> {
-  int _selectedIndex = 0;
-
   static const _screens = <Widget>[
     DashboardScreen(),
     QuickIssueScreen(),
@@ -135,11 +139,17 @@ class _IssuedShellState extends State<IssuedShell> {
   @override
   Widget build(BuildContext context) {
     final store = AppStoreScope.of(context);
+    final shellNavigation = IssuedShellNavigationScope.maybeOf(context)!;
+    final selectedIndex = shellNavigation.value;
     final userName = store.currentUserDisplayName;
     final userEmail = store.currentUserDisplayEmail;
+    final organizationName = store.activeWorkspace?.name.trim();
+    final shellTitle = organizationName?.isNotEmpty == true
+        ? organizationName!
+        : 'Issued';
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Issued'),
+        title: Text(shellTitle, maxLines: 1, overflow: TextOverflow.ellipsis),
         actions: [
           Center(
             child: Padding(
@@ -177,18 +187,16 @@ class _IssuedShellState extends State<IssuedShell> {
         ],
       ),
       body: SafeArea(
-        child: IndexedStack(index: _selectedIndex, children: _screens),
+        child: IndexedStack(index: selectedIndex, children: _screens),
       ),
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
+        selectedIndex: selectedIndex,
         onDestinationSelected: (index) {
           if (store.checkSessionTimeout()) {
             return;
           }
           store.recordUserActivity();
-          setState(() {
-            _selectedIndex = index;
-          });
+          shellNavigation.selectTab(index);
         },
         destinations: const [
           NavigationDestination(
