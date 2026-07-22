@@ -67,7 +67,7 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/icon/issued_app_icon.png"
+  image_path: "assets/icon/icon-nobg.png"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -82,7 +82,7 @@ flutter:
 
   # To add assets to your application, add an assets section, like this:
   assets:
-    - assets/images/Issued_name_icon.png
+    - assets/images/name-nobg.png
   #   - images/a_dot_burr.jpeg
   #   - images/a_dot_ham.jpeg
 

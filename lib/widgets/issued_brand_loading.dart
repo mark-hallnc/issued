@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-const issuedNameLogoAsset = 'assets/images/Issued_name_icon.png';
+const issuedNameLogoAsset = 'assets/images/name-nobg.png';
 
 class IssuedBrandLoading extends StatelessWidget {
   const IssuedBrandLoading({super.key, this.message = 'Loading...'});
