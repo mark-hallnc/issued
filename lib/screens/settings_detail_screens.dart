@@ -1075,7 +1075,6 @@ class PlanUsageSettingsScreen extends StatelessWidget {
     final store = AppStoreScope.of(context);
     final plan = store.currentPlan;
     final usage = store.currentUsage;
-    final canManagePlan = store.permissions.canManagePlan;
 
     return _SettingsScaffold(
       title: 'Plan & Usage',
@@ -1159,20 +1158,10 @@ class PlanUsageSettingsScreen extends StatelessWidget {
           spacing: 10,
           runSpacing: 10,
           children: [
-            OutlinedButton.icon(
+            FilledButton.icon(
               onPressed: () => openComparePlans(context),
               icon: const Icon(Icons.compare_arrows),
-              label: const Text('Compare Plans'),
-            ),
-            FilledButton.icon(
-              onPressed: canManagePlan
-                  ? () => openComparePlans(
-                      context,
-                      recommendedPlanCode: _recommendedPlanCode(store),
-                    )
-                  : () => _showPermissionDenied(context),
-              icon: const Icon(Icons.upgrade),
-              label: const Text('Upgrade Plan'),
+              label: const Text('Compare plans'),
             ),
             OutlinedButton.icon(
               onPressed: null,
@@ -1191,11 +1180,6 @@ class PlanUsageSettingsScreen extends StatelessWidget {
     }
 
     return plan.advancedReportsEnabled ? 'Included' : 'Upgrade';
-  }
-
-  String? _recommendedPlanCode(AppStore store) {
-    final warnings = store.getLimitWarnings();
-    return warnings.isEmpty ? null : warnings.first.recommendedPlanCode;
   }
 }
 
