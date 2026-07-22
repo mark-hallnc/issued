@@ -93,68 +93,13 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
       return;
     }
 
-    final company = store.company;
-    final nameController = TextEditingController(text: company?.name ?? '');
-    final industryController = TextEditingController(
-      text: company?.industry ?? '',
-    );
-    final formKey = GlobalKey<FormState>();
-
-    final result = await showDialog<_CompanyEditResult>(
+    await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit Company'),
-        content: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: nameController,
-                decoration: const InputDecoration(labelText: 'Workspace name'),
-                validator: _required,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: industryController,
-                decoration: const InputDecoration(labelText: 'Industry'),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              if (!formKey.currentState!.validate()) {
-                return;
-              }
-              Navigator.of(context).pop(
-                _CompanyEditResult(
-                  name: nameController.text,
-                  industry: industryController.text,
-                ),
-              );
-            },
-            child: const Text('Save'),
-          ),
-        ],
+      builder: (_) => _EditCompanyDialog(
+        store: store,
+        company: store.company,
       ),
     );
-    nameController.dispose();
-    industryController.dispose();
-
-    if (result == null) {
-      return;
-    }
-
-    await store.updateCompany(name: result.name, industry: result.industry);
-    if (mounted) {
-      setState(() {});
-    }
   }
 
   Future<void> _resetOnboarding() async {
@@ -168,11 +113,101 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
   }
 }
 
-class _CompanyEditResult {
-  const _CompanyEditResult({required this.name, required this.industry});
+class _EditCompanyDialog extends StatefulWidget {
+  const _EditCompanyDialog({required this.store, required this.company});
 
-  final String name;
-  final String? industry;
+  final AppStore store;
+  final Company? company;
+
+  @override
+  State<_EditCompanyDialog> createState() => _EditCompanyDialogState();
+}
+
+class _EditCompanyDialogState extends State<_EditCompanyDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _nameController;
+  late final TextEditingController _industryController;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.company?.name ?? '');
+    _industryController = TextEditingController(
+      text: widget.company?.industry ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _industryController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (_isSaving || _formKey.currentState?.validate() != true) {
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    await widget.store.updateCompany(
+      name: _nameController.text,
+      industry: _industryController.text,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() => _isSaving = false);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(context).pop(true);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Edit Company'),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: _nameController,
+              decoration: const InputDecoration(labelText: 'Workspace name'),
+              validator: _required,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _industryController,
+              decoration: const InputDecoration(labelText: 'Industry'),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _isSaving ? null : _save,
+          child: _isSaving
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Save'),
+        ),
+      ],
+    );
+  }
 }
 
 class UsersRolesSettingsScreen extends StatelessWidget {
