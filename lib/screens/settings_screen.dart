@@ -154,10 +154,7 @@ class SettingsContent extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const IssuedPageHeader(
-          title: 'Settings',
-          subtitle: 'Account, organization, and app preferences',
-        ),
+        const IssuedPageHeader(title: 'Settings'),
         const SizedBox(height: 18),
         _CurrentUserCard(store: store),
         const SizedBox(height: 12),

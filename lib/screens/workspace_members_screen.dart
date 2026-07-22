@@ -75,10 +75,7 @@ class _WorkspaceMembersScreenState extends State<WorkspaceMembersScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            IssuedPageHeader(
-              title: 'Users & Roles',
-              subtitle: 'Manage who can access ${workspace.name}',
-            ),
+            const IssuedPageHeader(title: 'Users & Roles'),
             const SizedBox(height: 8),
             Align(
               alignment: Alignment.centerLeft,

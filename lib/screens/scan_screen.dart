@@ -11,11 +11,7 @@ class ScanScreen extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const IssuedPageHeader(
-          title: 'Scan',
-          subtitle:
-              'Scan item labels, locations, barcodes, or assignment targets.',
-        ),
+        const IssuedPageHeader(title: 'Scan'),
         const SizedBox(height: 18),
         Card(
           child: Padding(

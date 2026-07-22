@@ -39,6 +39,4 @@ String itemTypeSimpleRule(ItemType type) => switch (type) {
 };
 
 const itemTypeChoiceHelp =
-    'Choose Consumable when the item gets used up. Choose Returnable when the '
-    'item should come back. Choose Asset when you need to track the exact '
-    'individual item.';
+    'Choose the option that matches what happens when this item is issued.';

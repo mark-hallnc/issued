@@ -41,8 +41,6 @@ class _CountsScreenState extends State<CountsScreen> {
       children: [
         IssuedPageHeader(
           title: 'Cycle Counts',
-          subtitle:
-              'Plan counts, record variances, and keep inventory accurate.',
           action: canCreateCounts
               ? FilledButton.icon(
                   onPressed: _openCreateCount,
@@ -51,8 +49,8 @@ class _CountsScreenState extends State<CountsScreen> {
                 )
               : null,
         ),
+        const SizedBox(height: 16),
         if (sessions.isNotEmpty) ...[
-          const SizedBox(height: 16),
           Row(
             children: [
               Expanded(

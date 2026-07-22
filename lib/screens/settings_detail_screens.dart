@@ -505,10 +505,7 @@ class _LocationsSettingsScreenState extends State<LocationsSettingsScreen> {
             )
           : null,
       children: [
-        const IssuedPageHeader(
-          title: 'Locations',
-          subtitle: 'Track where inventory is stored, issued, and counted.',
-        ),
+        const IssuedPageHeader(title: 'Locations'),
         const SizedBox(height: 18),
         TextField(
           controller: _searchController,

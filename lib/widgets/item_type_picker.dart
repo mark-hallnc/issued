@@ -39,7 +39,7 @@ class ItemTypePicker extends StatelessWidget {
           Semantics(
             selected: value == type,
             button: true,
-            label: '${itemTypeLabel(type)}. ${itemTypeShortDescription(type)}',
+            label: '${itemTypeLabel(type)}. ${_compactDescription(type)}',
             child: Card(
               margin: EdgeInsets.zero,
               color: value == type ? colors.secondaryContainer : null,
@@ -74,16 +74,9 @@ class ItemTypePicker extends StatelessWidget {
                               style: Theme.of(context).textTheme.titleSmall
                                   ?.copyWith(fontWeight: FontWeight.w700),
                             ),
-                            Text(itemTypeShortDescription(type)),
-                            const SizedBox(height: 3),
                             Text(
-                              itemTypeExamples(type),
+                              _compactDescription(type),
                               style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                            Text(
-                              itemTypeBehaviorDescription(type),
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(fontWeight: FontWeight.w600),
                             ),
                           ],
                         ),
@@ -113,14 +106,23 @@ Future<void> showItemTypeHelpDialog(BuildContext context) {
           children: [
             const Text(itemTypeChoiceHelp),
             const SizedBox(height: 16),
-            for (final type in ItemType.values)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  itemTypeSimpleRule(type),
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
+            for (final type in ItemType.values) ...[
+              Text(
+                itemTypeLabel(type),
+                style: const TextStyle(fontWeight: FontWeight.w700),
               ),
+              const SizedBox(height: 4),
+              Text(itemTypeShortDescription(type)),
+              Text(itemTypeExamples(type)),
+              Text(itemTypeBehaviorDescription(type)),
+              const SizedBox(height: 14),
+            ],
+            const Text(
+              'Simple rule:',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 4),
+            for (final type in ItemType.values) Text(itemTypeSimpleRule(type)),
           ],
         ),
       ),
@@ -133,3 +135,9 @@ Future<void> showItemTypeHelpDialog(BuildContext context) {
     ),
   );
 }
+
+String _compactDescription(ItemType type) => switch (type) {
+  ItemType.consumable => 'Used up when issued',
+  ItemType.returnable => 'Expected back after checkout',
+  ItemType.asset => 'Track an exact individual item',
+};

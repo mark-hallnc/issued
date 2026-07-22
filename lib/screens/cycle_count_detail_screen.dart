@@ -84,11 +84,7 @@ class _CycleCountDetailScreenState extends State<CycleCountDetailScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          IssuedPageHeader(
-            title: _session.name,
-            subtitle:
-                'Review progress, record quantities, and resolve inventory variances.',
-          ),
+          IssuedPageHeader(title: _session.name),
           const SizedBox(height: 16),
           Card(
             child: Padding(

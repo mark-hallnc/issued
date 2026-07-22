@@ -98,10 +98,7 @@ class _QuickIssueScreenState extends State<QuickIssueScreen> {
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         children: [
-          const IssuedPageHeader(
-            title: 'Quick Issue',
-            subtitle: 'Scan or search an item, then choose an action.',
-          ),
+          const IssuedPageHeader(title: 'Quick Issue'),
           const SizedBox(height: 14),
           _UserStrip(store: store, onSwitchUser: () => store.lockSession()),
           const SizedBox(height: 16),

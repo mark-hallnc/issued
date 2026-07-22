@@ -86,10 +86,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const IssuedPageHeader(
-          title: 'Items',
-          subtitle: 'Manage inventory and stock levels',
-        ),
+        const IssuedPageHeader(title: 'Items'),
         const SizedBox(height: 18),
         TextField(
           controller: _searchController,
