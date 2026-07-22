@@ -4,6 +4,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../core/app_store.dart';
 import '../core/models/models.dart';
 import '../core/scanner/scan_parser.dart';
+import '../widgets/issued_status_badge.dart';
 import 'add_item_screen.dart';
 import 'checked_out_screen.dart';
 import 'item_detail_screen.dart';
@@ -42,23 +43,39 @@ class _ScannerScreenState extends State<ScannerScreen> {
       appBar: AppBar(
         title: const Text('Scan'),
         actions: [
-          TextButton(
+          IconButton(
             onPressed: _showManualEntryDialog,
-            child: const Text('Manual', style: TextStyle(color: Colors.white)),
+            tooltip: 'Enter code manually',
+            icon: const Icon(Icons.keyboard_outlined),
           ),
         ],
       ),
       body: Column(
         children: [
-          Container(
-            width: double.infinity,
-            color: const Color(0xFF17212F),
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              resolved == null
-                  ? 'Scan an item, location, assignment target, barcode, or SKU.'
-                  : 'Scan paused. Review the result or scan again.',
-              style: const TextStyle(color: Colors.white),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Row(
+                  children: [
+                    Icon(resolved == null ? Icons.center_focus_strong : Icons.pause_circle_outline, color: Theme.of(context).colorScheme.primary),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        resolved == null
+                            ? 'Scan an item, location, barcode, or Issued label.'
+                            : 'Scan paused. Review the result or scan again.',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
           if (resolved == null)
@@ -86,7 +103,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
                   child: OutlinedButton.icon(
                     onPressed: _showManualEntryDialog,
                     icon: const Icon(Icons.keyboard),
-                    label: const Text('Enter Code Manually'),
+                    label: const Text('Enter code manually'),
                   ),
                 ),
                 if (resolved != null) ...[
@@ -94,7 +111,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
                   FilledButton.icon(
                     onPressed: _scanAgain,
                     icon: const Icon(Icons.qr_code_scanner),
-                    label: const Text('Scan Again'),
+                    label: const Text('Scan again'),
                   ),
                 ],
               ],
@@ -217,8 +234,9 @@ class _ResultPanel extends StatelessWidget {
         store: store,
       ),
       ScanResolutionType.malformed => _SimpleResultPanel(
-        title: 'This Issued label could not be read.',
+        title: 'This label could not be read.',
         rawValue: resolved.rawValue,
+        message: 'Scan again or enter the code manually.',
       ),
       ScanResolutionType.notFound => _NotFoundPanel(resolved: resolved),
     };
@@ -245,13 +263,18 @@ class _ItemScanPanel extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _PanelTitle(
-              title: 'Item Found',
+              title: 'Item found',
               icon: Icons.inventory_2_outlined,
               badge: archived ? 'Archived' : null,
             ),
             const SizedBox(height: 8),
-            Text(item.name, style: Theme.of(context).textTheme.titleLarge),
-            Text(_itemTypeLabel(item.itemType)),
+            Text(item.name, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+            const SizedBox(height: 10),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              IssuedStatusBadge(label: _itemTypeLabel(item.itemType), tone: IssuedStatusTone.info),
+              IssuedStatusBadge(label: item.quantityOnHand <= 0 ? 'Out of stock' : 'In stock', tone: item.quantityOnHand <= 0 ? IssuedStatusTone.error : IssuedStatusTone.success),
+            ]),
+            const SizedBox(height: 10),
             Text(
               'Total: ${store.formatStockQuantity(item, item.quantityOnHand)}',
             ),
@@ -270,7 +293,7 @@ class _ItemScanPanel extends StatelessWidget {
                 FilledButton.icon(
                   onPressed: () => _openQuickIssue(context, itemId: item.id),
                   icon: const Icon(Icons.flash_on_outlined),
-                  label: const Text('Quick Actions'),
+                  label: const Text('Quick actions'),
                 ),
                 if (!archived && store.permissions.canIssueItems)
                   OutlinedButton(
@@ -278,7 +301,7 @@ class _ItemScanPanel extends StatelessWidget {
                     child: Text(
                       item.itemType == ItemType.consumable
                           ? 'Issue'
-                          : 'Check Out',
+                          : 'Check out',
                     ),
                   ),
                 if (!archived && openCheckouts.isNotEmpty)
@@ -297,7 +320,7 @@ class _ItemScanPanel extends StatelessWidget {
                       builder: (context) => ItemDetailScreen(item: item),
                     ),
                   ),
-                  child: const Text('View Detail'),
+                  child: const Text('View detail'),
                 ),
               ],
             ),
@@ -347,13 +370,18 @@ class _LocationScanPanel extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _PanelTitle(
-              title: 'Location Found',
+              title: 'Location found',
               icon: Icons.location_on_outlined,
               badge: location.isActive ? null : 'Archived',
             ),
             const SizedBox(height: 8),
-            Text(location.name, style: Theme.of(context).textTheme.titleLarge),
-            Text('Type: ${location.type}'),
+            Text(location.name, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+            const SizedBox(height: 10),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              IssuedStatusBadge(label: _locationTypeLabel(location.type), tone: IssuedStatusTone.info),
+              IssuedStatusBadge(label: location.isActive ? 'Active' : 'Archived', tone: location.isActive ? IssuedStatusTone.success : IssuedStatusTone.neutral),
+            ]),
+            const SizedBox(height: 10),
             Text('${itemsAtLocation.length} active items'),
             Text('Total stock quantity: ${_formatQuantity(totalStock)}'),
             const SizedBox(height: 12),
@@ -368,7 +396,7 @@ class _LocationScanPanel extends StatelessWidget {
                           LocationDetailScreen(locationId: location.id),
                     ),
                   ),
-                  child: const Text('View Detail'),
+                  child: const Text('View location'),
                 ),
                 OutlinedButton(
                   onPressed: () => Navigator.of(context).push(
@@ -377,17 +405,19 @@ class _LocationScanPanel extends StatelessWidget {
                           ItemsScreen(initialLocationId: location.id),
                     ),
                   ),
-                  child: const Text('View Items at Location'),
+                  child: const Text('View items here'),
                 ),
+                if (store.permissions.canReceiveStock)
                 OutlinedButton(
                   onPressed: () =>
                       _openQuickIssue(context, sourceLocationId: location.id),
-                  child: const Text('Receive Stock to This Location'),
+                  child: const Text('Receive stock here'),
                 ),
+                if (store.permissions.canTransferStock)
                 OutlinedButton(
                   onPressed: () =>
                       _openQuickIssue(context, sourceLocationId: location.id),
-                  child: const Text('Transfer From This Location'),
+                  child: const Text('Transfer from here'),
                 ),
                 OutlinedButton(
                   onPressed: () => Navigator.of(context).push(
@@ -398,7 +428,7 @@ class _LocationScanPanel extends StatelessWidget {
                       ),
                     ),
                   ),
-                  child: const Text('Print Location Label'),
+                  child: const Text('Print label'),
                 ),
               ],
             ),
@@ -430,13 +460,15 @@ class _TargetScanPanel extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _PanelTitle(
-              title: 'Target Found',
+              title: 'Target found',
               icon: Icons.assignment_ind_outlined,
               badge: target.isActive ? null : 'Archived',
             ),
             const SizedBox(height: 8),
-            Text(target.name, style: Theme.of(context).textTheme.titleLarge),
-            Text(assignmentTargetTypeLabel(target.targetType)),
+            Text(target.name, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+            const SizedBox(height: 10),
+            IssuedStatusBadge(label: assignmentTargetTypeLabel(target.targetType), tone: IssuedStatusTone.info),
+            const SizedBox(height: 10),
             if ((target.code ?? '').trim().isNotEmpty)
               Text('Code: ${target.code}'),
             Text('$openCheckouts open checkouts'),
@@ -452,17 +484,17 @@ class _TargetScanPanel extends StatelessWidget {
                           CheckedOutScreen(initialTargetId: target.id),
                     ),
                   ),
-                  child: const Text('View Open Checkouts for Target'),
+                  child: const Text('View open checkouts'),
                 ),
                 OutlinedButton(
                   onPressed: () =>
                       _openQuickIssue(context, assignmentTargetId: target.id),
-                  child: const Text('Issue to This Target'),
+                  child: const Text('Quick issue to target'),
                 ),
                 OutlinedButton(
                   onPressed: () =>
                       _openQuickIssue(context, assignmentTargetId: target.id),
-                  child: const Text('Check Out to This Target'),
+                  child: const Text('Check out to target'),
                 ),
               ],
             ),
@@ -486,7 +518,8 @@ class _MultipleItemsPanel extends StatelessWidget {
         children: [
           const ListTile(
             leading: Icon(Icons.warning_amber_outlined),
-            title: Text('Multiple active items match this code.'),
+            title: Text('Multiple items match this code'),
+            subtitle: Text('Choose the item you intended to scan.'),
           ),
           for (final item in items)
             ListTile(
@@ -580,8 +613,9 @@ class _NotFoundPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final store = AppStoreScope.of(context);
     return _SimpleResultPanel(
-      title: 'No item, location, or target found for this code.',
+      title: 'No match found',
       rawValue: resolved.rawValue,
+      message: 'Search inventory or add this barcode as a new item.',
       action: Wrap(
         spacing: 8,
         runSpacing: 8,
@@ -592,7 +626,7 @@ class _NotFoundPanel extends StatelessWidget {
                 builder: (context) => const ItemsScreen(),
               ),
             ),
-            child: const Text('Search Items'),
+            child: const Text('Search items'),
           ),
           if (store.permissions.canManageItems)
             FilledButton(
@@ -602,7 +636,7 @@ class _NotFoundPanel extends StatelessWidget {
                       AddItemScreen(initialBarcode: resolved.rawValue.trim()),
                 ),
               ),
-              child: const Text('Add New Item'),
+              child: const Text('Add new item'),
             ),
         ],
       ),
@@ -631,9 +665,14 @@ class _SimpleResultPanel extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
+            IssuedStatusBadge(label: title, icon: Icons.info_outline, tone: IssuedStatusTone.info),
             const SizedBox(height: 8),
-            SelectableText(rawValue),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(10)),
+              child: SelectableText(rawValue),
+            ),
             if (message != null) ...[const SizedBox(height: 8), Text(message!)],
             if (action != null) ...[const SizedBox(height: 12), action!],
           ],
@@ -654,12 +693,12 @@ class _PanelTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, color: const Color(0xFF1E3A5F)),
+        Icon(icon, color: Theme.of(context).colorScheme.primary),
         const SizedBox(width: 8),
         Expanded(
           child: Text(title, style: Theme.of(context).textTheme.titleMedium),
         ),
-        if (badge != null) Chip(label: Text(badge!)),
+        if (badge != null) IssuedStatusBadge(label: badge!),
       ],
     );
   }
@@ -684,13 +723,12 @@ class _ManualEntryDialogState extends State<_ManualEntryDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Enter Code'),
+      title: const Text('Enter code manually'),
       content: TextField(
         controller: _controller,
         autofocus: true,
         decoration: const InputDecoration(
           labelText: 'Barcode or QR value',
-          border: OutlineInputBorder(),
         ),
         textInputAction: TextInputAction.search,
         onSubmitted: (_) => _submit(),
@@ -718,25 +756,25 @@ class _ScannerError extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: Colors.black,
+      color: Theme.of(context).colorScheme.surface,
       child: Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.camera_alt_outlined, color: Colors.white),
+              Icon(Icons.camera_alt_outlined, size: 42, color: Theme.of(context).colorScheme.primary),
               const SizedBox(height: 12),
               Text(
                 message,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white),
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 8),
               const Text(
                 'Camera access is needed to scan item barcodes and QR labels.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white70),
+                style: TextStyle(color: Color(0xFF64748B)),
               ),
             ],
           ),
@@ -775,6 +813,19 @@ String _itemTypeLabel(ItemType type) {
     ItemType.consumable => 'Consumable',
     ItemType.returnable => 'Returnable',
     ItemType.asset => 'Asset',
+  };
+}
+
+String _locationTypeLabel(String value) {
+  return switch (value) {
+    'stockroom' => 'Stockroom',
+    'shelf' => 'Shelf',
+    'bin' => 'Bin',
+    'truck' => 'Truck',
+    'jobBox' => 'Job box',
+    'warehouse' => 'Warehouse',
+    'trailer' => 'Trailer',
+    _ => value.isEmpty ? 'Other' : value,
   };
 }
 
