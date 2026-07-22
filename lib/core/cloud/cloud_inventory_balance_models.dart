@@ -102,8 +102,8 @@ class CloudInventoryBalance {
       'deleted_at': deletedAt?.toUtc().toIso8601String(),
       'created_at': createdAt.toUtc().toIso8601String(),
       'updated_at': updatedAt.toUtc().toIso8601String(),
-      if (userId != null) 'created_by': userId,
-      if (userId != null) 'updated_by': userId,
+      ?'created_by': userId,
+      ?'updated_by': userId,
     };
   }
 }

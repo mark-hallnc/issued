@@ -449,11 +449,12 @@ Future<void> _runAction(
   Future<AppActionResult> Function() action, {
   Future<void> Function()? after,
 }) async {
+  final store = AppStoreScope.of(context);
   AppActionResult result;
   try {
     result = await action();
   } catch (error, stackTrace) {
-    result = AppStoreScope.of(context).friendlySyncFailure(
+    result = store.friendlySyncFailure(
       error,
       stackTrace: stackTrace,
       context: 'Sync diagnostics action',
