@@ -53,8 +53,8 @@ class _WorkspaceSelectionScreenState extends State<WorkspaceSelectionScreen> {
       appBar: AppBar(
         title: Text(
           isFirstOrganization
-              ? 'Set up your organization'
-              : 'Choose organization',
+              ? 'Create company'
+              : 'Choose company',
         ),
       ),
       body: SafeArea(
@@ -68,12 +68,12 @@ class _WorkspaceSelectionScreenState extends State<WorkspaceSelectionScreen> {
           children: [
             if (isFirstOrganization) ...[
               Text(
-                'Set up your organization',
+                'Create company',
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
               const SizedBox(height: 8),
               const Text(
-                'Create the organization you’ll use to manage inventory, tools, and stock.',
+                'Create the company you’ll use to manage inventory, tools, and stock.',
               ),
               const SizedBox(height: 16),
             ],
@@ -82,7 +82,7 @@ class _WorkspaceSelectionScreenState extends State<WorkspaceSelectionScreen> {
             if (store.pendingCloudInvites.isNotEmpty) ...[
               Text(
                 store.pendingCloudInvites.length == 1
-                    ? "You've been invited to ${store.pendingCloudInvites.single.workspaceName ?? 'an organization'}. Join now?"
+                    ? "You've been invited to ${store.pendingCloudInvites.single.workspaceName ?? 'a company'}. Join now?"
                     : 'Choose invitation to accept.',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
@@ -92,7 +92,7 @@ class _WorkspaceSelectionScreenState extends State<WorkspaceSelectionScreen> {
                   child: ListTile(
                     leading: const Icon(Icons.mark_email_unread_outlined),
                     title: Text(
-                      invite.workspaceName ?? 'Organization invitation',
+                      invite.workspaceName ?? 'Company invitation',
                     ),
                     subtitle: Text(
                       'Invited as ${cloudWorkspaceRoleLabel(invite.role)}',
@@ -121,7 +121,7 @@ class _WorkspaceSelectionScreenState extends State<WorkspaceSelectionScreen> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       ),
                       SizedBox(width: 12),
-                      Text('Checking organizations...'),
+                      Text('Checking companies...'),
                     ],
                   ),
                 ),
@@ -130,7 +130,7 @@ class _WorkspaceSelectionScreenState extends State<WorkspaceSelectionScreen> {
               const _EmptyOrganizationCard()
             else if (store.availableWorkspaces.isNotEmpty) ...[
               Text(
-                'Your organizations',
+                'Your companies',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 8),
@@ -188,7 +188,7 @@ class _WorkspaceSelectionScreenState extends State<WorkspaceSelectionScreen> {
     }
     setState(() => _isBusy = false);
     if (!result.success) {
-      _showMessage(result.message ?? 'Could not open organization.');
+      _showMessage(result.message ?? 'Could not open company.');
       return;
     }
     _openDashboard();
@@ -196,7 +196,7 @@ class _WorkspaceSelectionScreenState extends State<WorkspaceSelectionScreen> {
 
   Future<void> _createOrganization(AppStore store) async {
     if (_nameController.text.trim().isEmpty) {
-      _showMessage('Enter an organization name.');
+      _showMessage('Enter a company name.');
       return;
     }
     final isFirstOrganization = store.availableWorkspaces.isEmpty;
@@ -213,7 +213,7 @@ class _WorkspaceSelectionScreenState extends State<WorkspaceSelectionScreen> {
       return;
     }
     setState(() => _isBusy = false);
-    _showMessage(result.message ?? 'Organization created.');
+    _showMessage(result.message ?? 'Company created.');
     if (result.success) {
       _openDashboard();
     }
@@ -298,7 +298,7 @@ class _AccountCard extends StatelessWidget {
             if (store.currentUserDisplayEmail.isNotEmpty)
               Text(store.currentUserDisplayEmail),
             if (store.activeWorkspace != null)
-              Text('Current organization: ${store.activeWorkspace!.name}'),
+              Text('Current company: ${store.activeWorkspace!.name}'),
           ],
         ),
       ),
@@ -314,7 +314,7 @@ class _EmptyOrganizationCard extends StatelessWidget {
     return const Card(
       child: Padding(
         padding: EdgeInsets.all(16),
-        child: Text('You do not have an organization yet.'),
+        child: Text('You do not have a company yet.'),
       ),
     );
   }
@@ -344,7 +344,7 @@ class _CreateOrganizationCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Organization details',
+              'Company details',
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
@@ -353,7 +353,7 @@ class _CreateOrganizationCard extends StatelessWidget {
               controller: organizationController,
               textInputAction: TextInputAction.next,
               decoration: const InputDecoration(
-                labelText: 'Organization name',
+                labelText: 'Company name',
                 hintText: 'Example: Acme Tool Room',
               ),
             ),
@@ -367,7 +367,7 @@ class _CreateOrganizationCard extends StatelessWidget {
                   labelText: 'Your name',
                   hintText: 'Example: Jane Doe',
                   helperText:
-                      'This is how your name will appear to other people in this organization.',
+                      'This is how your name will appear to other people in this company.',
                 ),
                 onSubmitted: (_) {
                   if (!isBusy) onCreate();
@@ -381,7 +381,7 @@ class _CreateOrganizationCard extends StatelessWidget {
                   leading: Icon(Icons.verified_user_outlined),
                   title: Text('Owner'),
                   subtitle: Text(
-                    'You’ll be the owner of this organization. Owners can manage the organization, users, roles, settings, and billing.',
+                    'You’ll be the owner of this company. Owners can manage the company, users, roles, settings, and billing.',
                   ),
                   trailing: Icon(Icons.lock_outline),
                 ),
@@ -416,7 +416,7 @@ class _CreateOrganizationCard extends StatelessWidget {
             const SizedBox(height: 16),
             FilledButton(
               onPressed: isBusy ? null : onCreate,
-              child: const Text('Create organization'),
+              child: const Text('Create company'),
             ),
           ],
         ),

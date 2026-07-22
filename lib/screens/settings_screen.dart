@@ -56,6 +56,11 @@ class SettingsContent extends StatelessWidget {
     final store = AppStoreScope.of(context);
     final permissions = store.permissions;
     final rows = [
+      const _SettingsRow(
+        title: 'Account',
+        icon: Icons.account_circle_outlined,
+        screen: CloudAccountSettingsScreen(),
+      ),
       if (permissions.canManageSettings)
         const _SettingsRow(
           title: 'Company',
@@ -73,11 +78,12 @@ class SettingsContent extends StatelessWidget {
         icon: Icons.admin_panel_settings_outlined,
         screen: RolesPermissionsScreen(),
       ),
-      const _SettingsRow(
-        title: 'Account / Organization',
-        icon: Icons.business_outlined,
-        screen: CloudAccountSettingsScreen(),
-      ),
+      if (permissions.isAdmin || permissions.isManager)
+        const _SettingsRow(
+          title: 'Plan & Usage',
+          icon: Icons.query_stats_outlined,
+          screen: PlanUsageSettingsScreen(),
+        ),
       if (permissions.canManageSettings)
         const _SettingsRow(
           title: 'Locations',
@@ -101,12 +107,6 @@ class SettingsContent extends StatelessWidget {
           title: 'Assignment Targets',
           icon: Icons.assignment_ind_outlined,
           screen: AssignmentTargetsScreen(),
-        ),
-      if (permissions.isAdmin || permissions.isManager)
-        const _SettingsRow(
-          title: 'Plan & Usage',
-          icon: Icons.query_stats_outlined,
-          screen: PlanUsageSettingsScreen(),
         ),
       const _SettingsRow(
         title: 'Reports',
@@ -193,7 +193,7 @@ class DeveloperToolsSettingsScreen extends StatelessWidget {
         appBar: AppBar(title: const Text('Developer Tools')),
         body: const Center(
           child: Text(
-            'You do not have permission to do that in this workspace.',
+            'Your role does not allow that in this company.',
           ),
         ),
       );
@@ -215,7 +215,7 @@ class DeveloperToolsSettingsScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'These debug-only actions affect this device only. Cloud workspaces will not be deleted.',
+                    'These debug-only actions affect this device only. Companies will not be deleted.',
                   ),
                   const SizedBox(height: 16),
                   OutlinedButton(
@@ -223,7 +223,7 @@ class DeveloperToolsSettingsScreen extends StatelessWidget {
                       context,
                       title: 'Clear local test data?',
                       message:
-                          'This removes local test inventory and activity from this device only. It does not delete cloud workspaces.',
+                          'This removes test inventory and activity from this device only. It does not delete companies.',
                       action: store.clearLocalInventoryTestDataForDevelopment,
                     ),
                     style: issuedDestructiveOutlinedButtonStyle(context),
@@ -235,7 +235,7 @@ class DeveloperToolsSettingsScreen extends StatelessWidget {
                       context,
                       title: 'Clear local data and sign out?',
                       message:
-                          'This removes local app data from this device and signs out of the cloud account. It does not delete your Supabase project or workspace.',
+                          'This removes app data from this device and signs out of the account. It does not delete your company.',
                       action: store.clearLocalDataAndSignOutForDevelopment,
                       resetToLoginOnSuccess: true,
                     ),
@@ -317,7 +317,7 @@ class CloudAccountSettingsScreen extends StatelessWidget {
     final store = AppStoreScope.of(context);
     final canOpenSyncDiagnostics = kDebugMode || store.canOpenSyncDiagnostics;
     return Scaffold(
-      appBar: AppBar(title: const Text('Account / Organization')),
+      appBar: AppBar(title: const Text('Account')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -338,8 +338,8 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                         : store.currentUserDisplayEmail,
                   ),
                   _CloudStatusLine(
-                    label: 'Organization',
-                    value: store.activeWorkspace?.name ?? 'None',
+                    label: 'Company',
+                    value: store.activeWorkspace?.name ?? 'No company selected',
                   ),
                   _CloudStatusLine(
                     label: 'Role',
@@ -392,11 +392,11 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                     value: store.cloudSyncStatusLabel,
                   ),
                   _CloudStatusLine(
-                    label: 'Organization',
+                    label: 'Company',
                     value:
                         store.cloudSyncSummary.activeWorkspaceName ??
                         store.activeWorkspace?.name ??
-                        'None',
+                        'No company selected',
                   ),
                   _CloudStatusLine(
                     label: 'Cloud setup',
@@ -811,7 +811,7 @@ class CloudAccountSettingsScreen extends StatelessWidget {
                     )
                   else
                     const Text(
-                      'Sync runs automatically after sign-in, organization selection, app resume, and local edits.',
+                      'Sync runs automatically after sign-in, company selection, app resume, and inventory edits.',
                     ),
                 ],
               ),
@@ -859,7 +859,7 @@ class _AccountWorkspaceActions extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Account / Organization',
+              'Account',
               style: Theme.of(
                 context,
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
@@ -879,7 +879,7 @@ class _AccountWorkspaceActions extends StatelessWidget {
                 else
                   FilledButton(
                     onPressed: onOpenWorkspace,
-                    child: const Text('Manage organization'),
+                    child: const Text('Manage company'),
                   ),
                 if (store.activeWorkspace != null)
                   OutlinedButton(
@@ -914,7 +914,7 @@ class _AccountWorkspaceActions extends StatelessWidget {
     }
     final organization = store.activeWorkspace?.name;
     if (organization == null) {
-      return 'Choose or create an organization to continue.';
+      return 'Choose or create a company to continue.';
     }
     return '$organization is selected.';
   }

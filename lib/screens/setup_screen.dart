@@ -16,7 +16,6 @@ class _SetupScreenState extends State<SetupScreen> {
   final _locationFormKey = GlobalKey<FormState>();
   final _adminFormKey = GlobalKey<FormState>();
   final _companyController = TextEditingController();
-  final _industryController = TextEditingController();
   final _locationController = TextEditingController(text: 'Main Stockroom');
   final _adminNameController = TextEditingController();
   final _adminEmailController = TextEditingController();
@@ -31,7 +30,6 @@ class _SetupScreenState extends State<SetupScreen> {
   @override
   void dispose() {
     _companyController.dispose();
-    _industryController.dispose();
     _locationController.dispose();
     _adminNameController.dispose();
     _adminEmailController.dispose();
@@ -80,7 +78,7 @@ class _SetupScreenState extends State<SetupScreen> {
               ],
             ),
             _SetupStep(
-              title: 'Organization',
+              title: 'Create company',
               children: [
                 Form(
                   key: _companyFormKey,
@@ -89,54 +87,19 @@ class _SetupScreenState extends State<SetupScreen> {
                       TextFormField(
                         controller: _companyController,
                         decoration: const InputDecoration(
-                          labelText: 'Organization name',
+                          labelText: 'Company name',
                         ),
                         validator: _required,
-                      ),
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
-                        initialValue: _industryController.text.isEmpty
-                            ? null
-                            : _industryController.text,
-                        decoration: const InputDecoration(
-                          labelText: 'Industry',
-                        ),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'Maintenance',
-                            child: Text('Maintenance'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Manufacturing',
-                            child: Text('Manufacturing'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Contractor',
-                            child: Text('Contractor'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Fleet',
-                            child: Text('Fleet'),
-                          ),
-                          DropdownMenuItem(value: 'Farm', child: Text('Farm')),
-                          DropdownMenuItem(
-                            value: 'School/CTE',
-                            child: Text('School/CTE'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'Other',
-                            child: Text('Other'),
-                          ),
-                        ],
-                        onChanged: (value) {
-                          _industryController.text = value ?? '';
-                        },
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 24),
-                _StepButtons(onBack: _back, onNext: _validateCompany),
+                _StepButtons(
+                  onBack: _back,
+                  onNext: _validateCompany,
+                  nextLabel: 'Continue',
+                ),
               ],
             ),
             _SetupStep(
@@ -346,7 +309,7 @@ class _SetupScreenState extends State<SetupScreen> {
 
     await AppStoreScope.of(context).completeSetup(
       companyName: _companyController.text,
-      industry: _industryController.text,
+      industry: null,
       locationName: _locationController.text,
       locationType: _locationType,
       adminDisplayName: _adminNameController.text,
@@ -400,10 +363,15 @@ class _SetupStep extends StatelessWidget {
 }
 
 class _StepButtons extends StatelessWidget {
-  const _StepButtons({required this.onBack, required this.onNext});
+  const _StepButtons({
+    required this.onBack,
+    required this.onNext,
+    this.nextLabel = 'Next',
+  });
 
   final VoidCallback onBack;
   final VoidCallback onNext;
+  final String nextLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -414,7 +382,7 @@ class _StepButtons extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: FilledButton(onPressed: onNext, child: const Text('Next')),
+          child: FilledButton(onPressed: onNext, child: Text(nextLabel)),
         ),
       ],
     );

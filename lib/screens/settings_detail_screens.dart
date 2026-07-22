@@ -24,6 +24,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
     final store = AppStoreScope.of(context);
     final company = store.company;
     final canEdit = store.permissions.canManageSettings;
+    final usage = store.currentUsage;
 
     return _SettingsScaffold(
       title: 'Company',
@@ -34,51 +35,67 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  company?.name ?? 'No workspace set',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
+                _CompanyDetailRow(
+                  label: 'Company name',
+                  value: company?.name.trim().isNotEmpty == true
+                      ? company!.name.trim()
+                      : 'Not set',
                 ),
-                const SizedBox(height: 8),
-                Text('Industry: ${company?.industry ?? 'Not set'}'),
-                Text(
-                  'Setup: ${company?.setupCompleted ?? false ? 'Complete' : 'Not complete'}',
+                _CompanyDetailRow(
+                  label: 'Current plan',
+                  value: store.currentPlan.name,
                 ),
-                const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  onPressed: canEdit ? _showEditCompanyDialog : null,
-                  icon: const Icon(Icons.edit_outlined),
-                  label: const Text('Edit Company'),
+                _CompanyDetailRow(
+                  label: 'Active users',
+                  value: '${usage.userCount}',
+                ),
+                _CompanyDetailRow(
+                  label: 'Locations',
+                  value: '${usage.locationCount}',
                 ),
               ],
             ),
           ),
         ),
         const SizedBox(height: 12),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            FilledButton.icon(
+              onPressed: canEdit ? _showEditCompanyDialog : null,
+              icon: const Icon(Icons.edit_outlined),
+              label: const Text('Edit company'),
+            ),
+            if (store.permissions.canManageUsers)
+              OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const UsersRolesSettingsScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.group_outlined),
+                label: const Text('Users & roles'),
+              ),
+            OutlinedButton.icon(
+              onPressed: () => openComparePlans(context),
+              icon: const Icon(Icons.compare_arrows),
+              label: const Text('Compare plans'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
         Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Development/testing tool',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Show setup again resets onboarding only. Inventory data is not deleted.',
-                ),
-                const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  onPressed: canEdit ? _resetOnboarding : null,
-                  icon: const Icon(Icons.restart_alt),
-                  label: const Text('Show setup again'),
-                ),
-              ],
+          child: ListTile(
+            title: const Text('Developer tool'),
+            subtitle: const Text(
+              'Show company setup again without deleting inventory data.',
+            ),
+            trailing: OutlinedButton(
+              onPressed: canEdit ? _resetOnboarding : null,
+              child: const Text('Show setup'),
             ),
           ),
         ),
@@ -126,22 +143,17 @@ class _EditCompanyDialog extends StatefulWidget {
 class _EditCompanyDialogState extends State<_EditCompanyDialog> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
-  late final TextEditingController _industryController;
   bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.company?.name ?? '');
-    _industryController = TextEditingController(
-      text: widget.company?.industry ?? '',
-    );
   }
 
   @override
   void dispose() {
     _nameController.dispose();
-    _industryController.dispose();
     super.dispose();
   }
 
@@ -151,16 +163,30 @@ class _EditCompanyDialogState extends State<_EditCompanyDialog> {
     }
 
     setState(() => _isSaving = true);
-    await widget.store.updateCompany(
-      name: _nameController.text,
-      industry: _industryController.text,
-    );
+    try {
+      await widget.store.updateCompany(
+        name: _nameController.text,
+        industry: widget.company?.industry,
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _isSaving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not update company. Try again.')),
+      );
+      return;
+    }
 
     if (!mounted) {
       return;
     }
 
     setState(() => _isSaving = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Company updated.')),
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) {
         return;
@@ -172,7 +198,7 @@ class _EditCompanyDialogState extends State<_EditCompanyDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Edit Company'),
+      title: const Text('Edit company'),
       content: Form(
         key: _formKey,
         child: Column(
@@ -180,13 +206,8 @@ class _EditCompanyDialogState extends State<_EditCompanyDialog> {
           children: [
             TextFormField(
               controller: _nameController,
-              decoration: const InputDecoration(labelText: 'Workspace name'),
+              decoration: const InputDecoration(labelText: 'Company name'),
               validator: _required,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _industryController,
-              decoration: const InputDecoration(labelText: 'Industry'),
             ),
           ],
         ),
@@ -206,6 +227,34 @@ class _EditCompanyDialogState extends State<_EditCompanyDialog> {
               : const Text('Save'),
         ),
       ],
+    );
+  }
+}
+
+class _CompanyDetailRow extends StatelessWidget {
+  const _CompanyDetailRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Expanded(child: Text(label)),
+          const SizedBox(width: 16),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1096,7 +1145,7 @@ class PlanUsageSettingsScreen extends StatelessWidget {
                 Text(
                   plan.code == 'free'
                       ? 'Free forever for solo and small-shop use.'
-                      : 'Billing is not connected yet. This plan is selected for the organization.',
+                      : 'Billing is not connected yet. This plan is selected for the company.',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: const Color(0xFF5C6672),
                   ),

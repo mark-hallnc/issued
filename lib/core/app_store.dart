@@ -170,7 +170,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
       CloudAdoptionState.localOnlySelected => 'Not syncing this device',
       CloudAdoptionState.uploadSelected => 'Upload selected',
       CloudAdoptionState.startFreshSelected => 'Started fresh',
-      CloudAdoptionState.completed => 'Workspace setup complete',
+      CloudAdoptionState.completed => 'Company setup complete',
       CloudAdoptionState.blocked => 'Blocked',
       CloudAdoptionState.error => 'Error',
     };
@@ -1801,7 +1801,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     }
     if (choice == CloudAdoptionChoice.cancel) {
       await refreshCloudAdoptionSummary();
-      return const AppActionResult.success(message: 'Workspace setup paused.');
+      return const AppActionResult.success(message: 'Company setup paused.');
     }
     if (choice == CloudAdoptionChoice.keepLocalOnly) {
       await cloudAdoptionService.markAdoptionCompleted(workspace.id, choice);
@@ -1815,7 +1815,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
       await refreshCloudAdoptionSummary();
       return const AppActionResult.success(
         message:
-            'Workspace setup saved. Existing data on this device will not be uploaded automatically.',
+            'Company setup saved. Existing data on this device will not be uploaded automatically.',
       );
     }
     if (!permissions.isAdmin && !permissions.isManager) {
@@ -1841,7 +1841,7 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     await refreshCloudAdoptionSummary();
     return AppActionResult.success(
       message:
-          '${result.message ?? 'Device data uploaded.'} Workspace setup is complete.',
+          '${result.message ?? 'Device data uploaded.'} Company setup is complete.',
       data: result.data,
     );
   }
@@ -7211,8 +7211,8 @@ class AppStore extends ChangeNotifier with WidgetsBindingObserver {
     if (_activeWorkspace == null) {
       return SyncUserStatusSummary(
         status: SyncUserStatus.noWorkspace,
-        label: 'Choose organization',
-        detail: 'Choose or create an organization to continue.',
+        label: 'Choose company',
+        detail: 'Choose or create a company to continue.',
         pendingCount: _cloudSyncSummary.pendingUploadCount,
         failedCount: _failedSyncUploadCount,
         conflictCount: syncConflictCount,
@@ -7442,7 +7442,7 @@ class AppActionResult {
 
   factory AppActionResult.denied() {
     return const AppActionResult.failure(
-      'You do not have permission to do that in this workspace.',
+      'Your role does not allow that in this company.',
     );
   }
 
