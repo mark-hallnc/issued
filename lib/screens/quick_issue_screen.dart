@@ -84,8 +84,7 @@ class _QuickIssueScreenState extends State<QuickIssueScreen> {
           children: const [
             SizedBox(height: 24),
             _MessagePanel(
-              message:
-                  'Your role does not allow that in this organization.',
+              message: 'Your role does not allow that in this organization.',
             ),
           ],
         ),
@@ -324,9 +323,9 @@ class _QuickIssueScreenState extends State<QuickIssueScreen> {
             children: [
               Text(
                 _actionTitle(action),
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 5),
               Text(
@@ -387,9 +386,7 @@ class _QuickIssueScreenState extends State<QuickIssueScreen> {
               const SizedBox(height: 12),
               TextFormField(
                 controller: _notesController,
-                decoration: const InputDecoration(
-                  labelText: 'Notes optional',
-                ),
+                decoration: const InputDecoration(labelText: 'Notes optional'),
                 maxLines: 2,
               ),
               if (_message != null) ...[
@@ -412,9 +409,7 @@ class _QuickIssueScreenState extends State<QuickIssueScreen> {
     final locations = _stockLocations(store, item);
     return DropdownButtonFormField<String>(
       initialValue: _selectedSourceLocationId,
-      decoration: const InputDecoration(
-        labelText: 'From location',
-      ),
+      decoration: const InputDecoration(labelText: 'From location'),
       items: [
         for (final balance in locations)
           DropdownMenuItem(
@@ -453,9 +448,7 @@ class _QuickIssueScreenState extends State<QuickIssueScreen> {
     final records = store.openCheckoutRecordsForItem(item.id);
     return DropdownButtonFormField<String>(
       initialValue: _selectedCheckout?.id,
-      decoration: const InputDecoration(
-        labelText: 'Open checkout',
-      ),
+      decoration: const InputDecoration(labelText: 'Open checkout'),
       items: [
         for (final record in records)
           DropdownMenuItem(
@@ -481,9 +474,7 @@ class _QuickIssueScreenState extends State<QuickIssueScreen> {
   Widget _returnConditionField(AppStore store) {
     return DropdownButtonFormField<_ReturnCondition>(
       initialValue: _returnCondition,
-      decoration: const InputDecoration(
-        labelText: 'Condition',
-      ),
+      decoration: const InputDecoration(labelText: 'Condition'),
       items: [
         for (final condition in _ReturnCondition.values)
           DropdownMenuItem(value: condition, child: Text(condition.label)),
@@ -507,9 +498,7 @@ class _QuickIssueScreenState extends State<QuickIssueScreen> {
       children: [
         DropdownButtonFormField<String>(
           initialValue: _assignedPersonId,
-          decoration: const InputDecoration(
-            labelText: 'Person optional',
-          ),
+          decoration: const InputDecoration(labelText: 'Person optional'),
           items: [
             const DropdownMenuItem(value: '', child: Text('No person')),
             for (final person in people)
@@ -527,9 +516,7 @@ class _QuickIssueScreenState extends State<QuickIssueScreen> {
         const SizedBox(height: 12),
         DropdownButtonFormField<String>(
           initialValue: _assignedLocationId,
-          decoration: InputDecoration(
-            labelText: 'Location optional',
-          ),
+          decoration: InputDecoration(labelText: 'Location optional'),
           items: [
             const DropdownMenuItem(value: '', child: Text('No location')),
             for (final location in locations)
@@ -836,7 +823,10 @@ class _UserStrip extends StatelessWidget {
               ),
               child: Padding(
                 padding: const EdgeInsets.all(8),
-                child: Icon(Icons.person_outline, color: Theme.of(context).colorScheme.primary),
+                child: Icon(
+                  Icons.person_outline,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -846,9 +836,16 @@ class _UserStrip extends StatelessWidget {
                 children: [
                   Text(
                     userName,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
-                  Text(role, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF64748B))),
+                  Text(
+                    role,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: const Color(0xFF64748B),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -984,7 +981,12 @@ class _ItemList extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: Align(
               alignment: Alignment.centerLeft,
-              child: Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+              child: Text(
+                title,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              ),
             ),
           ),
           for (final item in items)
@@ -1035,7 +1037,8 @@ class _ItemActionPanel extends StatelessWidget {
                     children: [
                       Text(
                         item.name,
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(fontWeight: FontWeight.w800),
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -1139,7 +1142,10 @@ class _StockSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     final balances = store.itemBalancesForItem(item.id);
     if (balances.isEmpty) {
-      return const Text('No stock by location yet.', style: TextStyle(color: Color(0xFF64748B)));
+      return const Text(
+        'No stock by location yet.',
+        style: TextStyle(color: Color(0xFF64748B)),
+      );
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1174,7 +1180,11 @@ class _SuccessPanel extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const IssuedStatusBadge(label: 'Completed', icon: Icons.check_circle_outline, tone: IssuedStatusTone.success),
+            const IssuedStatusBadge(
+              label: 'Completed',
+              icon: Icons.check_circle_outline,
+              tone: IssuedStatusTone.success,
+            ),
             const SizedBox(height: 12),
             Text(
               message,
@@ -1206,7 +1216,11 @@ class _MessagePanel extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            const IssuedStatusBadge(label: 'Info', icon: Icons.info_outline, tone: IssuedStatusTone.info),
+            const IssuedStatusBadge(
+              label: 'Info',
+              icon: Icons.info_outline,
+              tone: IssuedStatusTone.info,
+            ),
             const SizedBox(width: 12),
             Expanded(child: Text(message)),
           ],
@@ -1229,9 +1243,15 @@ class _NoOpenCheckoutsPanel extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const IssuedStatusBadge(label: 'No open checkouts', icon: Icons.assignment_return_outlined, tone: IssuedStatusTone.warning),
+            const IssuedStatusBadge(
+              label: 'No open checkouts',
+              icon: Icons.assignment_return_outlined,
+              tone: IssuedStatusTone.warning,
+            ),
             const SizedBox(height: 10),
-            const Text('There are no open checkouts available to return for this item.'),
+            const Text(
+              'There are no open checkouts available to return for this item.',
+            ),
             const SizedBox(height: 12),
             OutlinedButton(
               onPressed: onViewDetail,
@@ -1317,8 +1337,7 @@ String _actionTitle(_QuickAction action) {
 
 String _actionHelp(_QuickAction action) {
   return switch (action) {
-    _QuickAction.issue =>
-      'Reduces stock. Consumables are not expected back.',
+    _QuickAction.issue => 'Reduces stock. Consumables are not expected back.',
     _QuickAction.checkOut =>
       'Tracks who has the item and when it should come back.',
     _QuickAction.returnItem =>

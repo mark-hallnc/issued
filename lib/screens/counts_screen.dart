@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../core/app_store.dart';
 import '../core/models/models.dart';
+import '../widgets/issued_empty_state.dart';
+import '../widgets/issued_metric_card.dart';
+import '../widgets/issued_page_header.dart';
+import '../widgets/issued_status_badge.dart';
 import 'create_cycle_count_screen.dart';
 import 'cycle_count_detail_screen.dart';
 
@@ -17,30 +21,78 @@ class _CountsScreenState extends State<CountsScreen> {
   Widget build(BuildContext context) {
     final store = AppStoreScope.of(context);
     final canCreateCounts = store.permissions.canManageCycleCounts;
+    final sessions = store.cycleCountSessions;
+    final openCount = sessions
+        .where(
+          (session) =>
+              session.status == CycleCountStatus.draft ||
+              session.status == CycleCountStatus.assigned,
+        )
+        .length;
+    final submittedCount = sessions
+        .where((session) => session.status == CycleCountStatus.submitted)
+        .length;
+    final approvedCount = sessions
+        .where((session) => session.status == CycleCountStatus.approved)
+        .length;
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text(
-          'Cycle Counts',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w700,
-            color: const Color(0xFF17212F),
-          ),
+        IssuedPageHeader(
+          title: 'Cycle Counts',
+          subtitle:
+              'Plan counts, record variances, and keep inventory accurate.',
+          action: canCreateCounts
+              ? FilledButton.icon(
+                  onPressed: _openCreateCount,
+                  icon: const Icon(Icons.add_task),
+                  label: const Text('New cycle count'),
+                )
+              : null,
         ),
-        const SizedBox(height: 12),
-        if (canCreateCounts) ...[
-          Align(
-            alignment: Alignment.centerLeft,
-            child: FilledButton.icon(
-              onPressed: _openCreateCount,
-              icon: const Icon(Icons.add_task),
-              label: const Text('New Cycle Count'),
-            ),
+        if (sessions.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: IssuedMetricCard(
+                  label: 'Open counts',
+                  value: '$openCount',
+                  icon: Icons.pending_actions_outlined,
+                  tone: IssuedStatusTone.info,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: IssuedMetricCard(
+                  label: 'Submitted',
+                  value: '$submittedCount',
+                  icon: Icons.send_outlined,
+                  tone: IssuedStatusTone.warning,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          IssuedMetricCard(
+            label: 'Approved counts',
+            value: '$approvedCount',
+            icon: Icons.verified_outlined,
+            tone: IssuedStatusTone.success,
           ),
           const SizedBox(height: 16),
         ],
-        for (final session in store.cycleCountSessions) ...[
+        if (sessions.isEmpty)
+          IssuedEmptyState(
+            icon: Icons.fact_check_outlined,
+            title: 'No cycle counts yet',
+            message:
+                'Create a cycle count to verify stock and catch inventory variances.',
+            actionLabel: canCreateCounts ? 'New cycle count' : null,
+            onAction: canCreateCounts ? _openCreateCount : null,
+          ),
+        for (final session in sessions) ...[
           _CycleCountCard(
             session: session,
             store: store,
@@ -111,6 +163,10 @@ class _CycleCountCard extends StatelessWidget {
     final lineCount = store.cycleCountLines
         .where((line) => line.sessionId == session.id)
         .length;
+    final isOverdue =
+        session.dueAt != null &&
+        session.dueAt!.isBefore(DateTime.now()) &&
+        session.status != CycleCountStatus.approved;
 
     return Card(
       child: InkWell(
@@ -133,7 +189,12 @@ class _CycleCountCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  _StatusBadge(status: session.status),
+                  IssuedStatusBadge(
+                    label: _statusLabel(session.status),
+                    tone: _statusTone(session.status),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.chevron_right, color: Color(0xFF94A3B8)),
                 ],
               ),
               const SizedBox(height: 10),
@@ -141,15 +202,35 @@ class _CycleCountCard extends StatelessWidget {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  _InfoPill(
+                  IssuedStatusBadge(
                     label: '$lineCount item${lineCount == 1 ? '' : 's'}',
                   ),
-                  _InfoPill(
+                  IssuedStatusBadge(
                     label: session.blindCount ? 'Blind count' : 'Visible count',
+                    icon: session.blindCount
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
                   ),
-                  if (assignedUser != null) _InfoPill(label: assignedUser),
+                  if (assignedUser != null)
+                    IssuedStatusBadge(
+                      label: assignedUser,
+                      icon: Icons.person_outline,
+                    ),
                   if (session.dueAt != null)
-                    _InfoPill(label: 'Due ${_formatDate(session.dueAt!)}'),
+                    IssuedStatusBadge(
+                      label: 'Due ${_formatDate(session.dueAt!)}',
+                      icon: Icons.event_outlined,
+                    ),
+                  if (isOverdue)
+                    const IssuedStatusBadge(
+                      label: 'Overdue',
+                      icon: Icons.warning_amber_outlined,
+                      tone: IssuedStatusTone.warning,
+                    ),
+                  IssuedStatusBadge(
+                    label: 'Created ${_formatDate(session.createdAt)}',
+                    icon: Icons.calendar_today_outlined,
+                  ),
                 ],
               ),
             ],
@@ -182,62 +263,20 @@ class _CycleCountCard extends StatelessWidget {
   }
 }
 
-class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.status});
-
-  final CycleCountStatus status;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xFFEAF1F8),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0xFFC9D7E6)),
-      ),
-      child: Text(
-        _statusLabel(status),
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: const Color(0xFF1E3A5F),
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-
-  String _statusLabel(CycleCountStatus status) {
-    return switch (status) {
-      CycleCountStatus.draft => 'Draft',
-      CycleCountStatus.assigned => 'Assigned',
-      CycleCountStatus.submitted => 'Submitted',
-      CycleCountStatus.approved => 'Approved',
-    };
-  }
+String _statusLabel(CycleCountStatus status) {
+  return switch (status) {
+    CycleCountStatus.draft => 'Draft',
+    CycleCountStatus.assigned => 'Assigned',
+    CycleCountStatus.submitted => 'Submitted',
+    CycleCountStatus.approved => 'Approved',
+  };
 }
 
-class _InfoPill extends StatelessWidget {
-  const _InfoPill({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: const Color(0xFFF4F6F8),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0xFFE1E6EC)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        child: Text(
-          label,
-          style: Theme.of(
-            context,
-          ).textTheme.labelMedium?.copyWith(color: const Color(0xFF394554)),
-        ),
-      ),
-    );
-  }
+IssuedStatusTone _statusTone(CycleCountStatus status) {
+  return switch (status) {
+    CycleCountStatus.draft => IssuedStatusTone.neutral,
+    CycleCountStatus.assigned => IssuedStatusTone.info,
+    CycleCountStatus.submitted => IssuedStatusTone.warning,
+    CycleCountStatus.approved => IssuedStatusTone.success,
+  };
 }

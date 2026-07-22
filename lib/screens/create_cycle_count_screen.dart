@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../core/app_store.dart';
 import '../core/models/models.dart';
+import '../widgets/issued_page_header.dart';
+import '../widgets/issued_status_badge.dart';
 import 'cycle_count_detail_screen.dart';
 
 class CreateCycleCountScreen extends StatefulWidget {
@@ -48,7 +50,7 @@ class _CreateCycleCountScreenState extends State<CreateCycleCountScreen> {
     _selectedCategory ??= categories.first;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('New Cycle Count')),
+      appBar: AppBar(title: const Text('New cycle count')),
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -57,7 +59,7 @@ class _CreateCycleCountScreenState extends State<CreateCycleCountScreen> {
                 ? _createSession
                 : null,
             icon: const Icon(Icons.add_task),
-            label: const Text('Create Count'),
+            label: const Text('Create count'),
           ),
         ),
       ),
@@ -66,150 +68,199 @@ class _CreateCycleCountScreenState extends State<CreateCycleCountScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            TextFormField(
-              controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Name',
-                border: OutlineInputBorder(),
-              ),
-              textInputAction: TextInputAction.next,
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Required';
-                }
+            const IssuedPageHeader(
+              title: 'New cycle count',
+              subtitle:
+                  'Choose what should be counted and how the count should work.',
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Count details',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _nameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Count name',
+                      ),
+                      textInputAction: TextInputAction.next,
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Required';
+                        }
 
-                return null;
-              },
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      'Count setup',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Choose the inventory scope and whether expected quantities are visible.',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: const Color(0xFF64748B),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<CycleCountScope>(
+                      initialValue: _scope,
+                      decoration: const InputDecoration(
+                        labelText: 'Count scope',
+                      ),
+                      items: CycleCountScope.values
+                          .map(
+                            (scope) => DropdownMenuItem(
+                              value: scope,
+                              child: Text(_scopeLabel(scope)),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (scope) {
+                        if (scope == null) {
+                          return;
+                        }
+
+                        setState(() {
+                          _scope = scope;
+                        });
+                      },
+                    ),
+                    if (_scope == CycleCountScope.location) ...[
+                      const SizedBox(height: 12),
+                      if (store.locations.isEmpty)
+                        const Text(
+                          'Add a location before starting a location count.',
+                        )
+                      else
+                        DropdownButtonFormField<Location>(
+                          initialValue: _selectedLocation,
+                          decoration: const InputDecoration(
+                            labelText: 'Location',
+                          ),
+                          items: store.locations
+                              .map(
+                                (location) => DropdownMenuItem(
+                                  value: location,
+                                  child: Text(location.name),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (location) {
+                            if (location == null) {
+                              return;
+                            }
+
+                            setState(() {
+                              _selectedLocation = location;
+                            });
+                          },
+                        ),
+                    ],
+                    if (_scope == CycleCountScope.category) ...[
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        initialValue: _selectedCategory,
+                        decoration: const InputDecoration(
+                          labelText: 'Category',
+                        ),
+                        items: categories
+                            .map(
+                              (category) => DropdownMenuItem(
+                                value: category,
+                                child: Text(category),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (category) {
+                          if (category == null) {
+                            return;
+                          }
+
+                          setState(() {
+                            _selectedCategory = category;
+                          });
+                        },
+                      ),
+                    ],
+                    if (_scope == CycleCountScope.itemType) ...[
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<ItemType>(
+                        initialValue: _selectedItemType,
+                        decoration: const InputDecoration(
+                          labelText: 'Item type',
+                        ),
+                        items: ItemType.values
+                            .map(
+                              (type) => DropdownMenuItem(
+                                value: type,
+                                child: Text(_itemTypeLabel(type)),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (type) {
+                          if (type == null) {
+                            return;
+                          }
+
+                          setState(() {
+                            _selectedItemType = type;
+                          });
+                        },
+                      ),
+                    ],
+                    const SizedBox(height: 4),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Blind count'),
+                      subtitle: Text(
+                        _blindCount
+                            ? 'Counters enter quantities without seeing expected stock.'
+                            : 'Counters can see current system quantities.',
+                      ),
+                      value: _blindCount,
+                      onChanged: (value) {
+                        setState(() {
+                          _blindCount = value;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: _pickDueDate,
+                      icon: const Icon(Icons.event),
+                      label: Text(
+                        _dueAt == null
+                            ? 'Add due date'
+                            : 'Due ${_formatDate(_dueAt!)}',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
             const SizedBox(height: 12),
-            DropdownButtonFormField<CycleCountScope>(
-              initialValue: _scope,
-              decoration: const InputDecoration(
-                labelText: 'Count scope',
-                border: OutlineInputBorder(),
-              ),
-              items: CycleCountScope.values
-                  .map(
-                    (scope) => DropdownMenuItem(
-                      value: scope,
-                      child: Text(_scopeLabel(scope)),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (scope) {
-                if (scope == null) {
-                  return;
-                }
-
-                setState(() {
-                  _scope = scope;
-                });
-              },
-            ),
-            if (_scope == CycleCountScope.location) ...[
-              const SizedBox(height: 12),
-              if (store.locations.isEmpty)
-                const Text(
-                  'Create a location before starting a location count.',
-                )
-              else
-                DropdownButtonFormField<Location>(
-                  initialValue: _selectedLocation,
-                  decoration: const InputDecoration(
-                    labelText: 'Location',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: store.locations
-                      .map(
-                        (location) => DropdownMenuItem(
-                          value: location,
-                          child: Text(location.name),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (location) {
-                    if (location == null) {
-                      return;
-                    }
-
-                    setState(() {
-                      _selectedLocation = location;
-                    });
-                  },
-                ),
-            ],
-            if (_scope == CycleCountScope.category) ...[
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                initialValue: _selectedCategory,
-                decoration: const InputDecoration(
-                  labelText: 'Category',
-                  border: OutlineInputBorder(),
-                ),
-                items: categories
-                    .map(
-                      (category) => DropdownMenuItem(
-                        value: category,
-                        child: Text(category),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (category) {
-                  if (category == null) {
-                    return;
-                  }
-
-                  setState(() {
-                    _selectedCategory = category;
-                  });
-                },
-              ),
-            ],
-            if (_scope == CycleCountScope.itemType) ...[
-              const SizedBox(height: 12),
-              DropdownButtonFormField<ItemType>(
-                initialValue: _selectedItemType,
-                decoration: const InputDecoration(
-                  labelText: 'Item type',
-                  border: OutlineInputBorder(),
-                ),
-                items: ItemType.values
-                    .map(
-                      (type) => DropdownMenuItem(
-                        value: type,
-                        child: Text(_itemTypeLabel(type)),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (type) {
-                  if (type == null) {
-                    return;
-                  }
-
-                  setState(() {
-                    _selectedItemType = type;
-                  });
-                },
-              ),
-            ],
-            const SizedBox(height: 4),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Blind count'),
-              subtitle: const Text('Hide expected quantities while counting'),
-              value: _blindCount,
-              onChanged: (value) {
-                setState(() {
-                  _blindCount = value;
-                });
-              },
-            ),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: _pickDueDate,
-              icon: const Icon(Icons.event),
-              label: Text(
-                _dueAt == null ? 'Add due date' : 'Due ${_formatDate(_dueAt!)}',
+            Align(
+              alignment: Alignment.centerLeft,
+              child: IssuedStatusBadge(
+                label: _blindCount ? 'Blind count' : 'Visible count',
+                icon: _blindCount
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined,
+                tone: IssuedStatusTone.info,
               ),
             ),
           ],

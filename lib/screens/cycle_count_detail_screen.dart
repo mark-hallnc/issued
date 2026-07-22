@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../core/app_store.dart';
 import '../core/models/models.dart';
+import '../widgets/issued_metric_card.dart';
+import '../widgets/issued_page_header.dart';
+import '../widgets/issued_status_badge.dart';
 
 class CycleCountDetailScreen extends StatefulWidget {
   const CycleCountDetailScreen({super.key, required this.session});
@@ -46,55 +49,83 @@ class _CycleCountDetailScreenState extends State<CycleCountDetailScreen> {
     final isApproved = _session.status == CycleCountStatus.approved;
     final canSubmit = store.permissions.canPerformInventoryActions;
     final canApprove = store.permissions.canApproveCycleCounts;
+    final countedLineCount = lines
+        .where((line) => line.countedQuantity != null)
+        .length;
+    final varianceLineCount = lines
+        .where((line) => (line.varianceQuantity ?? 0) != 0)
+        .length;
+    final assignedUser = _assignedUserName(store, _session.assignedToUserId);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Cycle Count')),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: isSubmitted
-              ? FilledButton.icon(
-                  onPressed: canApprove ? _approveCount : null,
-                  icon: const Icon(Icons.verified),
-                  label: const Text('Approve Count'),
-                )
-              : FilledButton.icon(
-                  onPressed: isApproved || !canSubmit ? null : _submitCount,
-                  icon: const Icon(Icons.send),
-                  label: Text(isApproved ? 'Approved' : 'Submit Count'),
-                ),
-        ),
-      ),
+      bottomNavigationBar:
+          (isSubmitted && !canApprove) ||
+              (!isSubmitted && (isApproved || !canSubmit))
+          ? null
+          : SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: isSubmitted
+                    ? FilledButton.icon(
+                        onPressed: canApprove ? _approveCount : null,
+                        icon: const Icon(Icons.verified),
+                        label: const Text('Approve count'),
+                      )
+                    : FilledButton.icon(
+                        onPressed: isApproved || !canSubmit
+                            ? null
+                            : _submitCount,
+                        icon: const Icon(Icons.send),
+                        label: Text(isApproved ? 'Approved' : 'Submit count'),
+                      ),
+              ),
+            ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          IssuedPageHeader(
+            title: _session.name,
+            subtitle:
+                'Review progress, record quantities, and resolve inventory variances.',
+          ),
+          const SizedBox(height: 16),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    _session.name,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: const Color(0xFF17212F),
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      _InfoPill(label: _statusLabel(_session.status)),
-                      _InfoPill(
+                      IssuedStatusBadge(
+                        label: _statusLabel(_session.status),
+                        tone: _statusTone(_session.status),
+                      ),
+                      IssuedStatusBadge(
                         label: _session.blindCount
                             ? 'Blind count'
-                            : 'Expected shown',
+                            : 'Visible count',
+                        icon: _session.blindCount
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
                       ),
-                      _InfoPill(label: '${lines.length} lines'),
+                      IssuedStatusBadge(
+                        label: '${lines.length} lines',
+                        icon: Icons.format_list_numbered,
+                      ),
+                      if (assignedUser != null)
+                        IssuedStatusBadge(
+                          label: assignedUser,
+                          icon: Icons.person_outline,
+                        ),
                       if (_session.dueAt != null)
-                        _InfoPill(label: 'Due ${_formatDate(_session.dueAt!)}'),
+                        IssuedStatusBadge(
+                          label: 'Due ${_formatDate(_session.dueAt!)}',
+                          icon: Icons.event_outlined,
+                        ),
                     ],
                   ),
                 ],
@@ -102,6 +133,44 @@ class _CycleCountDetailScreenState extends State<CycleCountDetailScreen> {
             ),
           ),
           const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: IssuedMetricCard(
+                  label: 'Total lines',
+                  value: '${lines.length}',
+                  icon: Icons.list_alt_outlined,
+                  tone: IssuedStatusTone.info,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: IssuedMetricCard(
+                  label: 'Counted',
+                  value: '$countedLineCount',
+                  icon: Icons.fact_check_outlined,
+                  tone: IssuedStatusTone.success,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          IssuedMetricCard(
+            label: 'Variances',
+            value: '$varianceLineCount',
+            icon: Icons.compare_arrows,
+            tone: varianceLineCount == 0
+                ? IssuedStatusTone.success
+                : IssuedStatusTone.warning,
+          ),
+          const SizedBox(height: 18),
+          Text(
+            'Items to count',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 10),
           if (isSubmitted || isApproved) ...[
             _VarianceSummaryCard(lines: lines),
             const SizedBox(height: 12),
@@ -120,6 +189,18 @@ class _CycleCountDetailScreenState extends State<CycleCountDetailScreen> {
         ],
       ),
     );
+  }
+
+  String? _assignedUserName(AppStore store, String? userId) {
+    if (userId == null) return null;
+    for (final user in store.users) {
+      if (user.id == userId) {
+        for (final person in store.people) {
+          if (person.id == user.personId) return person.displayName;
+        }
+      }
+    }
+    return null;
   }
 
   void _submitCount() {
@@ -285,13 +366,29 @@ class _VarianceSummaryCard extends StatelessWidget {
           spacing: 8,
           runSpacing: 8,
           children: [
-            _InfoPill(label: '${lines.length} total lines'),
-            _InfoPill(
+            IssuedStatusBadge(label: '${lines.length} total lines'),
+            IssuedStatusBadge(
               label: '${countedLines.length - varianceLines.length} matched',
+              tone: IssuedStatusTone.success,
             ),
-            _InfoPill(label: '${varianceLines.length} variance'),
-            _InfoPill(label: '$positive over'),
-            _InfoPill(label: '$negative under'),
+            IssuedStatusBadge(
+              label: '${varianceLines.length} variance',
+              tone: varianceLines.isEmpty
+                  ? IssuedStatusTone.success
+                  : IssuedStatusTone.warning,
+            ),
+            IssuedStatusBadge(
+              label: '$positive over',
+              tone: positive == 0
+                  ? IssuedStatusTone.neutral
+                  : IssuedStatusTone.warning,
+            ),
+            IssuedStatusBadge(
+              label: '$negative under',
+              tone: negative == 0
+                  ? IssuedStatusTone.neutral
+                  : IssuedStatusTone.warning,
+            ),
           ],
         ),
       ),
@@ -327,6 +424,8 @@ class _CountLineCard extends StatelessWidget {
     final showReview =
         session.status == CycleCountStatus.submitted ||
         session.status == CycleCountStatus.approved;
+    final variance = line.varianceQuantity ?? 0;
+    final wasCounted = line.countedQuantity != null;
 
     return Card(
       child: Padding(
@@ -346,32 +445,47 @@ class _CountLineCard extends StatelessWidget {
               spacing: 8,
               runSpacing: 8,
               children: [
-                _InfoPill(label: locationName),
-                _InfoPill(label: unit?.abbreviation ?? 'uom'),
+                IssuedStatusBadge(
+                  label: locationName,
+                  icon: Icons.location_on_outlined,
+                ),
+                IssuedStatusBadge(label: unit?.abbreviation ?? 'UOM'),
                 if (!session.blindCount || showReview)
-                  _InfoPill(
+                  IssuedStatusBadge(
                     label: 'Expected ${_formatQuantity(line.expectedQuantity)}',
                   ),
                 if (showReview)
-                  _InfoPill(
+                  IssuedStatusBadge(
                     label:
                         'Counted ${_formatQuantity(line.countedQuantity ?? 0)}',
                   ),
                 if (showReview)
-                  _InfoPill(
+                  IssuedStatusBadge(
                     label:
                         'Variance ${_formatQuantity(line.varianceQuantity ?? 0)}',
+                    tone: variance == 0
+                        ? IssuedStatusTone.success
+                        : IssuedStatusTone.warning,
                   ),
+                IssuedStatusBadge(
+                  label: !wasCounted
+                      ? 'Not counted'
+                      : variance == 0
+                      ? 'Counted'
+                      : 'Variance',
+                  tone: !wasCounted
+                      ? IssuedStatusTone.neutral
+                      : variance == 0
+                      ? IssuedStatusTone.success
+                      : IssuedStatusTone.warning,
+                ),
               ],
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: quantityController,
               enabled: enabled,
-              decoration: const InputDecoration(
-                labelText: 'Counted quantity',
-                border: OutlineInputBorder(),
-              ),
+              decoration: const InputDecoration(labelText: 'Counted quantity'),
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
@@ -380,10 +494,7 @@ class _CountLineCard extends StatelessWidget {
             TextFormField(
               controller: notesController,
               enabled: enabled,
-              decoration: const InputDecoration(
-                labelText: 'Notes',
-                border: OutlineInputBorder(),
-              ),
+              decoration: const InputDecoration(labelText: 'Notes optional'),
               maxLines: 2,
             ),
           ],
@@ -423,35 +534,18 @@ class _CountLineCard extends StatelessWidget {
   }
 }
 
-class _InfoPill extends StatelessWidget {
-  const _InfoPill({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: const Color(0xFFF4F6F8),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0xFFE1E6EC)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        child: Text(
-          label,
-          style: Theme.of(
-            context,
-          ).textTheme.labelMedium?.copyWith(color: const Color(0xFF394554)),
-        ),
-      ),
-    );
-  }
-}
-
 String? _emptyToNull(String value) {
   final trimmedValue = value.trim();
   return trimmedValue.isEmpty ? null : trimmedValue;
+}
+
+IssuedStatusTone _statusTone(CycleCountStatus status) {
+  return switch (status) {
+    CycleCountStatus.draft => IssuedStatusTone.neutral,
+    CycleCountStatus.assigned => IssuedStatusTone.info,
+    CycleCountStatus.submitted => IssuedStatusTone.warning,
+    CycleCountStatus.approved => IssuedStatusTone.success,
+  };
 }
 
 String _statusLabel(CycleCountStatus status) {
